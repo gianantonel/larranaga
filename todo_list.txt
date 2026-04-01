@@ -1,0 +1,175 @@
+================================================================================
+  LARRAÑAGA — LISTA DE PRÓXIMOS PASOS E INTEGRACIONES
+================================================================================
+
+PRIORIDAD ALTA — Integraciones externas
+--------------------------------------------------------------------------------
+
+[ ] 1. INTEGRACIÓN AFIP SDK (Plan Pro) — Facturación
+        - Reemplazar generación mock de CAE por llamada real a AFIP SDK
+        - Endpoints a integrar:
+            · POST /facturacion/emitir  → genera CAE real vía AFIP SDK
+            · GET  /facturacion/ultimo-numero → consulta último comprobante
+        - El flujo actual (models + routers/facturas.py) ya tiene la estructura
+          lista para reemplazar solo la lógica de generación de CAE
+        - Referencia: cuenta AFIP SDK Plan Pro ya operativa, probada con n8n
+        - Tener en cuenta: certificados digitales por CUIT, punto de venta habilitado
+
+[ ] 2. INTEGRACIÓN AFIP SDK — DDJJ IVA
+        - Confirmar disponibilidad del endpoint de presentación IVA en AFIP SDK Plan Pro
+        - Implementar envío real de DDJJ IVA desde el módulo Balance IVA
+        - El botón "Presentar" ya existe en IVA.jsx → solo conectar a API real
+        - Almacenar número de transacción / VEP retornado por AFIP SDK
+
+[ ] 3. INTEGRACIÓN AFIP SDK — Consulta de comprobantes en línea
+        - Verificar comprobantes ya emitidos por número/CAE
+        - Listar comprobantes del período desde ARCA (para auditoría/conciliación)
+        - Agregar pestaña "Comprobantes ARCA" en ClientDetail.jsx
+
+[ ] 4. INTEGRACIÓN AFIP SDK — Declaraciones Juradas adicionales
+        - DDJJ Ganancias (anual): el tipo ya existe en el modelo (ddjj_ganancias)
+        - DDJJ Bienes Personales: el tipo ya existe en el modelo
+        - SUSS / Seguridad Social: agregar tipo al enum TaskType
+        - Cada DDJJ necesita su propio flujo de presentación y tracking
+
+[ ] 5. INTEGRACIÓN GOOGLE SHEETS — Facturación masiva
+        - Conectar Google Sheets API (OAuth2 o Service Account)
+        - Leer filas de una planilla con estructura:
+            fecha | tipo | receptor_cuit | receptor_nombre | concepto | neto | iva
+        - Emitir cada factura en lote usando AFIP SDK
+        - Marcar filas como procesadas / con error en la misma planilla
+        - Agregar botón "Importar desde Google Sheets" en Facturas.jsx
+        - Backend: nuevo router /facturas/bulk-from-sheets
+
+
+PRIORIDAD MEDIA — Mejoras de plataforma
+--------------------------------------------------------------------------------
+
+[ ] 6. MIGRACIÓN A POSTGRESQL
+        - Cambiar DATABASE_URL en .env a postgresql://...
+        - Instalar psycopg2-binary en requirements.txt
+        - Aprovechar características de seguridad:
+            · Row-level security por empresa (multi-tenant futuro)
+            · Cifrado a nivel columna para clave_fiscal_encrypted
+            · Índices parciales para mejorar queries de reportes
+        - Hacer script de migración de datos desde SQLite
+
+[ ] 7. MÓDULO INGRESOS BRUTOS — Pantalla dedicada
+        - Actualmente el modelo IngresosBrutos ya existe y tiene datos mock
+        - Crear página src/pages/IngresosBrutos.jsx similar a IVA.jsx
+        - Agregar router /ingresos-brutos en el backend (ya tiene modelo)
+        - Funciones: ver por período, marcar como presentado, filtrar por jurisdicción
+        - Integrar con AGIP (Buenos Aires) y ARBA si hay API disponible
+
+[ ] 8. MÓDULO LEGAL — Escritos y acciones legales
+        - Subtipo de tarea "legal" ya existe en el modelo
+        - Ampliar con campos específicos: organismo, expediente, fecha de presentación
+        - Carga de documentos adjuntos (PDFs de escritos, resoluciones)
+        - Timeline de estado del expediente: iniciado → en trámite → resuelto
+        - Agregar página src/pages/Legal.jsx
+
+[ ] 9. GESTIÓN DE PERÍODOS / CALENDARIO DE VENCIMIENTOS
+        - Calcular automáticamente fechas de vencimiento por tipo de obligación y CUIT
+        - Vista de calendario con vencimientos del mes para todos los clientes
+        - Alertas/notificaciones cuando un vencimiento está próximo (< 5 días)
+        - Exportar calendario a Google Calendar o iCal
+
+[ ] 10. REPORTES Y EXPORTACIONES
+        - Exportar tabla IVA a Excel/CSV por cliente y período
+        - Generar PDF de resumen de balance IVA mensual
+        - Reporte de actividad por colaborador (PDF con gráficos)
+        - Exportar listado de facturas filtrado a Excel
+
+[ ] 11. TIMELINE / HISTORIAL DE ACCIONES — Vista mejorada
+        - El endpoint /dashboard/timeline ya existe y retorna datos
+        - Crear página src/pages/Timeline.jsx con:
+            · Filtros por colaborador, cliente, tipo de acción, rango de fechas
+            · Vista tipo feed (quién hizo qué para quién y cuándo)
+            · Gráfico de actividad por día (heatmap o barras)
+
+
+PRIORIDAD BAJA — Funcionalidades adicionales
+--------------------------------------------------------------------------------
+
+[ ] 12. SISTEMA DE NOTIFICACIONES INTERNAS
+        - Notificaciones en la app cuando un admin asigna una tarea
+        - Alerta cuando una tarea se bloquea (para que el admin intervenga)
+        - Badge de notificaciones en el sidebar
+        - Usar WebSockets o polling cada 30 segundos
+
+[ ] 13. MULTI-EMPRESA / MULTI-ESTUDIO
+        - Agregar modelo Empresa en la base de datos
+        - Cada usuario pertenece a una empresa
+        - Aislamiento total de datos entre empresas
+        - Necesario si se quiere ofrecer la plataforma a más de un estudio
+
+[ ] 14. PERFIL DE USUARIO
+        - Página de perfil para cambiar nombre, email y contraseña
+        - Subir foto de perfil / avatar
+        - Configuración de preferencias personales
+
+[ ] 15. MODO CLIENTE (portal)
+        - Portal de acceso de solo lectura para los propios clientes del estudio
+        - El cliente puede ver sus facturas, estado IVA, tareas asignadas
+        - Sin acceso a datos de otros clientes ni a credenciales
+
+[ ] 16. AUDITORÍA Y LOGS MEJORADOS
+        - Ampliar ActionLog con IP, user-agent, resultado (éxito/error)
+        - Panel de auditoría para admins: quién accedió a qué credenciales y cuándo
+        - Retención configurable de logs (GDPR / compliance)
+
+[ ] 17. TESTS AUTOMATIZADOS
+        - Backend: tests de integración con pytest y base de datos en memoria
+        - Frontend: tests de componentes con Vitest
+        - Tests E2E con Playwright para flujos críticos (login, presentar IVA)
+
+
+INFRAESTRUCTURA / DESPLIEGUE
+--------------------------------------------------------------------------------
+
+[ ] 18. DOCKERIZACIÓN
+        - Dockerfile para backend (Python/FastAPI)
+        - Dockerfile para frontend (Node/Vite build → nginx)
+        - docker-compose.yml que levanta ambos + PostgreSQL
+        - Variables de entorno via secrets, no hardcodeadas
+
+[ ] 19. DESPLIEGUE EN SERVIDOR
+        - Opciones: VPS (DigitalOcean, Contabo) o PaaS (Railway, Render)
+        - HTTPS con certificado Let's Encrypt
+        - Reverse proxy Nginx
+        - Backups automáticos de la base de datos PostgreSQL
+
+[ ] 20. SEGURIDAD EN PRODUCCIÓN
+        - Rotar SECRET_KEY y ENCRYPTION_KEY antes de ir a producción
+        - No commitear .env al repositorio (ya en .gitignore)
+        - Rate limiting en endpoints de login (anti-fuerza bruta)
+        - HTTPS obligatorio, deshabilitar HTTP
+        - Considerar re-cifrado periódico de credenciales ARCA
+
+
+================================================================================
+  NOTAS TÉCNICAS
+================================================================================
+
+AFIP SDK Plan Pro:
+  - Ya tenemos cuenta activa y Plan Pro
+  - Ya probado con workflows en n8n (generación de facturas OK)
+  - El IVA (presentación DDJJ) debería estar disponible en el Plan Pro — confirmar
+  - Documentación SDK: https://developers.afipsdk.com
+
+Google Sheets:
+  - Usar Service Account para evitar OAuth por usuario
+  - La planilla debe tener headers fijos que mapeen a los campos de Invoice
+  - Considerar un tab "procesado" y un tab "errores" en la misma planilla
+
+Base de datos en producción:
+  - PostgreSQL 15+ recomendado
+  - Columna clave_fiscal_encrypted ya usa Fernet, compatible con PG
+  - Evaluar pgcrypto para cifrado a nivel columna nativo de PG
+
+Arquitectura futura (multi-tenant):
+  - Agregar company_id a todos los modelos
+  - Row-level security en PostgreSQL para aislamiento automático
+  - Una instancia puede servir a múltiples estudios
+
+================================================================================

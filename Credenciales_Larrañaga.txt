@@ -1,0 +1,17 @@
+Administradores — contraseña: admin123
+
+Email	Rol
+admin1@larranaga.com	Administrador 1
+admin2@larranaga.com	Administrador 2
+admin3@larranaga.com	Administrador 3
+Colaboradores — contraseña: colab123
+
+Email	Nombre
+mgonzalez@larranaga.com	María González
+crodriguez@larranaga.com	Carlos Rodríguez
+amartinez@larranaga.com	Ana Martínez
+dfernandez@larranaga.com	Diego Fernández
+lsanchez@larranaga.com	Laura Sánchez
+rgomez@larranaga.com	Roberto Gómez (nuevo)
+ptorres@larranaga.com	Patricia Torres (nueva)
+smorales@larranaga.com	Sebastián Morales
