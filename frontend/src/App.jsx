@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import Layout from './components/Layout/Layout'
 import Login from './pages/Login'
+import Landing from './pages/Landing'
 import Dashboard from './pages/Dashboard'
 import Clients from './pages/Clients'
 import ClientDetail from './pages/ClientDetail'
@@ -18,7 +19,8 @@ function ProtectedRoutes() {
   return (
     <Routes>
       <Route element={<Layout />}>
-        <Route index element={<Dashboard />} />
+        <Route index element={<Navigate to="/dashboard" replace />} />
+        <Route path="dashboard" element={<Dashboard />} />
         <Route path="clientes" element={<Clients />} />
         <Route path="clientes/:id" element={<ClientDetail />} />
         <Route path="colaboradores" element={<Collaborators />} />
@@ -35,7 +37,10 @@ export default function App() {
     <AuthProvider>
       <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <Routes>
+          {/* Public routes */}
+          <Route path="/" element={<Landing />} />
           <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
+          {/* Protected app routes */}
           <Route path="/*" element={<ProtectedRoutes />} />
         </Routes>
       </BrowserRouter>
@@ -46,6 +51,6 @@ export default function App() {
 function PublicRoute({ children }) {
   const { user, loading } = useAuth()
   if (loading) return null
-  if (user) return <Navigate to="/" replace />
+  if (user) return <Navigate to="/dashboard" replace />
   return children
 }

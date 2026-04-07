@@ -7,7 +7,7 @@ import { useAuth } from '../../context/AuthContext'
 import clsx from 'clsx'
 
 const navItems = [
-  { to: '/',              icon: LayoutDashboard, label: 'Dashboard' },
+  { to: '/dashboard',     icon: LayoutDashboard, label: 'Dashboard' },
   { to: '/clientes',      icon: Users,           label: 'Clientes' },
   { to: '/colaboradores', icon: UserCheck,       label: 'Colaboradores' },
   { to: '/tareas',        icon: ClipboardList,   label: 'Tareas' },
@@ -39,7 +39,7 @@ export default function Sidebar() {
           <NavLink
             key={to}
             to={to}
-            end={to === '/'}
+            end={to === '/dashboard'}
             className={({ isActive }) =>
               clsx(isActive ? 'nav-link-active' : 'nav-link', 'w-full')
             }
