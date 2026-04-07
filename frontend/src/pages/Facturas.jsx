@@ -135,7 +135,7 @@ export default function Facturas() {
             </tr>
           </thead>
           <tbody>
-            {facturas.slice(0, 100).map(f => (
+            {facturas.map(f => (
               <tr key={f.id} className="table-row">
                 <td className="table-cell text-gray-300 text-sm">{formatDate(f.date)}</td>
                 <td className="table-cell">
@@ -161,9 +161,9 @@ export default function Facturas() {
             )}
           </tbody>
         </table>
-        {facturas.length > 100 && (
+        {facturas.length >= 500 && (
           <div className="px-4 py-3 text-sm text-gray-500 border-t border-gray-700/40">
-            Mostrando 100 de {facturas.length} facturas. Usar filtros para refinar.
+            Mostrando {facturas.length} facturas. Usar filtros para refinar resultados.
           </div>
         )}
       </div>

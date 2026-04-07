@@ -250,7 +250,7 @@ export default function ClientDetail() {
                 </tr>
               </thead>
               <tbody>
-                {facturas.slice(0, 50).map(f => (
+                {facturas.map(f => (
                   <tr key={f.id} className="table-row">
                     <td className="table-cell text-gray-300">{formatDate(f.date)}</td>
                     <td className="table-cell"><span className="badge-blue font-mono">F. {f.invoice_type}</span></td>

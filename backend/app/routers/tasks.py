@@ -16,7 +16,7 @@ def list_tasks(
     task_status: Optional[str] = Query(None, alias="status"),
     task_type: Optional[str] = Query(None, alias="type"),
     period: Optional[str] = None,
-    limit: int = Query(default=200, le=500),
+    limit: int = Query(default=500, le=1000),
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user)
 ):

@@ -50,9 +50,9 @@ export const getTasksByType = () => api.get('/dashboard/tasks-by-type')
 export const getMonthlyActivity = () => api.get('/dashboard/monthly-activity')
 
 // ─── Clients ──────────────────────────────────────────────────────────────────
-export const getClients = (params) => api.get('/clients', { params })
+export const getClients = (params) => api.get('/clients/', { params })
 export const getClient = (id) => api.get(`/clients/${id}`)
-export const createClient = (data) => api.post('/clients', data)
+export const createClient = (data) => api.post('/clients/', data)
 export const updateClient = (id, data) => api.put(`/clients/${id}`, data)
 export const deleteClient = (id) => api.delete(`/clients/${id}`)
 export const assignCollaborator = (clientId, collaboratorId) =>
@@ -62,16 +62,16 @@ export const removeCollaboratorFromClient = (clientId, collaboratorId) =>
 export const getClientCredentials = (id) => api.get(`/clients/${id}/credentials`)
 
 // ─── Collaborators ────────────────────────────────────────────────────────────
-export const getCollaborators = () => api.get('/collaborators')
+export const getCollaborators = () => api.get('/collaborators/')
 export const getAllUsers = () => api.get('/collaborators/all')
-export const createCollaborator = (data) => api.post('/collaborators', data)
+export const createCollaborator = (data) => api.post('/collaborators/', data)
 export const updateCollaborator = (id, data) => api.put(`/collaborators/${id}`, data)
 export const getCollaboratorStats2 = (id) => api.get(`/collaborators/${id}/stats`)
 
 // ─── Tasks ────────────────────────────────────────────────────────────────────
-export const getTasks = (params) => api.get('/tasks', { params })
+export const getTasks = (params) => api.get('/tasks/', { params })
 export const getTask = (id) => api.get(`/tasks/${id}`)
-export const createTask = (data) => api.post('/tasks', data)
+export const createTask = (data) => api.post('/tasks/', data)
 export const updateTask = (id, data) => api.put(`/tasks/${id}`, data)
 export const deleteTask = (id) => api.delete(`/tasks/${id}`)
 export const createSubtask = (taskId, data) => api.post(`/tasks/${taskId}/subtasks`, data)
@@ -81,16 +81,16 @@ export const deleteSubtask = (taskId, subtaskId) =>
   api.delete(`/tasks/${taskId}/subtasks/${subtaskId}`)
 
 // ─── IVA ──────────────────────────────────────────────────────────────────────
-export const getIvaRecords = (params) => api.get('/iva', { params })
+export const getIvaRecords = (params) => api.get('/iva/', { params })
 export const getIvaRecord = (id) => api.get(`/iva/${id}`)
-export const createIvaRecord = (data) => api.post('/iva', data)
+export const createIvaRecord = (data) => api.post('/iva/', data)
 export const updateIvaRecord = (id, data) => api.put(`/iva/${id}`, data)
 export const fileIva = (id, vep) => api.post(`/iva/${id}/file`, null, { params: { vep_number: vep } })
 export const getIvaSummary = (clientId) => api.get(`/iva/summary/${clientId}`)
 
 // ─── Facturas ─────────────────────────────────────────────────────────────────
-export const getFacturas = (params) => api.get('/facturas', { params })
+export const getFacturas = (params) => api.get('/facturas/', { params })
 export const getFactura = (id) => api.get(`/facturas/${id}`)
-export const createFactura = (data) => api.post('/facturas', data)
+export const createFactura = (data) => api.post('/facturas/', data)
 export const getFacturaSummary = (clientId, year) =>
   api.get(`/facturas/summary/${clientId}`, { params: { year } })

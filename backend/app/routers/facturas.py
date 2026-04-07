@@ -15,7 +15,7 @@ def list_invoices(
     invoice_type: Optional[str] = None,
     from_date: Optional[date] = None,
     to_date: Optional[date] = None,
-    limit: int = Query(default=200, le=500),
+    limit: int = Query(default=500, le=2000),
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user)
 ):
