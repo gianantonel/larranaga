@@ -63,7 +63,7 @@ larranaga/
 │   ├── vite.config.js            # Proxy /api → localhost:8000
 │   └── tailwind.config.js
 │
-├── start-backend.bat             # Inicia backend con venv automático
+├── start-backend.bat             # Inicia backend (venv gestionado internamente, sin activar en la shell)
 ├── start-frontend.bat            # Inicia frontend con npm install automático
 └── .gitignore
 ```
@@ -87,10 +87,11 @@ O manualmente:
 ```bash
 cd backend
 python -m venv .venv
-.venv\Scripts\activate        # Windows
-pip install -r requirements.txt
-uvicorn app.main:app --reload --port 8000
+.venv\Scripts\pip install -r requirements.txt
+.venv\Scripts\uvicorn app.main:app --reload --port 8000
 ```
+
+> **Nota:** el venv se usa para aislar dependencias pero **no se activa** en la shell (se llaman sus ejecutables directamente). Esto evita que el prefijo `(venv)` persista en terminales nuevas.
 
 - API disponible en: http://localhost:8000
 - Documentación Swagger: http://localhost:8000/docs
@@ -110,6 +111,14 @@ npm run dev
 ```
 
 - Aplicación en: http://localhost:5173
+
+---
+
+## Estado y notas de desarrollo
+
+| # | Ítem | Estado |
+|---|------|--------|
+| 1 | **Landing page pública** (`/`) | ⚠️ **Oculta hasta nuevo aviso** — la ruta raíz redirige directamente a `/login`. El componente `Landing.jsx` está intacto. Para rehabilitarla, ver comentario en `frontend/src/App.jsx` línea ~41. |
 
 ---
 

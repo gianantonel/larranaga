@@ -38,7 +38,8 @@ export default function App() {
       <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <Routes>
           {/* Public routes */}
-          <Route path="/" element={<Landing />} />
+          {/* <Route path="/" element={<Landing />} /> */}{/* LANDING OCULTA — descomentar para rehabilitar */}
+          <Route path="/" element={<Navigate to="/login" replace />} />
           <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
           {/* Protected app routes */}
           <Route path="/*" element={<ProtectedRoutes />} />
