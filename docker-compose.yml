@@ -1,0 +1,23 @@
+services:
+
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    env_file:
+      - ./backend/.env
+    volumes:
+      # Persistencia de la base de datos SQLite entre reinicios del contenedor
+      - db_data:/app
+    expose:
+      - "8000"   # Solo accesible internamente; el frontend lo proxea vía nginx
+
+  frontend:
+    build: ./frontend
+    restart: unless-stopped
+    ports:
+      - "80:80"  # Puerto público — acceder a la app en http://<IP-VPS>
+    depends_on:
+      - backend
+
+volumes:
+  db_data:
