@@ -72,7 +72,33 @@ larranaga/
 
 ## Cómo iniciar el proyecto
 
-### Requisitos previos
+### Opción A — Docker (VPS / producción)
+
+Requisitos: tener Docker y Docker Compose instalados.
+
+```bash
+git clone https://github.com/gianantonel/larranaga.git
+cd larranaga
+
+# Crear el archivo de variables de entorno a partir del ejemplo
+cp backend/.env.example backend/.env
+# Editar backend/.env con las claves reales antes de continuar
+
+# Construir imágenes y levantar ambos servicios en segundo plano
+docker compose up -d --build
+```
+
+- App disponible en: `http://<IP-del-VPS>`
+- Para detener: `docker compose down`
+- Para ver logs: `docker compose logs -f`
+
+> El backend (FastAPI) y el frontend (React + nginx) se levantan juntos con ese único comando. No hace falta iniciarlos por separado.
+
+---
+
+### Opción B — Local (desarrollo en Windows)
+
+#### Requisitos previos
 - Python 3.11 o superior
 - Node.js 18 o superior
 - npm
