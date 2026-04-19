@@ -222,11 +222,27 @@ def get_credentials(
     if not client:
         raise HTTPException(status_code=404, detail="Cliente no encontrado")
 
+    if current_user.role == models.UserRole.collaborator:
+        assigned = db.query(models.ClientCollaborator).filter(
+            models.ClientCollaborator.client_id == client_id,
+            models.ClientCollaborator.collaborator_id == current_user.id,
+        ).first()
+        if not assigned:
+            raise HTTPException(status_code=403, detail="Sin acceso a las credenciales de este cliente")
+
     clave = None
     if client.clave_fiscal_encrypted:
         try:
             clave = decrypt_credential(client.clave_fiscal_encrypted)
         except Exception:
             clave = None
+
+    db.add(models.ActionLog(
+        user_id=current_user.id,
+        client_id=client.id,
+        action_type="credentials_accessed",
+        description=f"{current_user.email} leyó las credenciales de {client.name}",
+    ))
+    db.commit()
 
     return schemas.ClientCredentials(cuit=client.cuit, clave_fiscal=clave)

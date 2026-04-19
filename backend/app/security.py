@@ -1,8 +1,8 @@
 from datetime import datetime, timedelta
-from typing import Optional
+from typing import List, Optional
 from jose import JWTError, jwt
 import bcrypt
-from cryptography.fernet import Fernet
+from cryptography.fernet import Fernet, MultiFernet
 import os
 from dotenv import load_dotenv
 
@@ -11,12 +11,39 @@ load_dotenv()
 SECRET_KEY = os.getenv("SECRET_KEY", "fallback-secret-key")
 ALGORITHM = os.getenv("ALGORITHM", "HS256")
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "480"))
-ENCRYPTION_KEY = os.getenv("ENCRYPTION_KEY", Fernet.generate_key().decode())
+
+
+def _load_encryption_keys() -> List[str]:
+    # Single source of truth for fetching encryption keys.
+    # To migrate to AWS KMS / GCP Secret Manager / HashiCorp Vault:
+    # replace the body of this function with a call to the secrets backend
+    # (e.g. boto3 secretsmanager.get_secret_value). The rest of the module
+    # does not need to change.
+    #
+    # ENCRYPTION_KEYS: comma-separated, newest key first. Older keys stay
+    # listed so data encrypted with them can still be decrypted until the
+    # rotation script has re-encrypted everything.
+    # ENCRYPTION_KEY: legacy single-key variable, still honored as fallback.
+    multi = os.getenv("ENCRYPTION_KEYS")
+    if multi:
+        keys = [k.strip() for k in multi.split(",") if k.strip()]
+        if keys:
+            return keys
+    single = os.getenv("ENCRYPTION_KEY")
+    if single:
+        return [single]
+    return [Fernet.generate_key().decode()]
+
+
+def _build_fernet() -> MultiFernet:
+    keys = _load_encryption_keys()
+    return MultiFernet([Fernet(k.encode() if isinstance(k, str) else k) for k in keys])
+
 
 try:
-    fernet = Fernet(ENCRYPTION_KEY.encode() if isinstance(ENCRYPTION_KEY, str) else ENCRYPTION_KEY)
+    fernet = _build_fernet()
 except Exception:
-    fernet = Fernet(Fernet.generate_key())
+    fernet = MultiFernet([Fernet(Fernet.generate_key())])
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
@@ -44,10 +71,16 @@ def decode_token(token: str) -> Optional[dict]:
 
 
 def encrypt_credential(value: str) -> str:
-    """Encrypt sensitive data like CUIT passwords using Fernet symmetric encryption."""
+    # Always encrypts with the primary (first) key. Decrypt accepts any key
+    # in the MultiFernet chain, so rotation is: prepend a new key, rotate old
+    # records with scripts/rotate_credentials.py, then drop the old key.
     return fernet.encrypt(value.encode()).decode()
 
 
 def decrypt_credential(encrypted_value: str) -> str:
-    """Decrypt sensitive data."""
     return fernet.decrypt(encrypted_value.encode()).decode()
+
+
+def rotate_credential(encrypted_value: str) -> str:
+    # Re-encrypt under the current primary key. Used by the rotation script.
+    return fernet.rotate(encrypted_value.encode()).decode()
