@@ -15,3 +15,11 @@ frontend/.env
 .DS_Store
 Thumbs.db
 *.log
+
+# AFIP SDK secrets
+AFIP_SDK_ACCESS_TOKEN/
+**/Access_Token_Afip_SDK.txt
+Credenciales_Larrañaga.txt
+
+# Claude Code — settings personales
+.claude/settings.local.json
