@@ -94,3 +94,8 @@ export const getFactura = (id) => api.get(`/facturas/${id}`)
 export const createFactura = (data) => api.post('/facturas/', data)
 export const getFacturaSummary = (clientId, year) =>
   api.get(`/facturas/summary/${clientId}`, { params: { year } })
+
+// ─── Cuentas Corrientes ───────────────────────────────────────────────────────
+export const getMovimientosCC = (clientId) => api.get(`/cuentas-corrientes/client/${clientId}`)
+export const getSaldoCC = (clientId) => api.get(`/cuentas-corrientes/client/${clientId}/saldo`)
+export const createMovimientoCC = (data) => api.post('/cuentas-corrientes/', data)

@@ -104,6 +104,7 @@ class ClientOut(BaseModel):
     collaborators: List[CollaboratorBrief] = []
     task_count: Optional[int] = 0
     pending_tasks: Optional[int] = 0
+    saldo_cc: Optional[float] = 0.0
 
     class Config:
         from_attributes = True
@@ -301,6 +302,31 @@ class IngresosBrutosOut(BaseModel):
     saldo: float
     filed: bool
     filed_at: Optional[datetime] = None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+# ─── Cuentas Corrientes ──────────────────────────────────────────────────────
+
+class MovimientoCCCreate(BaseModel):
+    client_id: int
+    tipo: str  # 'ingreso' or 'egreso'
+    monto: float
+    concepto: str
+    fecha: date
+    notas: Optional[str] = None
+
+
+class MovimientoCCOut(BaseModel):
+    id: int
+    client_id: int
+    tipo: str
+    monto: float
+    concepto: str
+    fecha: date
+    notas: Optional[str] = None
     created_at: datetime
 
     class Config:
