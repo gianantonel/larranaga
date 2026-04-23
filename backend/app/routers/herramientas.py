@@ -1,8 +1,11 @@
 """
-Herramientas IVA — R-01
+Herramientas IVA — R-01 + R-02
+
 POST /herramientas/limpiar-libro-iva
   Recibe: client_id + .xlsx de ARCA
-  Procesa: corrige tipo B/C y columna L
+  Procesa:
+    - R-01: corrige tipo B/C y columna L
+    - R-02: divide comprobantes multi-alícuota en filas por alícuota
   Guarda: registro + archivo en tabla limpiezas_iva
   Devuelve: .xlsx corregido como descarga
 
@@ -36,6 +39,7 @@ if str(_AGENT) not in sys.path:
 
 try:
     from src.transformaciones.limpieza_inicial import limpiar_comprobantes_desde_bytes
+    from src.transformaciones.division_alicuotas import aplicar_division_alicuotas
     _MODULO_OK = True
 except ImportError:
     _MODULO_OK = False
@@ -46,16 +50,18 @@ router = APIRouter(prefix="/herramientas", tags=["herramientas"])
 # ── Schemas de respuesta ────────────────────────────────────────────────────
 
 class LimpiezaOut(BaseModel):
-    id:                  int
-    client_id:           int
-    client_name:         Optional[str]
-    user_id:             int
-    user_name:           Optional[str]
-    nombre_original:     str
-    nombre_corregido:    str
-    total_filas:         int
-    filas_bc_corregidas: int
-    created_at:          str
+    id:                     int
+    client_id:              int
+    client_name:            Optional[str]
+    user_id:                int
+    user_name:              Optional[str]
+    nombre_original:        str
+    nombre_corregido:       str
+    total_filas:            int
+    filas_bc_corregidas:    int
+    filas_multi_alicuota:   Optional[int] = None  # R-02 stat
+    filas_salida:           Optional[int] = None  # R-02 stat
+    created_at:             str
 
     model_config = {"from_attributes": True}
 
@@ -108,19 +114,28 @@ async def limpiar_libro_iva(
     db.commit()
     db.refresh(limpieza)
 
-    # Log de acción
+    # Log de acción (incluye R-01 + R-02)
+    descripcion = f"R-01+R-02: {archivo.filename} → {stats['total']} filas"
+    if stats["tipo_bc"] > 0:
+        descripcion += f", {stats['tipo_bc']} B/C corregidas"
+    if stats.get("filas_multi_alicuota", 0) > 0:
+        descripcion += f", {stats['filas_multi_alicuota']} multi-alícuota expandidas"
+    if stats.get("filas_salida", stats["total"]) != stats["total"]:
+        descripcion += f" → {stats['filas_salida']} filas salida"
+
     db.add(models.ActionLog(
         user_id     = current_user.id,
         client_id   = client_id,
         action_type = "limpieza_iva",
-        description = (
-            f"R-01 Limpieza IVA: {archivo.filename} → "
-            f"{stats['total']} filas, {stats['tipo_bc']} B/C corregidas"
-        ),
+        description = descripcion,
     ))
     db.commit()
 
-    return _build_out(limpieza)
+    # Construir respuesta con stats de R-02
+    response = _build_out(limpieza)
+    response.filas_multi_alicuota = stats.get("filas_multi_alicuota", 0)
+    response.filas_salida = stats.get("filas_salida", stats["total"])
+    return response
 
 
 @router.get("/limpiar-libro-iva/historial", response_model=List[LimpiezaOut])
@@ -157,13 +172,14 @@ def descargar_limpieza(
 # ── Helpers ─────────────────────────────────────────────────────────────────
 
 def limpiar_comprobantes_desde_bytes_con_stats(contenido: bytes):
-    """Llama al módulo R-01 y devuelve (xlsx_bytes, stats_dict)."""
+    """Llama a R-01 y R-02, devuelve (xlsx_bytes, stats_dict)."""
     import io
     import re
     import pandas as pd
     from src.transformaciones.limpieza_inicial import (
         corregir_tipo_bc, corregir_columna_L, TIPOS_BC,
     )
+    from src.transformaciones.division_alicuotas import aplicar_division_alicuotas
 
     df = pd.read_excel(io.BytesIO(contenido), header=1, dtype=str)
 
@@ -174,13 +190,26 @@ def limpiar_comprobantes_desde_bytes_con_stats(contenido: bytes):
     total      = len(df)
     tipo_bc    = int(df["Tipo"].map(cod).isin(TIPOS_BC).sum()) if "Tipo" in df.columns else 0
 
+    # ── R-01: Limpieza ──────────────────────────────────────────────────────
     df = corregir_tipo_bc(df)
     df = corregir_columna_L(df)
 
+    # ── R-02: División por alícuotas ────────────────────────────────────────
+    df, stats_r02 = aplicar_division_alicuotas(df)
+
+    # ── Guardar como Excel ──────────────────────────────────────────────────
     out = io.BytesIO()
     df.to_excel(out, index=False)
 
-    return out.getvalue(), {"total": total, "tipo_bc": tipo_bc}
+    # ── Combinar stats ──────────────────────────────────────────────────────
+    stats = {
+        "total": total,
+        "tipo_bc": tipo_bc,
+        "filas_multi_alicuota": stats_r02["filas_multi_alicuota"],
+        "filas_salida": stats_r02["total_salida"],
+    }
+
+    return out.getvalue(), stats
 
 
 def _build_out(l: models.LimpiezaIVA) -> LimpiezaOut:
