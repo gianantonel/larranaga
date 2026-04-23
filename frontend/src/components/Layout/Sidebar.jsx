@@ -1,7 +1,7 @@
 import { NavLink } from 'react-router-dom'
 import {
   LayoutDashboard, Users, UserCheck, ClipboardList,
-  ReceiptText, BarChart3, Scale, LogOut, ChevronRight, FileSearch, Wrench, Wallet
+  ReceiptText, BarChart3, Scale, LogOut, ChevronRight, FileSearch, Wrench, Wallet,
 } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import clsx from 'clsx'
