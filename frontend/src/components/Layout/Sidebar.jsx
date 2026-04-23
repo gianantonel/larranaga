@@ -1,7 +1,7 @@
 import { NavLink } from 'react-router-dom'
 import {
   LayoutDashboard, Users, UserCheck, ClipboardList,
-  ReceiptText, BarChart3, Scale, LogOut, ChevronRight, FileSearch
+  ReceiptText, BarChart3, Scale, LogOut, ChevronRight, FileSearch, Wrench
 } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import clsx from 'clsx'
@@ -14,6 +14,7 @@ const navItems = [
   { to: '/iva',           icon: BarChart3,       label: 'Balance IVA' },
   { to: '/facturas',      icon: ReceiptText,     label: 'Facturación' },
   { to: '/retenciones',   icon: FileSearch,      label: 'Retenciones' },
+  { to: '/herramientas',  icon: Wrench,          label: 'Herramientas' },
 ]
 
 export default function Sidebar() {
