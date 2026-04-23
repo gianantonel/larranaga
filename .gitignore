@@ -2,7 +2,8 @@
 backend/.venv/
 __pycache__/
 *.py[cod]
-backend/*.db
+backend/*.db-shm
+backend/*.db-wal
 backend/*.sqlite
 backend/.env
 
