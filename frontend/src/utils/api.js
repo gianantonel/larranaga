@@ -101,3 +101,15 @@ export const getRetenciones = (params) => api.get('/retenciones/', { params })
 export const getRetencionesSummary = (clientId, period) =>
   api.get(`/retenciones/summary/${clientId}`, { params: { period } })
 export const deleteRetencion = (id) => api.delete(`/retenciones/${id}`)
+
+// ─── Comprobantes Recibidos + Cruce (R-05) ───────────────────────────────────
+export const syncComprobantes = (data) => api.post('/comprobantes/sync', data)
+export const getComprobantes = (params) => api.get('/comprobantes/', { params })
+export const getCruce = (clientId, period) =>
+  api.get('/comprobantes/cruce', { params: { client_id: clientId, period } })
+export const exportHolistor = (clientId, period) =>
+  api.get('/comprobantes/export-holistor', {
+    params: { client_id: clientId, period },
+    responseType: 'blob',
+  })
+export const deleteComprobante = (id) => api.delete(`/comprobantes/${id}`)

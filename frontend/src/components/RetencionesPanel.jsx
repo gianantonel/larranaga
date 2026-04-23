@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Download, Loader2, RefreshCw, Trash2 } from 'lucide-react'
 import { syncRetenciones, getRetenciones, deleteRetencion } from '../utils/api'
 import { formatCurrency, formatDate } from '../utils/helpers'
+import CrucePanel from './CrucePanel'
 
 const IMPUESTOS = [
   { value: 217, label: 'IVA (217)', descripcion: 'IVA' },
@@ -208,6 +209,11 @@ export default function RetencionesPanel({ clientId, defaultPeriod = '' }) {
           </div>
         )}
       </div>
+
+      {/* Cruce panel — solo cuando hay retenciones y período */}
+      {period && records.length > 0 && (
+        <CrucePanel clientId={clientId} period={period} />
+      )}
     </div>
   )
 }

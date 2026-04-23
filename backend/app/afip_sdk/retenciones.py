@@ -23,17 +23,39 @@ from .client import load_context, env_label
 
 # Mapa codigo AFIP "impuestoRetenido" -> codigo Holistor (col AR).
 # Ref AFIP F.2003: 217=IVA percep/reten, 11/10=Ganancias, 767=Bienes Personales.
+# IIBB por provincia: cada provincia tiene su propio código (ver tabla F.2003).
 # Ampliar a medida que aparezcan nuevos codigos en los datos reales.
-IMPUESTO_TO_HOLISTOR = {
-    217: "PIVC",  # IVA - Percepciones / Retenciones
+IMPUESTO_TO_HOLISTOR: dict[int, str] = {
+    # IVA
+    217: "PIVC",   # IVA - Percepciones / Retenciones
     216: "PIVC",
-    11:  "PGAN",  # Ganancias - Retencion
-    10:  "PGAN",  # Ganancias - Percepcion
-    767: "OTRO",  # Bienes Personales (no tiene codigo Holistor directo)
+    # Ganancias
+    11:  "PGAN",   # Ganancias - Retención
+    10:  "PGAN",   # Ganancias - Percepción
+    # Bienes Personales
+    767: "OTRO",   # Sin código Holistor directo aún
+    # IIBB por provincia (códigos más frecuentes en estudios de La Pampa)
+    # La Pampa
+    902: "PIBA",   # IIBB La Pampa - percepción/retención (código AFIP 902)
+    # Buenos Aires
+    903: "PIBC",   # IIBB CABA / Buenos Aires ciudad
+    904: "PIBC",   # IIBB Provincia de Buenos Aires
+    # Resto de provincias → PIBR (genérico resto)
+    905: "PIBR",   # IIBB Córdoba
+    906: "PIBR",   # IIBB Santa Fe
+    907: "PIBR",   # IIBB Mendoza
+    908: "PIBR",   # IIBB Entre Ríos
+    # Comercio (Sellos, tasas municipales)
+    910: "PCOM",   # Sellos / tasas comerciales
+    911: "SELL",   # Impuesto de sellos
 }
 
 
 def classify_regimen(impuesto: int | str | None) -> str:
+    """Clasifica un código AFIP impuestoRetenido en código Holistor.
+
+    Devuelve "OTRO" para cualquier código no mapeado.
+    """
     try:
         code = int(impuesto) if impuesto is not None else None
     except (TypeError, ValueError):
