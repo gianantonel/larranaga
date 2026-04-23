@@ -6,6 +6,7 @@ import { StatusBadge, TypeBadge } from '../components/UI/Badge'
 import PageHeader from '../components/UI/PageHeader'
 import LoadingSpinner from '../components/UI/LoadingSpinner'
 import { formatDate, formatPeriod, taskTypeConfig, taskStatusConfig } from '../utils/helpers'
+import RetencionesPanel from '../components/RetencionesPanel'
 
 const TASK_TYPES = Object.entries(taskTypeConfig).map(([v, c]) => ({ value: v, ...c }))
 const TASK_STATUSES = Object.entries(taskStatusConfig).map(([v, c]) => ({ value: v, ...c }))
@@ -189,6 +190,13 @@ export default function Tasks() {
                   />
                   <button onClick={() => handleAddSubtask(task.id)} className="btn-secondary text-sm px-3 py-2">Agregar</button>
                 </div>
+
+                {task.task_type === 'ddjj_iva' && task.client_id && (
+                  <div className="mt-4 pt-4 border-t border-gray-700/40">
+                    <p className="text-sm font-semibold text-gray-400 mb-2">Retenciones / Percepciones (ARCA)</p>
+                    <RetencionesPanel clientId={task.client_id} defaultPeriod={task.period || ''} />
+                  </div>
+                )}
               </div>
             )}
           </div>

@@ -34,12 +34,15 @@ larranaga/
 │   │       ├── tasks.py          # CRUD tareas + subtareas
 │   │       ├── iva.py            # Balance IVA, presentación DDJJ
 │   │       ├── facturas.py       # Comprobantes electrónicos
+│   │       ├── retenciones.py    # Retenciones/percepciones (Mis Retenciones ARCA)
 │   │       └── dashboard.py      # Stats, timeline, gráficos
 │   │   └── afip_sdk/             # Integración AFIP vía app.afipsdk.com (afip.py)
 │   │       ├── client.py         # load_context(): arma Afip() con cert/key persistido
 │   │       ├── bootstrap.py      # createCert + createWSAuth por CUIT/entorno
 │   │       ├── smoke_test.py     # FEDummy + último comprobante + detalle
-│   │       └── info.py           # FEParamGet* (ptos de venta, tipos, alícuotas, etc.)
+│   │       ├── info.py           # FEParamGet* (ptos de venta, tipos, alícuotas, etc.)
+│   │       ├── automations.py    # run_automation() + save_raw() — wrapper genérico
+│   │       └── retenciones.py    # CLI mis-retenciones + clasificador impuesto→Holistor
 │   ├── scripts/
 │   │   └── create_client.py      # Alta de clientes vía API desde CLI
 │   ├── afip_certs/               # PEMs generados por CUIT+entorno (NO commitear)
@@ -57,16 +60,18 @@ larranaga/
 │   │   │   └── helpers.js        # Formateadores, configs de badges y colores
 │   │   ├── components/
 │   │   │   ├── Layout/           # Sidebar, Layout wrapper
-│   │   │   └── UI/               # Badge, StatCard, PageHeader, LoadingSpinner
+│   │   │   ├── UI/               # Badge, StatCard, PageHeader, LoadingSpinner
+│   │   │   └── RetencionesPanel.jsx  # Panel reutilizable: form + tabla + chips Holistor
 │   │   └── pages/
 │   │       ├── Login.jsx
 │   │       ├── Dashboard.jsx     # KPIs + 4 gráficos + tabla rendimiento
 │   │       ├── Clients.jsx       # Listado + creación de clientes
-│   │       ├── ClientDetail.jsx  # Detalle cliente: IVA, facturas, tareas, credenciales
+│   │       ├── ClientDetail.jsx  # Detalle cliente: IVA, facturas, tareas, retenciones
 │   │       ├── Collaborators.jsx # Cards con pie charts y stats por colaborador
-│   │       ├── Tasks.jsx         # Tareas expandibles con subtareas tick-able
+│   │       ├── Tasks.jsx         # Tareas expandibles con subtareas + panel retenciones
 │   │       ├── IVA.jsx           # Balance IVA + gráfico + acción "Presentar"
-│   │       └── Facturas.jsx      # Historial + emisión de comprobantes
+│   │       ├── Facturas.jsx      # Historial + emisión de comprobantes
+│   │       └── Retenciones.jsx   # Página /retenciones: selector cliente + RetencionesPanel
 │   ├── package.json
 │   ├── vite.config.js            # Proxy /api → localhost:8000
 │   └── tailwind.config.js
@@ -237,6 +242,15 @@ npm run dev
 - Filtros por cliente y tipo de comprobante
 - Trazabilidad: cada factura registra qué colaborador la emitió
 
+### Retenciones y Percepciones *(R-05)*
+- Consulta **Mis Retenciones ARCA** por cliente y período via automation AFIP SDK (scraping con clave fiscal)
+- Impuestos soportados: IVA (217), Ganancias retención (11), Ganancias percepción (10), Bienes Personales (767)
+- Clasificación automática a código Holistor: `PIVC` (IVA), `PGAN` (Ganancias), `OTRO`
+- Sync idempotente: no duplica registros al re-consultar el mismo período
+- Chips resumen por código Holistor con conteo y total
+- **Tres puntos de acceso**: página `/retenciones` (selector cliente), tab en ficha de cliente, panel embebido en tareas `ddjj_iva`
+- Validado end-to-end: El Alba S.R.L. 2025-12 → 7 percepciones IVA, total $8.045,13
+
 ### Seguridad
 - **Contraseñas**: hasheadas con bcrypt (sin posibilidad de reversión)
 - **Clave fiscal ARCA**: cifrada con Fernet (AES 128 en modo CBC), clave maestra en `.env`
@@ -314,6 +328,11 @@ GET   /iva/summary/{client_id} → Resumen IVA de un cliente
 
 GET   /facturas                → Listado facturas (con filtros)
 POST  /facturas                → Emitir comprobante
+
+POST  /retenciones/sync        → Consultar ARCA y persistir retenciones/percepciones
+GET   /retenciones             → Listar registros (filtros: client_id, period, codigo_holistor)
+GET   /retenciones/summary/{id} → Resumen por código Holistor para un cliente
+DELETE /retenciones/{id}       → Eliminar un registro
 
 GET   /dashboard/stats         → KPIs generales
 GET   /dashboard/collaborator-stats → Stats por colaborador

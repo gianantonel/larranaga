@@ -307,6 +307,51 @@ class IngresosBrutosOut(BaseModel):
         from_attributes = True
 
 
+# ─── Retenciones / Percepciones (Mis Retenciones ARCA) ──────────────────────
+
+class RetencionSyncRequest(BaseModel):
+    client_id: int
+    period: str  # YYYY-MM
+    impuesto_retenido: int = 217  # 217=IVA, 11=Gan(ret), 10=Gan(perc), 767=BP
+    descripcion_impuesto: str = "IVA"
+    incluir_percepciones: bool = True
+    incluir_retenciones: bool = True
+
+
+class RetencionPercepcionOut(BaseModel):
+    id: int
+    client_id: int
+    period: str
+    cuit_agente: Optional[str] = None
+    impuesto_retenido: Optional[int] = None
+    codigo_regimen: Optional[int] = None
+    tipo_operacion: Optional[str] = None
+    fecha_retencion: date
+    fecha_comprobante: Optional[date] = None
+    importe: float
+    numero_certificado: Optional[str] = None
+    numero_comprobante: Optional[str] = None
+    descripcion_comprobante: Optional[str] = None
+    codigo_holistor: Optional[str] = None
+    sdk_job_id: Optional[str] = None
+    synced_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
+class RetencionSyncResponse(BaseModel):
+    client_id: int
+    period: str
+    sdk_job_id: Optional[str] = None
+    status: str  # complete | error
+    total_records: int
+    inserted: int
+    skipped_duplicates: int
+    summary_by_holistor: dict  # {"PIVC": {"count": 7, "total": 8045.13}}
+    records: List[RetencionPercepcionOut]
+
+
 # ─── Dashboard ───────────────────────────────────────────────────────────────
 
 class DashboardStats(BaseModel):

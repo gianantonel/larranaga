@@ -94,3 +94,10 @@ export const getFactura = (id) => api.get(`/facturas/${id}`)
 export const createFactura = (data) => api.post('/facturas/', data)
 export const getFacturaSummary = (clientId, year) =>
   api.get(`/facturas/summary/${clientId}`, { params: { year } })
+
+// ─── Retenciones / Percepciones (Mis Retenciones ARCA) ───────────────────────
+export const syncRetenciones = (data) => api.post('/retenciones/sync', data)
+export const getRetenciones = (params) => api.get('/retenciones/', { params })
+export const getRetencionesSummary = (clientId, period) =>
+  api.get(`/retenciones/summary/${clientId}`, { params: { period } })
+export const deleteRetencion = (id) => api.delete(`/retenciones/${id}`)

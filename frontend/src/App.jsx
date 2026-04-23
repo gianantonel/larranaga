@@ -10,6 +10,7 @@ import Collaborators from './pages/Collaborators'
 import Tasks from './pages/Tasks'
 import IVA from './pages/IVA'
 import Facturas from './pages/Facturas'
+import Retenciones from './pages/Retenciones'
 import LoadingSpinner from './components/UI/LoadingSpinner'
 
 function ProtectedRoutes() {
@@ -27,6 +28,7 @@ function ProtectedRoutes() {
         <Route path="tareas" element={<Tasks />} />
         <Route path="iva" element={<IVA />} />
         <Route path="facturas" element={<Facturas />} />
+        <Route path="retenciones" element={<Retenciones />} />
       </Route>
     </Routes>
   )

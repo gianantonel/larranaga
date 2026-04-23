@@ -82,6 +82,7 @@ class Client(Base):
     iva_records = relationship("IVARecord", back_populates="client")
     invoices = relationship("Invoice", back_populates="client")
     ingresos_brutos = relationship("IngresosBrutos", back_populates="client")
+    retenciones_percepciones = relationship("RetencionPercepcion", back_populates="client", cascade="all, delete-orphan")
     action_logs = relationship("ActionLog", back_populates="client")
 
 
@@ -210,6 +211,40 @@ class IngresosBrutos(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     client = relationship("Client", back_populates="ingresos_brutos")
+
+
+class RetencionPercepcion(Base):
+    """Retenciones y percepciones sufridas por un cliente (Mis Retenciones de ARCA).
+
+    Alimentado por la automatizacion `mis-retenciones` via AFIP SDK.
+    Clave para R-05: resolver la col. AB (Otros Tributos) del archivo de Mis Comprobantes Recibidos.
+    """
+    __tablename__ = "retenciones_percepciones"
+
+    id = Column(Integer, primary_key=True, index=True)
+    client_id = Column(Integer, ForeignKey("clients.id", ondelete="CASCADE"), nullable=False, index=True)
+    period = Column(String(7), nullable=False, index=True)  # YYYY-MM
+
+    # Datos crudos del response de AFIP SDK
+    cuit_agente = Column(String(13), index=True)             # cuitAgenteRetencion
+    impuesto_retenido = Column(Integer)                      # 217=IVA, 11=Ganancias(ret), 10=Ganancias(perc), 767=BP
+    codigo_regimen = Column(Integer)                         # p.ej. 596
+    tipo_operacion = Column(String(20))                      # PERCEPCION / RETENCION
+    fecha_retencion = Column(Date, nullable=False, index=True)
+    fecha_comprobante = Column(Date)
+    importe = Column(Float, nullable=False)
+    numero_certificado = Column(String(50))
+    numero_comprobante = Column(String(50))
+    descripcion_comprobante = Column(String(100))
+
+    # Clasificacion
+    codigo_holistor = Column(String(10))                     # PIVC / PGAN / PIBA / OTRO
+
+    # Trazabilidad del job AFIP SDK que trajo este registro
+    sdk_job_id = Column(String(64))
+    synced_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    client = relationship("Client", back_populates="retenciones_percepciones")
 
 
 class ActionLog(Base):

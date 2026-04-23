@@ -12,6 +12,7 @@ import {
 import { useAuth } from '../context/AuthContext'
 import { StatusBadge, TypeBadge, FiledBadge } from '../components/UI/Badge'
 import LoadingSpinner from '../components/UI/LoadingSpinner'
+import RetencionesPanel from '../components/RetencionesPanel'
 import { formatCurrency, formatDate, formatPeriod } from '../utils/helpers'
 
 export default function ClientDetail() {
@@ -85,6 +86,7 @@ export default function ClientDetail() {
     { id: 'iva', label: `IVA (${ivaRecords.length})` },
     { id: 'facturas', label: `Facturas (${facturas.length})` },
     { id: 'tareas', label: `Tareas (${tasks.length})` },
+    { id: 'retenciones', label: 'Retenciones' },
   ]
 
   const assignedIds = client.collaborators.map(c => c.id)
@@ -271,6 +273,10 @@ export default function ClientDetail() {
         )}
 
         {/* Tasks Table */}
+        {activeTab === 'retenciones' && (
+          <RetencionesPanel clientId={Number(id)} />
+        )}
+
         {activeTab === 'tareas' && (
           <div className="card p-0 overflow-hidden">
             <table className="w-full">
