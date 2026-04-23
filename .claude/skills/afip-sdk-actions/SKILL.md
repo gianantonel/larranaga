@@ -1,12 +1,15 @@
 ---
 name: afip-sdk-actions
 description: Usar este skill cuando el usuario pida integrar, usar o automatizar algo con AFIP / ARCA / AFIP SDK en el proyecto Larrañaga (estudio contable AGEP). Activar ante pedidos como "emitir factura electrónica", "consultar padrón de un CUIT", "descargar constancia de inscripción", "traer Mis Comprobantes", "Mis Retenciones", "SIPER", "libro IVA digital", "agregar acción AFIP al dashboard del colaborador", "crear endpoint FastAPI que llame a AFIP", "automatizar trámite ARCA con clave fiscal", "usar wsfe / ws_sr_constancia_inscripcion / padrón A4 A5 A13", o cualquier integración con https://app.afipsdk.com. También cuando se deba decidir entre Web Service (certificado) y Automatización (clave fiscal scraping).
-version: 2.0.0
+version: 2.1.0
+last_updated: 2026-04-22 (R-05 Mis Retenciones validado end-to-end con El Alba 2025-12)
 ---
+
+> **Última actualización: 2026-04-22** — Se agregó wrapper genérico de Automatizaciones (`automations.py`) y CLI `retenciones.py` para R-05, validado con Agropecuaria El Alba período 2025-12 (7 percepciones IVA, agente 30500012516, total $8.045,13). Ver secciones **§ 0**, **§ 2.b**, **§ 9** y **§ 12**.
 
 # AFIP SDK Actions — Integración en backend Larrañaga
 
-Guía operativa para agregar acciones que consumen AFIP (ARCA) vía **app.afipsdk.com**. Refleja el estado actual del paquete `backend/app/afip_sdk/` y las convenciones validadas contra AFIP real (confirmado el 2026-04-21 con Agropecuaria El Alba, última Factura A Nro 41, CAE `86151427323266`).
+Guía operativa para agregar acciones que consumen AFIP (ARCA) vía **app.afipsdk.com**. Refleja el estado actual del paquete `backend/app/afip_sdk/` y las convenciones validadas contra AFIP real (confirmado el 2026-04-21 con Agropecuaria El Alba, última Factura A Nro 41, CAE `86151427323266`; y el 2026-04-22 con la automation `mis-retenciones` del mismo CUIT).
 
 Documentación complementaria: [`README.md` § Integración AFIP SDK](../../../README.md), [`AGENTS.md`](../../../AGENTS.md).
 
@@ -16,13 +19,16 @@ Documentación complementaria: [`README.md` § Integración AFIP SDK](../../../R
 
 **Hecho y funcionando:**
 - Paquete CLI `backend/app/afip_sdk/` con `client.py` (factory), `bootstrap.py` (alta de cert+WSAuth), `smoke_test.py`, `info.py`.
+- **Wrapper de Automatizaciones** (`automations.py`) + **CLI Mis Retenciones** (`retenciones.py`) — usa clave fiscal, persiste JSON crudo en `backend/afip_raw/{cuit}/{automation}/{period}.json`.
 - Alta de clientes vía CLI (`backend/scripts/create_client.py`) sin pasar por la UI.
 - Persistencia de cert+key en `backend/afip_certs/{CUIT}-{env}.(cert|key)` (gitignoreado).
-- Validación end-to-end en producción contra un CUIT real (Agropecuaria El Alba, CUIT `23311348949`, pto vta 6).
+- Validación end-to-end en producción contra un CUIT real (Agropecuaria El Alba, CUIT `23311348949`, pto vta 6) — **WS** (Factura A #41, CAE 86151427323266) y **Automatización** (`mis-retenciones` período 2025-12, 7 percepciones IVA).
 
 **Pendiente (construir cuando se pida):**
-- Endpoints FastAPI bajo `/api/afip/...` que expongan las operaciones al frontend.
-- Wrapper de automatizaciones (`/api/v1/automations/*` de app.afipsdk.com) — scraping con clave fiscal para constancias, Mis Comprobantes, SIPER, Libro IVA Digital, etc.
+- Endpoints FastAPI bajo `/api/afip/...` y `/api/retenciones/...` que expongan las operaciones al frontend.
+- Modelo SQLAlchemy `RetencionPercepcion` + migración (persistir resultados de `mis-retenciones` para cruzar con Mis Comprobantes).
+- Cruce automático Col AB (Otros Tributos) de Mis Comprobantes Recibidos → código Holistor (PIVC/PIBA/PGAN) vía match `(cuit_emisor, fecha, importe)`.
+- Más automatizaciones: `mis-comprobantes`, constancias, SIPER, Libro IVA Digital.
 - Tabla `afip_action_log` para auditoría.
 - Catálogos cacheados en DB (voucher_types, alícuotas, condición IVA receptor, etc.).
 - UI por cliente con botones de acción + polling para jobs async.
@@ -194,26 +200,75 @@ Si [2/3] falla con `Too few bytes to read ASN.1` → el PEM está con CRLF; `cli
 
 ---
 
-## 7. Automatizaciones (aún no implementadas en este repo)
+## 7. Automatizaciones — wrapper implementado, catálogo por expandir
 
-Cuando se pida una acción que no tiene Web Service (constancias PDF, Mis Comprobantes, SIPER, Libro IVA Digital presentación, etc.), la ruta es `afip.createAutomation(name, params, wait=False)`.
+Las automatizaciones de app.afipsdk.com usan **clave fiscal** (scraping de portales ARCA), a diferencia de los WS que usan cert/key. Implementación viva: `backend/app/afip_sdk/automations.py`.
 
-- Son **asíncronas**. No bloquear el request HTTP esperando `finished`.
-- Patrón async: endpoint `POST` devuelve `job_id`, endpoint `GET /afip/jobs/{job_id}` hace polling, frontend hace polling cada 3–5 s.
-- Requieren la clave fiscal descifrada — `ctx.clave_fiscal` ya viene disponible en `ClientAfipContext`.
-- Cuando se implemente el wrapper, vivirá como `backend/app/afip_sdk/automations.py` (consistente con el resto del paquete, no en `services/`).
+```python
+from .client import load_context
+from .automations import run_automation, save_raw
 
-Nombres de automatizaciones candidatas a implementar primero (confirmar slug exacto en el panel de app.afipsdk.com):
+ctx = load_context(client_id=12, production=True)
+payload = run_automation(ctx, "mis-retenciones", {
+    "cuit": str(ctx.cuit_int),
+    "username": str(ctx.cuit_int),
+    "password": ctx.clave_fiscal,
+    "mode": "filter",
+    "page": 0, "size": 100,
+    "filters": {
+        "descripcionImpuesto": "IVA",
+        "fechaRetencionDesde": "2025-12-01",
+        "fechaRetencionHasta": "2025-12-31",
+        "impuestoRetenido": 217,
+        "tipoImpuesto": "IMP",
+        "percepciones": True, "retenciones": True,
+    },
+}, wait=True, include_credentials=False)
+save_raw(ctx, "mis-retenciones", "2025-12", payload)
+```
 
-- `constancia-inscripcion` — PDF de constancia
-- `mis-comprobantes-emitidos` / `mis-comprobantes-recibidos`
-- `mis-retenciones`
+Convenciones:
+
+- **Async** — `wait=True` deja que el SDK haga polling (~2 min máx). Para UI, usar `wait=False` + `GET /afip/jobs/{id}` + polling cliente 3–5 s.
+- Los credenciales van **dentro de `params`** (`username`, `password`, `cuit`), no como header. Por eso `run_automation(..., include_credentials=False)` y se arman a mano cuando la automation lo requiere.
+- JSON crudo siempre a `backend/afip_raw/{cuit}/{automation}/{period}.json` — sirve como cache y para debugging.
+
+### 7.a `mis-retenciones` — schema oficial
+
+Doc fuente: https://afipsdk.com/docs/automations/mis-retenciones/nodejs
+
+| Param | Tipo | Notas |
+|---|---|---|
+| `cuit` | string | CUIT a consultar |
+| `username` | string | CUIT con el que se loguea (mismo que `cuit` salvo delegación) |
+| `password` | string | Clave fiscal |
+| `mode` | string | **`"filter"`** o **`"preset"`** (los únicos valores válidos) |
+| `page` | int | **Arranca en 0** (no 1) |
+| `size` | int | Default recomendado: 100 |
+
+**Cuando `mode="filter"`** todos requeridos dentro de `filters`:
+`descripcionImpuesto`, `fechaRetencionDesde` (yyyy-mm-dd), `fechaRetencionHasta`, `impuestoRetenido` (int), `tipoImpuesto` (usar `"IMP"`), `percepciones` (bool), `retenciones` (bool).
+
+**Cuando `mode="preset"`** usar `preset` ∈ `{percepcion-ganancias, percepcion-bienes-personales, retencion-ganancias}`. **No cubre IVA** — para IVA siempre `filter` con `impuestoRetenido=217`.
+
+Códigos AFIP `impuestoRetenido` conocidos: **217=IVA**, **11=Ganancias (ret)**, **10=Ganancias (perc)**, **767=Bienes Personales**.
+
+Response: `data.rows[]` con `cuitAgenteRetencion, impuestoRetenido, codigoRegimen, fechaRetencion, importeRetenido, numeroComprobante, descripcionOperacion, fechaComprobante`.
+
+Mapa a código Holistor (col AR en HWCRARCA): 217→`PIVC`, 10/11→`PGAN`, 767→`OTRO`. Definido en `retenciones.py:IMPUESTO_TO_HOLISTOR`.
+
+### 7.b Otras automatizaciones candidatas (por implementar)
+
+Al sumar una nueva automation: antes de codear, leer la doc oficial (`https://afipsdk.com/docs/automations/<slug>/nodejs`) para capturar params exactos — probing a ciegas quema el cupo mensual de automatizaciones (100/mes en el plan actual).
+
+- `constancia-inscripcion` — PDF
+- `mis-comprobantes-emitidos` / `mis-comprobantes-recibidos` (clave para el cruce de R-05)
 - `siper` — perfil de riesgo
 - `libro-iva-digital`
 - `monotributo-recategorizacion`
 - `mi-simplificacion` — empleados
 
-Cada una tiene **params propios** (rango de fechas, punto de venta, período). Mantener un catálogo en `backend/app/afip_sdk/catalog.py` (slug, nombre visible, params requeridos, tipo WS/automation).
+Mantener un catálogo en `backend/app/afip_sdk/catalog.py` (slug, nombre visible, params requeridos, tipo WS/automation) cuando haya ≥3 automatizaciones implementadas.
 
 ---
 

@@ -82,6 +82,8 @@ class Client(Base):
     iva_records = relationship("IVARecord", back_populates="client")
     invoices = relationship("Invoice", back_populates="client")
     ingresos_brutos = relationship("IngresosBrutos", back_populates="client")
+    retenciones_percepciones = relationship("RetencionPercepcion", back_populates="client", cascade="all, delete-orphan")
+    comprobantes_recibidos = relationship("ComprobanteRecibido", back_populates="client", cascade="all, delete-orphan")
     action_logs = relationship("ActionLog", back_populates="client")
 
 
@@ -210,6 +212,87 @@ class IngresosBrutos(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     client = relationship("Client", back_populates="ingresos_brutos")
+
+
+class RetencionPercepcion(Base):
+    """Retenciones y percepciones sufridas por un cliente (Mis Retenciones de ARCA).
+
+    Alimentado por la automatizacion `mis-retenciones` via AFIP SDK.
+    Clave para R-05: resolver la col. AB (Otros Tributos) del archivo de Mis Comprobantes Recibidos.
+    """
+    __tablename__ = "retenciones_percepciones"
+
+    id = Column(Integer, primary_key=True, index=True)
+    client_id = Column(Integer, ForeignKey("clients.id", ondelete="CASCADE"), nullable=False, index=True)
+    period = Column(String(7), nullable=False, index=True)  # YYYY-MM
+
+    # Datos crudos del response de AFIP SDK
+    cuit_agente = Column(String(13), index=True)             # cuitAgenteRetencion
+    impuesto_retenido = Column(Integer)                      # 217=IVA, 11=Ganancias(ret), 10=Ganancias(perc), 767=BP
+    codigo_regimen = Column(Integer)                         # p.ej. 596
+    tipo_operacion = Column(String(20))                      # PERCEPCION / RETENCION
+    fecha_retencion = Column(Date, nullable=False, index=True)
+    fecha_comprobante = Column(Date)
+    importe = Column(Float, nullable=False)
+    numero_certificado = Column(String(50))
+    numero_comprobante = Column(String(50))
+    descripcion_comprobante = Column(String(100))
+
+    # Clasificacion
+    codigo_holistor = Column(String(10))                     # PIVC / PGAN / PIBA / OTRO
+
+    # Trazabilidad del job AFIP SDK que trajo este registro
+    sdk_job_id = Column(String(64))
+    synced_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    client = relationship("Client", back_populates="retenciones_percepciones")
+    # FK hacia el comprobante cruzado (se llena por el endpoint /retenciones/cruce)
+    comprobante_id = Column(Integer, ForeignKey("comprobantes_recibidos.id"), nullable=True)
+    comprobante = relationship("ComprobanteRecibido", back_populates="retenciones", foreign_keys=[comprobante_id])
+
+
+class ComprobanteRecibido(Base):
+    """Comprobantes recibidos por un cliente (Mis Comprobantes de ARCA, t=R).
+
+    Alimentado por la automatizacion `mis-comprobantes` via AFIP SDK.
+    Clave para R-05: cruzar con RetencionPercepcion por cuit_emisor+fecha+importe.
+    """
+    __tablename__ = "comprobantes_recibidos"
+
+    id = Column(Integer, primary_key=True, index=True)
+    client_id = Column(Integer, ForeignKey("clients.id", ondelete="CASCADE"), nullable=False, index=True)
+    period = Column(String(7), nullable=False, index=True)  # YYYY-MM
+
+    # Campos crudos normalizados del response AFIP SDK
+    fecha_emision = Column(Date, nullable=False, index=True)
+    tipo_comprobante = Column(String(5))                   # "1", "6", "11"...
+    punto_venta = Column(String(5))
+    numero_desde = Column(String(20))
+    numero_hasta = Column(String(20))
+    cod_autorizacion = Column(String(20), index=True)       # CAE
+    # Emisor: quien emite la factura y aplica la percepción (= cuit_agente en Mis Retenciones)
+    tipo_doc_emisor = Column(String(5))
+    nro_doc_emisor = Column(String(13), index=True)         # CUIT del emisor/agente
+    denominacion_emisor = Column(String(200))
+    # Receptor: nuestro cliente (El Alba)
+    tipo_doc_receptor = Column(String(5))
+    nro_doc_receptor = Column(String(13), index=True)
+    moneda = Column(String(5), default="PES")
+    tipo_cambio = Column(Float, default=1.0)
+    imp_neto_gravado = Column(Float, default=0)
+    imp_neto_no_gravado = Column(Float, default=0)
+    imp_op_exentas = Column(Float, default=0)
+    otros_tributos = Column(Float, default=0)               # col AB Holistor — a cruzar
+    iva = Column(Float, default=0)                          # Total IVA (suma de alicuotas)
+    imp_total = Column(Float, default=0)
+
+    # Trazabilidad
+    sdk_job_id = Column(String(64))
+    synced_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    client = relationship("Client", back_populates="comprobantes_recibidos")
+    retenciones = relationship("RetencionPercepcion", back_populates="comprobante",
+                               foreign_keys="RetencionPercepcion.comprobante_id")
 
 
 class ActionLog(Base):

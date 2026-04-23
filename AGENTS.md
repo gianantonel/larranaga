@@ -70,6 +70,35 @@ Persiste en `backend/afip_certs/{CUIT}-{dev|prod}.(cert|key)`. **No commitear**.
 
 `--what`: `sales-points | voucher-types | document-types | currencies | aliquots | concepts | taxes`.
 
+### Automatizaciones (Mis Retenciones) — scraping con clave fiscal
+
+Las *automatizaciones* de app.afipsdk.com usan la clave fiscal (no cert/key) para scrapear portales ARCA. Wrapper genérico en `backend/app/afip_sdk/automations.py` (`run_automation(ctx, name, params, wait)` + `save_raw(...)` → `backend/afip_raw/{cuit}/{automation}/{period}.json`).
+
+CLI Mis Retenciones (R-05):
+
+```powershell
+.venv\Scripts\python -m app.afip_sdk.retenciones --client-id 12 --prod --period 2025-12 --impuesto 217 --descripcion-impuesto IVA
+```
+
+Parámetros documentados por app.afipsdk.com (`mis-retenciones`):
+
+- `mode="filter"` requiere `filters.{descripcionImpuesto, fechaRetencionDesde, fechaRetencionHasta, impuestoRetenido, tipoImpuesto, percepciones, retenciones}`.
+- `mode="preset"` con `preset` ∈ `{percepcion-ganancias, percepcion-bienes-personales, retencion-ganancias}` — **no cubre IVA** (consultarlo siempre por filter).
+- `page` arranca en **0**, `size` recomendado 100.
+
+Códigos AFIP relevantes (`impuestoRetenido`):
+
+| Código | Impuesto | Mapeo Holistor (col AR) |
+|---|---|---|
+| 217 | IVA – Percepciones/Retenciones | `PIVC` |
+| 11 | Ganancias – Retención | `PGAN` |
+| 10 | Ganancias – Percepción | `PGAN` |
+| 767 | Bienes Personales | `OTRO` |
+
+Response: `data.rows[]` con `cuitAgenteRetencion, impuestoRetenido, codigoRegimen, fechaRetencion, importeRetenido, numeroComprobante, descripcionOperacion`.
+
+**Nota El Alba**: sin movimientos de retenciones en 2021–2024. Demo actual: **período 2025-12** (7 percepciones IVA, agente 30500012516, total $8.045,13).
+
 ### Agregar un nuevo script de operación AFIP
 
 1. Crear `backend/app/afip_sdk/<nombre>.py`.

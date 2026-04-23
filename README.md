@@ -34,12 +34,17 @@ larranaga/
 │   │       ├── tasks.py          # CRUD tareas + subtareas
 │   │       ├── iva.py            # Balance IVA, presentación DDJJ
 │   │       ├── facturas.py       # Comprobantes electrónicos
+│   │       ├── retenciones.py    # Retenciones/percepciones (Mis Retenciones ARCA)
+│   │       ├── comprobantes.py   # Comprobantes recibidos + cruce + export CSV Holistor
 │   │       └── dashboard.py      # Stats, timeline, gráficos
 │   │   └── afip_sdk/             # Integración AFIP vía app.afipsdk.com (afip.py)
 │   │       ├── client.py         # load_context(): arma Afip() con cert/key persistido
 │   │       ├── bootstrap.py      # createCert + createWSAuth por CUIT/entorno
 │   │       ├── smoke_test.py     # FEDummy + último comprobante + detalle
-│   │       └── info.py           # FEParamGet* (ptos de venta, tipos, alícuotas, etc.)
+│   │       ├── info.py           # FEParamGet* (ptos de venta, tipos, alícuotas, etc.)
+│   │       ├── automations.py    # run_automation() + save_raw() — wrapper genérico
+│   │       ├── retenciones.py    # CLI mis-retenciones + clasificador impuesto→Holistor
+│   │       └── comprobantes.py   # CLI mis-comprobantes (t=R) + parser + period_to_fechas
 │   ├── scripts/
 │   │   └── create_client.py      # Alta de clientes vía API desde CLI
 │   ├── afip_certs/               # PEMs generados por CUIT+entorno (NO commitear)
@@ -57,16 +62,19 @@ larranaga/
 │   │   │   └── helpers.js        # Formateadores, configs de badges y colores
 │   │   ├── components/
 │   │   │   ├── Layout/           # Sidebar, Layout wrapper
-│   │   │   └── UI/               # Badge, StatCard, PageHeader, LoadingSpinner
+│   │   │   ├── UI/               # Badge, StatCard, PageHeader, LoadingSpinner
+│   │   │   ├── RetencionesPanel.jsx  # Panel reutilizable: form + tabla + chips Holistor
+│   │   │   └── CrucePanel.jsx    # Cruce Retenciones↔Comprobantes + KPIs + export CSV
 │   │   └── pages/
 │   │       ├── Login.jsx
 │   │       ├── Dashboard.jsx     # KPIs + 4 gráficos + tabla rendimiento
 │   │       ├── Clients.jsx       # Listado + creación de clientes
-│   │       ├── ClientDetail.jsx  # Detalle cliente: IVA, facturas, tareas, credenciales
+│   │       ├── ClientDetail.jsx  # Detalle cliente: IVA, facturas, tareas, retenciones
 │   │       ├── Collaborators.jsx # Cards con pie charts y stats por colaborador
-│   │       ├── Tasks.jsx         # Tareas expandibles con subtareas tick-able
+│   │       ├── Tasks.jsx         # Tareas expandibles con subtareas + panel retenciones
 │   │       ├── IVA.jsx           # Balance IVA + gráfico + acción "Presentar"
-│   │       └── Facturas.jsx      # Historial + emisión de comprobantes
+│   │       ├── Facturas.jsx      # Historial + emisión de comprobantes
+│   │       └── Retenciones.jsx   # Página /retenciones: selector cliente + RetencionesPanel
 │   ├── package.json
 │   ├── vite.config.js            # Proxy /api → localhost:8000
 │   └── tailwind.config.js
@@ -237,6 +245,25 @@ npm run dev
 - Filtros por cliente y tipo de comprobante
 - Trazabilidad: cada factura registra qué colaborador la emitió
 
+### Retenciones y Percepciones *(R-05)*
+- Consulta **Mis Retenciones ARCA** por cliente y período via automation AFIP SDK (scraping con clave fiscal)
+- Impuestos soportados: IVA (217), Ganancias retención (11), Ganancias percepción (10), Bienes Personales (767)
+- Clasificación automática a código Holistor: `PIVC` (IVA), `PGAN` (Ganancias), `PIBA`/`PIBC`/`PIBR` (IIBB), `PCOM`, `SELL`, `OTRO`
+- Sync idempotente: no duplica registros al re-consultar el mismo período
+- Chips resumen por código Holistor con conteo y total
+- **Tres puntos de acceso**: página `/retenciones` (selector cliente), tab en ficha de cliente, panel embebido en tareas `ddjj_iva`
+- Validado end-to-end: El Alba S.R.L. 2025-12 → 7 percepciones IVA, total $8.045,13
+
+### Cruce Retenciones ↔ Comprobantes *(R-05 — Holistor export)*
+- Descarga **Mis Comprobantes Recibidos** (`t=R`) desde ARCA para el mismo período
+- Sync idempotente por `cod_autorizacion` o `(tipo, numero_desde, nro_doc_emisor)`
+- **Cruce automático**: `cuit_agente` (retención) == `nro_doc_emisor` (comprobante) + fecha ±5 días
+- Niveles de match: `exact` (misma fecha), `approx` (±5 días), `none` (sin comprobante)
+- Persiste FK `comprobante_id` en cada retención cruzada
+- KPIs visuales: total / cruzadas (verde) / sin cruce (rojo)
+- **Export CSV Holistor**: columna AB (`codigo_holistor`) + todos los campos requeridos, UTF-8-BOM para Excel
+- Alerta explicativa cuando hay retenciones sin comprobante (agentes que no emiten FC electrónica en ARCA)
+
 ### Seguridad
 - **Contraseñas**: hasheadas con bcrypt (sin posibilidad de reversión)
 - **Clave fiscal ARCA**: cifrada con Fernet (AES 128 en modo CBC), clave maestra en `.env`
@@ -314,6 +341,17 @@ GET   /iva/summary/{client_id} → Resumen IVA de un cliente
 
 GET   /facturas                → Listado facturas (con filtros)
 POST  /facturas                → Emitir comprobante
+
+POST  /retenciones/sync        → Consultar ARCA y persistir retenciones/percepciones
+GET   /retenciones             → Listar registros (filtros: client_id, period, codigo_holistor)
+GET   /retenciones/summary/{id} → Resumen por código Holistor para un cliente
+DELETE /retenciones/{id}       → Eliminar un registro
+
+POST  /comprobantes/sync       → Descargar Mis Comprobantes Recibidos (t=R) y persistir
+GET   /comprobantes            → Listar comprobantes (filtros: client_id, period)
+GET   /comprobantes/cruce      → Cruzar retenciones↔comprobantes; persiste FK comprobante_id
+GET   /comprobantes/export-holistor → CSV Holistor (col AB = codigo_holistor), UTF-8-BOM
+DELETE /comprobantes/{id}      → Eliminar un comprobante
 
 GET   /dashboard/stats         → KPIs generales
 GET   /dashboard/collaborator-stats → Stats por colaborador

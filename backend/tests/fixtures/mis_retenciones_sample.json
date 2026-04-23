@@ -1,0 +1,44 @@
+{
+  "id": "job-ret-fixture-001",
+  "status": "complete",
+  "data": {
+    "rows": [
+      {
+        "CUIT Agente de Retención/Percepción": "30500012516",
+        "Impuesto": "217",
+        "Código de Régimen": "596",
+        "Tipo de Operación": "PERCEPCION",
+        "Fecha de Retención/Percepción": "01/12/2025",
+        "Fecha Comprobante": "01/12/2025",
+        "Importe de la Retención/Percepción": "843,90",
+        "Número de Comprobante": "0000000001179496",
+        "Número de Certificado": "",
+        "Descripción Comprobante": ""
+      },
+      {
+        "CUIT Agente de Retención/Percepción": "30500012516",
+        "Impuesto": "11",
+        "Código de Régimen": "798",
+        "Tipo de Operación": "RETENCION",
+        "Fecha de Retención/Percepción": "10/12/2025",
+        "Fecha Comprobante": "10/12/2025",
+        "Importe de la Retención/Percepción": "1500,00",
+        "Número de Comprobante": "0000000009876543",
+        "Número de Certificado": "",
+        "Descripción Comprobante": ""
+      },
+      {
+        "CUIT Agente de Retención/Percepción": "20999999999",
+        "Impuesto": "902",
+        "Código de Régimen": "902",
+        "Tipo de Operación": "PERCEPCION",
+        "Fecha de Retención/Percepción": "05/12/2025",
+        "Fecha Comprobante": "05/12/2025",
+        "Importe de la Retención/Percepción": "250,75",
+        "Número de Comprobante": "0000000005551234",
+        "Número de Certificado": "",
+        "Descripción Comprobante": ""
+      }
+    ]
+  }
+}
