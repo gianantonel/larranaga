@@ -233,6 +233,7 @@ export default function ClientDetail() {
                 ))}
               </tbody>
             </table>
+            </div>
           </div>
         )}
 
@@ -271,6 +272,7 @@ export default function ClientDetail() {
                 ))}
               </tbody>
             </table>
+            </div>
           </div>
         )}
 
@@ -308,6 +310,7 @@ export default function ClientDetail() {
                 ))}
               </tbody>
             </table>
+            </div>
           </div>
         )}
       </div>
