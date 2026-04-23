@@ -34,7 +34,20 @@ larranaga/
 │   │       ├── tasks.py          # CRUD tareas + subtareas
 │   │       ├── iva.py            # Balance IVA, presentación DDJJ
 │   │       ├── facturas.py       # Comprobantes electrónicos
+│   │       ├── retenciones.py    # Retenciones/percepciones (Mis Retenciones ARCA)
+│   │       ├── comprobantes.py   # Comprobantes recibidos + cruce + export CSV Holistor
 │   │       └── dashboard.py      # Stats, timeline, gráficos
+│   │   └── afip_sdk/             # Integración AFIP vía app.afipsdk.com (afip.py)
+│   │       ├── client.py         # load_context(): arma Afip() con cert/key persistido
+│   │       ├── bootstrap.py      # createCert + createWSAuth por CUIT/entorno
+│   │       ├── smoke_test.py     # FEDummy + último comprobante + detalle
+│   │       ├── info.py           # FEParamGet* (ptos de venta, tipos, alícuotas, etc.)
+│   │       ├── automations.py    # run_automation() + save_raw() — wrapper genérico
+│   │       ├── retenciones.py    # CLI mis-retenciones + clasificador impuesto→Holistor
+│   │       └── comprobantes.py   # CLI mis-comprobantes (t=R) + parser + period_to_fechas
+│   ├── scripts/
+│   │   └── create_client.py      # Alta de clientes vía API desde CLI
+│   ├── afip_certs/               # PEMs generados por CUIT+entorno (NO commitear)
 │   ├── requirements.txt
 │   └── .env                      # Variables de entorno (no commitear en prod)
 │
@@ -49,16 +62,19 @@ larranaga/
 │   │   │   └── helpers.js        # Formateadores, configs de badges y colores
 │   │   ├── components/
 │   │   │   ├── Layout/           # Sidebar, Layout wrapper
-│   │   │   └── UI/               # Badge, StatCard, PageHeader, LoadingSpinner
+│   │   │   ├── UI/               # Badge, StatCard, PageHeader, LoadingSpinner
+│   │   │   ├── RetencionesPanel.jsx  # Panel reutilizable: form + tabla + chips Holistor
+│   │   │   └── CrucePanel.jsx    # Cruce Retenciones↔Comprobantes + KPIs + export CSV
 │   │   └── pages/
 │   │       ├── Login.jsx
 │   │       ├── Dashboard.jsx     # KPIs + 4 gráficos + tabla rendimiento
 │   │       ├── Clients.jsx       # Listado + creación de clientes
-│   │       ├── ClientDetail.jsx  # Detalle cliente: IVA, facturas, tareas, credenciales
+│   │       ├── ClientDetail.jsx  # Detalle cliente: IVA, facturas, tareas, retenciones
 │   │       ├── Collaborators.jsx # Cards con pie charts y stats por colaborador
-│   │       ├── Tasks.jsx         # Tareas expandibles con subtareas tick-able
+│   │       ├── Tasks.jsx         # Tareas expandibles con subtareas + panel retenciones
 │   │       ├── IVA.jsx           # Balance IVA + gráfico + acción "Presentar"
-│   │       └── Facturas.jsx      # Historial + emisión de comprobantes
+│   │       ├── Facturas.jsx      # Historial + emisión de comprobantes
+│   │       └── Retenciones.jsx   # Página /retenciones: selector cliente + RetencionesPanel
 │   ├── package.json
 │   ├── vite.config.js            # Proxy /api → localhost:8000
 │   └── tailwind.config.js
@@ -228,6 +244,25 @@ npm run dev
 - Gráfico de barras de facturación mensual por monto y cantidad
 - Filtros por cliente y tipo de comprobante
 - Trazabilidad: cada factura registra qué colaborador la emitió
+
+### Retenciones y Percepciones *(R-05)*
+- Consulta **Mis Retenciones ARCA** por cliente y período via automation AFIP SDK (scraping con clave fiscal)
+- Impuestos soportados: IVA (217), Ganancias retención (11), Ganancias percepción (10), Bienes Personales (767)
+- Clasificación automática a código Holistor: `PIVC` (IVA), `PGAN` (Ganancias), `PIBA`/`PIBC`/`PIBR` (IIBB), `PCOM`, `SELL`, `OTRO`
+- Sync idempotente: no duplica registros al re-consultar el mismo período
+- Chips resumen por código Holistor con conteo y total
+- **Tres puntos de acceso**: página `/retenciones` (selector cliente), tab en ficha de cliente, panel embebido en tareas `ddjj_iva`
+- Validado end-to-end: El Alba S.R.L. 2025-12 → 7 percepciones IVA, total $8.045,13
+
+### Cruce Retenciones ↔ Comprobantes *(R-05 — Holistor export)*
+- Descarga **Mis Comprobantes Recibidos** (`t=R`) desde ARCA para el mismo período
+- Sync idempotente por `cod_autorizacion` o `(tipo, numero_desde, nro_doc_emisor)`
+- **Cruce automático**: `cuit_agente` (retención) == `nro_doc_emisor` (comprobante) + fecha ±5 días
+- Niveles de match: `exact` (misma fecha), `approx` (±5 días), `none` (sin comprobante)
+- Persiste FK `comprobante_id` en cada retención cruzada
+- KPIs visuales: total / cruzadas (verde) / sin cruce (rojo)
+- **Export CSV Holistor**: columna AB (`codigo_holistor`) + todos los campos requeridos, UTF-8-BOM para Excel
+- Alerta explicativa cuando hay retenciones sin comprobante (agentes que no emiten FC electrónica en ARCA)
 
 ### Seguridad
 - **Contraseñas**: hasheadas con bcrypt (sin posibilidad de reversión)
@@ -416,13 +451,18 @@ La base de datos se puebla automáticamente al primer arranque con:
 ## Variables de entorno (backend/.env)
 
 ```env
-SECRET_KEY=           # Clave para firmar JWT (cambiar en producción)
+SECRET_KEY=                     # Clave para firmar JWT (cambiar en producción)
 ALGORITHM=HS256
 ACCESS_TOKEN_EXPIRE_MINUTES=480
+
+ENCRYPTION_KEY=                 # Clave Fernet base64 para cifrar credenciales ARCA
 ENCRYPTION_KEYS=      # Claves Fernet (CSV, más nueva primero) para credenciales ARCA
 ENCRYPTION_KEY=       # [legacy] soportada como fallback si ENCRYPTION_KEYS no está definida
 DATABASE_URL=sqlite:///./larranaga.db
+AFIP_SDK_ACCESS_TOKEN=          # Token de la cuenta en app.afipsdk.com (ver sección AFIP SDK)
 ```
+
+> ⚠️ La variable **debe llamarse `ENCRYPTION_KEY`** (singular). Si se escribe `ENCRYPTION_KEYS`, `app/security.py` no la encuentra y cae a una clave Fernet random en cada arranque, rompiendo las credenciales ya cifradas.
 
 Para generar una clave Fernet nueva:
 ```python
@@ -463,6 +503,17 @@ GET   /iva/summary/{client_id} → Resumen IVA de un cliente
 GET   /facturas                → Listado facturas (con filtros)
 POST  /facturas                → Emitir comprobante
 
+POST  /retenciones/sync        → Consultar ARCA y persistir retenciones/percepciones
+GET   /retenciones             → Listar registros (filtros: client_id, period, codigo_holistor)
+GET   /retenciones/summary/{id} → Resumen por código Holistor para un cliente
+DELETE /retenciones/{id}       → Eliminar un registro
+
+POST  /comprobantes/sync       → Descargar Mis Comprobantes Recibidos (t=R) y persistir
+GET   /comprobantes            → Listar comprobantes (filtros: client_id, period)
+GET   /comprobantes/cruce      → Cruzar retenciones↔comprobantes; persiste FK comprobante_id
+GET   /comprobantes/export-holistor → CSV Holistor (col AB = codigo_holistor), UTF-8-BOM
+DELETE /comprobantes/{id}      → Eliminar un comprobante
+
 GET   /dashboard/stats         → KPIs generales
 GET   /dashboard/collaborator-stats → Stats por colaborador
 GET   /dashboard/timeline      → Log de acciones recientes
@@ -470,6 +521,119 @@ GET   /dashboard/monthly-activity  → Actividad mensual agregada
 GET   /dashboard/tasks-by-type     → Tareas agrupadas por tipo
 GET   /dashboard/iva-overview      → Resumen IVA por cliente
 ```
+
+---
+
+## Integración AFIP SDK (`app.afipsdk.com`)
+
+El backend se conecta a AFIP (ARCA) a través del servicio externo **app.afipsdk.com**, que gestiona el ciclo de vida del certificado X.509 de cada CUIT. Se usa la librería `afip.py==1.2.0`. Alternativa no implementada: WSAA directo con cert propio.
+
+### 1. Login / obtener access token
+
+1. Crear cuenta en https://app.afipsdk.com
+2. En el panel, sección *Access Tokens*, generar un token. Identifica a **tu cuenta** (no a un CUIT puntual).
+3. Guardarlo en `backend/.env`:
+
+```env
+AFIP_SDK_ACCESS_TOKEN=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+```
+
+### 2. Alta del CUIT en el sistema
+
+Para que el SDK pueda generar un certificado necesita la **clave fiscal** del CUIT (AFIP la valida contra `auth.afip.gob.ar`).
+
+```bash
+cd backend
+
+# Crear cliente (usa POST /clients/ con login admin)
+.venv\Scripts\python -m scripts.create_client ^
+  --name "Agropecuaria El Alba S.R.L." ^
+  --cuit "23-31134894-9" ^
+  --clave-fiscal "MI_CLAVE_FISCAL" ^
+  --fiscal-condition "Responsable Inscripto"
+```
+
+La clave queda cifrada con Fernet en la columna `clients.clave_fiscal_encrypted`. También se puede cargar/actualizar por `PUT /clients/{id}` con `{"clave_fiscal": "..."}`.
+
+### 3. Bootstrap: certificado + autorización de web service
+
+One-time por cada **(CUIT, entorno)**. Homologación y producción son independientes.
+
+```bash
+# Homologación
+.venv\Scripts\python -m app.afip_sdk.bootstrap --client-id 12
+
+# Producción
+.venv\Scripts\python -m app.afip_sdk.bootstrap --client-id 12 --prod
+```
+
+Qué hace:
+1. `createCert` en app.afipsdk.com → genera cert X.509 y clave privada para ese CUIT.
+2. Guarda los PEMs en `backend/afip_certs/{CUIT}-{dev|prod}.(cert|key)` (en binario con LF para evitar corrupción ASN.1 en Windows).
+3. `createWSAuth` → registra el WSID `wsfe` (factura electrónica) contra ese cert.
+
+Flags útiles:
+- `--skip-cert` → solo registra WSAuth (si el cert ya existe)
+- `--skip-wsauth` → solo genera cert (útil para re-persistir si se borró del disco)
+- `--wsid wsmtxca` → registrar otro web service (default: `wsfe`)
+- `--alias nombre` → etiqueta del cert en el panel de app.afipsdk.com (default: `larranaga`)
+
+> ⚠️ **`backend/afip_certs/` contiene claves privadas.** Debe estar gitignoreado.
+
+### 4. Smoke test
+
+Valida FEDummy + FECompUltimoAutorizado + FECompConsultar de punta a punta.
+
+```bash
+# Homologación, pto vta 1, Factura C (default)
+.venv\Scripts\python -m app.afip_sdk.smoke_test --client-id 12
+
+# Producción, pto vta 6, Factura A
+.venv\Scripts\python -m app.afip_sdk.smoke_test --client-id 12 --prod --punto-venta 6 --tipo-cbte 1
+```
+
+Salida esperada en producción con datos reales:
+```
+[1/3] FEDummy (healthcheck)...
+  -> {'AppServer': 'OK', 'DbServer': 'OK', 'AuthServer': 'OK'}
+[2/3] FECompUltimoAutorizado (pto=6, tipo=1)...
+  -> ultimo numero autorizado: 41
+[3/3] FECompConsultar (numero=41)...
+  CbteFch: 20260413
+  ImpTotal: 12100000
+  CodAutorizacion: 86151427323266
+  ...
+```
+
+### 5. Consultas informativas
+
+Útil para averiguar qué puntos de venta tiene habilitados un CUIT, qué tipos de comprobante emite, etc.
+
+```bash
+.venv\Scripts\python -m app.afip_sdk.info --client-id 12 --prod --what sales-points
+```
+
+Valores de `--what`: `sales-points`, `voucher-types`, `document-types`, `currencies`, `aliquots`, `concepts`, `taxes`.
+
+### Tipos de comprobante más usados
+
+| Código | Tipo |
+|---|---|
+| 1 | Factura A |
+| 6 | Factura B |
+| 11 | Factura C |
+| 51 | Factura M |
+| 19 | Factura E (exportación) |
+
+### Errores comunes
+
+| Síntoma | Causa probable | Solución |
+|---|---|---|
+| `El campo Certificado es obligatorio` | El cert no está en `afip_certs/` para ese CUIT+entorno | Correr `bootstrap` |
+| `Too few bytes to read ASN.1 value` | PEM escrito con CRLF (Windows) | `client.py` ya lo normaliza a LF; re-correr bootstrap |
+| `(11002) El punto de venta no se encuentra habilitado` | El PV que pasaste no está registrado en AFIP para ese CUIT/WS | `info --what sales-points` para ver los válidos |
+| `createCert` da `already exists` | El alias ya está tomado en app.afipsdk.com | Usar `--alias otro` o saltear con `--skip-cert` |
+| `InvalidToken` al descifrar clave fiscal | La Fernet key del `.env` cambió desde que se cifró | Re-cargar la clave fiscal con `PUT /clients/{id}` |
 
 ---
 

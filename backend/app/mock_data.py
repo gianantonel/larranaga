@@ -490,6 +490,8 @@ def seed_database():
     db.commit()
 
     db.close()
+
+    print("[OK] Base de datos poblada correctamente con datos de prueba.")
     print("OK - Base de datos poblada correctamente con datos de prueba.")
     print("  Administradores (contraseña: admin123):")
     print("    admin1@larranaga.com")

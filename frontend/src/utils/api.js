@@ -95,6 +95,25 @@ export const createFactura = (data) => api.post('/facturas/', data)
 export const getFacturaSummary = (clientId, year) =>
   api.get(`/facturas/summary/${clientId}`, { params: { year } })
 
+
+// ─── Retenciones / Percepciones (Mis Retenciones ARCA) ───────────────────────
+export const syncRetenciones = (data) => api.post('/retenciones/sync', data)
+export const getRetenciones = (params) => api.get('/retenciones/', { params })
+export const getRetencionesSummary = (clientId, period) =>
+  api.get(`/retenciones/summary/${clientId}`, { params: { period } })
+export const deleteRetencion = (id) => api.delete(`/retenciones/${id}`)
+
+// ─── Comprobantes Recibidos + Cruce (R-05) ───────────────────────────────────
+export const syncComprobantes = (data) => api.post('/comprobantes/sync', data)
+export const getComprobantes = (params) => api.get('/comprobantes/', { params })
+export const getCruce = (clientId, period) =>
+  api.get('/comprobantes/cruce', { params: { client_id: clientId, period } })
+export const exportHolistor = (clientId, period) =>
+  api.get('/comprobantes/export-holistor', {
+    params: { client_id: clientId, period },
+    responseType: 'blob',
+  })
+export const deleteComprobante = (id) => api.delete(`/comprobantes/${id}`)
 // ─── Cuentas Corrientes ───────────────────────────────────────────────────────
 export const getMovimientosCC = (clientId) => api.get(`/cuentas-corrientes/client/${clientId}`)
 export const getSaldoCC = (clientId) => api.get(`/cuentas-corrientes/client/${clientId}/saldo`)
