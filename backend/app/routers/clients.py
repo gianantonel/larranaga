@@ -50,6 +50,19 @@ def list_clients(
             task_counts[row.client_id] += 1
             if row.status == models.TaskStatus.pendiente:
                 pending_counts[row.client_id] += 1
+                
+        # Calculate saldo_cc
+        movimientos = (
+            db.query(models.MovimientoCuentaCorriente.client_id, models.MovimientoCuentaCorriente.tipo, models.MovimientoCuentaCorriente.monto)
+            .filter(models.MovimientoCuentaCorriente.client_id.in_(client_ids))
+            .all()
+        )
+        saldos = defaultdict(float)
+        for mov in movimientos:
+            if mov.tipo.lower() == 'ingreso':
+                saldos[mov.client_id] += mov.monto
+            else:
+                saldos[mov.client_id] -= mov.monto
 
     result = []
     for client in clients:
@@ -63,6 +76,7 @@ def list_clients(
         ]
         client_dict['task_count'] = task_counts.get(client.id, 0)
         client_dict['pending_tasks'] = pending_counts.get(client.id, 0)
+        client_dict['saldo_cc'] = saldos.get(client.id, 0.0) if client_ids else 0.0
         result.append(schemas.ClientOut.model_validate(client_dict))
     return result
 
@@ -92,6 +106,17 @@ def get_client(
     ]
     out.task_count = len(client.tasks)
     out.pending_tasks = sum(1 for t in client.tasks if t.status == models.TaskStatus.pendiente)
+    
+    # Calculate saldo_cc
+    movimientos = db.query(models.MovimientoCuentaCorriente).filter(models.MovimientoCuentaCorriente.client_id == client_id).all()
+    saldo = 0.0
+    for mov in movimientos:
+        if mov.tipo.lower() == 'ingreso':
+            saldo += mov.monto
+        else:
+            saldo -= mov.monto
+    out.saldo_cc = saldo
+    
     return out
 
 
@@ -222,11 +247,27 @@ def get_credentials(
     if not client:
         raise HTTPException(status_code=404, detail="Cliente no encontrado")
 
+    if current_user.role == models.UserRole.collaborator:
+        assigned = db.query(models.ClientCollaborator).filter(
+            models.ClientCollaborator.client_id == client_id,
+            models.ClientCollaborator.collaborator_id == current_user.id,
+        ).first()
+        if not assigned:
+            raise HTTPException(status_code=403, detail="Sin acceso a las credenciales de este cliente")
+
     clave = None
     if client.clave_fiscal_encrypted:
         try:
             clave = decrypt_credential(client.clave_fiscal_encrypted)
         except Exception:
             clave = None
+
+    db.add(models.ActionLog(
+        user_id=current_user.id,
+        client_id=client.id,
+        action_type="credentials_accessed",
+        description=f"{current_user.email} leyó las credenciales de {client.name}",
+    ))
+    db.commit()
 
     return schemas.ClientCredentials(cuit=client.cuit, clave_fiscal=clave)

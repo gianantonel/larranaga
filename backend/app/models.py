@@ -85,6 +85,7 @@ class Client(Base):
     retenciones_percepciones = relationship("RetencionPercepcion", back_populates="client", cascade="all, delete-orphan")
     comprobantes_recibidos = relationship("ComprobanteRecibido", back_populates="client", cascade="all, delete-orphan")
     action_logs = relationship("ActionLog", back_populates="client")
+
     limpiezas_iva = relationship("LimpiezaIVA", back_populates="client")
 
 
@@ -104,6 +105,8 @@ class LimpiezaIVA(Base):
 
     client = relationship("Client", back_populates="limpiezas_iva")
     user   = relationship("User")
+    movimientos_cc = relationship("MovimientoCuentaCorriente", back_populates="client", cascade="all, delete-orphan")
+
 
 
 class ClientCollaborator(Base):
@@ -328,3 +331,18 @@ class ActionLog(Base):
     user = relationship("User", back_populates="action_logs")
     client = relationship("Client", back_populates="action_logs")
     task = relationship("Task", back_populates="action_logs")
+
+
+class MovimientoCuentaCorriente(Base):
+    __tablename__ = "movimientos_cc"
+
+    id = Column(Integer, primary_key=True, index=True)
+    client_id = Column(Integer, ForeignKey("clients.id", ondelete="CASCADE"), nullable=False)
+    tipo = Column(String(20), nullable=False) # 'ingreso' or 'egreso'
+    monto = Column(Float, nullable=False)
+    concepto = Column(String(255), nullable=False)
+    fecha = Column(Date, nullable=False)
+    notas = Column(Text)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    client = relationship("Client", back_populates="movimientos_cc")

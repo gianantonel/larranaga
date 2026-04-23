@@ -104,6 +104,7 @@ class ClientOut(BaseModel):
     collaborators: List[CollaboratorBrief] = []
     task_count: Optional[int] = 0
     pending_tasks: Optional[int] = 0
+    saldo_cc: Optional[float] = 0.0
 
     class Config:
         from_attributes = True
@@ -307,6 +308,7 @@ class IngresosBrutosOut(BaseModel):
         from_attributes = True
 
 
+
 # ─── Retenciones / Percepciones (Mis Retenciones ARCA) ──────────────────────
 
 class RetencionSyncRequest(BaseModel):
@@ -335,9 +337,30 @@ class RetencionPercepcionOut(BaseModel):
     codigo_holistor: Optional[str] = None
     sdk_job_id: Optional[str] = None
     synced_at: Optional[datetime] = None
+# ─── Cuentas Corrientes ──────────────────────────────────────────────────────
+
+class MovimientoCCCreate(BaseModel):
+    client_id: int
+    tipo: str  # 'ingreso' or 'egreso'
+    monto: float
+    concepto: str
+    fecha: date
+    notas: Optional[str] = None
+
+
+class MovimientoCCOut(BaseModel):
+    id: int
+    client_id: int
+    tipo: str
+    monto: float
+    concepto: str
+    fecha: date
+    notas: Optional[str] = None
+    created_at: datetime
 
     class Config:
         from_attributes = True
+
 
 
 class RetencionSyncResponse(BaseModel):
