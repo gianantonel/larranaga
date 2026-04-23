@@ -87,6 +87,7 @@ class Client(Base):
     action_logs = relationship("ActionLog", back_populates="client")
 
     limpiezas_iva = relationship("LimpiezaIVA", back_populates="client")
+    movimientos_cc = relationship("MovimientoCuentaCorriente", back_populates="client", cascade="all, delete-orphan")
 
 
 class LimpiezaIVA(Base):
@@ -105,7 +106,6 @@ class LimpiezaIVA(Base):
 
     client = relationship("Client", back_populates="limpiezas_iva")
     user   = relationship("User")
-    movimientos_cc = relationship("MovimientoCuentaCorriente", back_populates="client", cascade="all, delete-orphan")
 
 
 
