@@ -204,7 +204,8 @@ export default function ClientDetail() {
         {/* IVA Table */}
         {activeTab === 'iva' && (
           <div className="card p-0 overflow-hidden">
-            <table className="w-full">
+            <div className="overflow-x-auto">
+              <table className="w-full">
               <thead>
                 <tr className="border-b border-gray-700/60 bg-[#0f172a]/60">
                   <th className="table-header">Período</th>
@@ -238,7 +239,8 @@ export default function ClientDetail() {
         {/* Facturas Table */}
         {activeTab === 'facturas' && (
           <div className="card p-0 overflow-hidden">
-            <table className="w-full">
+            <div className="overflow-x-auto">
+              <table className="w-full">
               <thead>
                 <tr className="border-b border-gray-700/60 bg-[#0f172a]/60">
                   <th className="table-header">Fecha</th>
@@ -279,7 +281,8 @@ export default function ClientDetail() {
 
         {activeTab === 'tareas' && (
           <div className="card p-0 overflow-hidden">
-            <table className="w-full">
+            <div className="overflow-x-auto">
+              <table className="w-full">
               <thead>
                 <tr className="border-b border-gray-700/60 bg-[#0f172a]/60">
                   <th className="table-header">Tarea</th>
