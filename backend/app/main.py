@@ -2,7 +2,9 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from .database import engine
 from . import models
-from .routers import auth, clients, collaborators, tasks, iva, facturas, dashboard
+
+from .routers import auth, clients, collaborators, tasks, iva, facturas, dashboard, retenciones, comprobantes, herramientas
+from .routers import auth, clients, collaborators, tasks, iva, facturas, dashboard, cuentas_corrientes
 from .mock_data import seed_database
 
 # Create tables
@@ -31,6 +33,11 @@ app.include_router(tasks.router)
 app.include_router(iva.router)
 app.include_router(facturas.router)
 app.include_router(dashboard.router)
+
+app.include_router(retenciones.router)
+app.include_router(comprobantes.router)
+app.include_router(herramientas.router)
+app.include_router(cuentas_corrientes.router)
 
 
 @app.on_event("startup")

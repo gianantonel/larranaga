@@ -1,10 +1,21 @@
 # Python
 backend/.venv/
-**/__pycache__/
-*.pyc
-backend/*.db
+__pycache__/
+*.py[cod]
+backend/*.db-shm
+backend/*.db-wal
 backend/*.sqlite
 backend/.env
+
+# AFIP SDK — certificados y claves privadas por CUIT/entorno
+backend/afip_certs/
+
+# Claude Code — solo el settings local (el resto, incluidos skills, se versiona)
+.claude/settings.local.json
+.claude.rar
+
+# AFIP SDK — token de app.afipsdk.com (archivo con el access_token en texto plano)
+AFIP_SDK_ACCESS_TOKEN/
 
 # Node
 frontend/node_modules/
@@ -15,11 +26,3 @@ frontend/.env
 .DS_Store
 Thumbs.db
 *.log
-
-# AFIP SDK secrets
-AFIP_SDK_ACCESS_TOKEN/
-**/Access_Token_Afip_SDK.txt
-Credenciales_Larrañaga.txt
-
-# Claude Code — settings personales
-.claude/settings.local.json

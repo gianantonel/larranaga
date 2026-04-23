@@ -104,6 +104,7 @@ class ClientOut(BaseModel):
     collaborators: List[CollaboratorBrief] = []
     task_count: Optional[int] = 0
     pending_tasks: Optional[int] = 0
+    saldo_cc: Optional[float] = 0.0
 
     class Config:
         from_attributes = True
@@ -305,6 +306,154 @@ class IngresosBrutosOut(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+
+# ─── Retenciones / Percepciones (Mis Retenciones ARCA) ──────────────────────
+
+class RetencionSyncRequest(BaseModel):
+    client_id: int
+    period: str  # YYYY-MM
+    impuesto_retenido: int = 217  # 217=IVA, 11=Gan(ret), 10=Gan(perc), 767=BP
+    descripcion_impuesto: str = "IVA"
+    incluir_percepciones: bool = True
+    incluir_retenciones: bool = True
+
+
+class RetencionPercepcionOut(BaseModel):
+    id: int
+    client_id: int
+    period: str
+    cuit_agente: Optional[str] = None
+    impuesto_retenido: Optional[int] = None
+    codigo_regimen: Optional[int] = None
+    tipo_operacion: Optional[str] = None
+    fecha_retencion: date
+    fecha_comprobante: Optional[date] = None
+    importe: float
+    numero_certificado: Optional[str] = None
+    numero_comprobante: Optional[str] = None
+    descripcion_comprobante: Optional[str] = None
+    codigo_holistor: Optional[str] = None
+    sdk_job_id: Optional[str] = None
+    synced_at: Optional[datetime] = None
+# ─── Cuentas Corrientes ──────────────────────────────────────────────────────
+
+class MovimientoCCCreate(BaseModel):
+    client_id: int
+    tipo: str  # 'ingreso' or 'egreso'
+    monto: float
+    concepto: str
+    fecha: date
+    notas: Optional[str] = None
+
+
+class MovimientoCCOut(BaseModel):
+    id: int
+    client_id: int
+    tipo: str
+    monto: float
+    concepto: str
+    fecha: date
+    notas: Optional[str] = None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+
+class RetencionSyncResponse(BaseModel):
+    client_id: int
+    period: str
+    sdk_job_id: Optional[str] = None
+    status: str  # complete | error
+    total_records: int
+    inserted: int
+    skipped_duplicates: int
+    summary_by_holistor: dict  # {"PIVC": {"count": 7, "total": 8045.13}}
+    records: List[RetencionPercepcionOut]
+
+
+# ─── Comprobantes Recibidos (Mis Comprobantes ARCA, t=R) ─────────────────────
+
+class ComprobanteSyncRequest(BaseModel):
+    client_id: int
+    period: str                    # YYYY-MM
+    tipos_comprobantes: Optional[List[int]] = None  # [1, 6, 11...] — None = todos
+
+
+class ComprobanteRecibidoOut(BaseModel):
+    id: int
+    client_id: int
+    period: str
+    fecha_emision: date
+    tipo_comprobante: Optional[str] = None
+    punto_venta: Optional[str] = None
+    numero_desde: Optional[str] = None
+    numero_hasta: Optional[str] = None
+    cod_autorizacion: Optional[str] = None
+    # Emisor (quien aplica la percepción = cuit_agente en retenciones)
+    nro_doc_emisor: Optional[str] = None
+    denominacion_emisor: Optional[str] = None
+    # Receptor (nuestro cliente)
+    nro_doc_receptor: Optional[str] = None
+    moneda: Optional[str] = None
+    imp_neto_gravado: float = 0
+    imp_neto_no_gravado: float = 0
+    imp_op_exentas: float = 0
+    otros_tributos: float = 0
+    iva: float = 0
+    imp_total: float = 0
+    sdk_job_id: Optional[str] = None
+    synced_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
+class ComprobanteSyncResponse(BaseModel):
+    client_id: int
+    period: str
+    sdk_job_id: Optional[str] = None
+    status: str
+    total_records: int
+    inserted: int
+    skipped_duplicates: int
+    records: List[ComprobanteRecibidoOut]
+
+
+# ─── Cruce Retenciones ↔ Comprobantes ────────────────────────────────────────
+
+class CruceItem(BaseModel):
+    retencion_id: int
+    comprobante_id: Optional[int] = None
+    client_id: int
+    period: str
+    fecha_retencion: date
+    cuit_agente: Optional[str] = None
+    importe_retencion: float
+    codigo_holistor: Optional[str] = None
+    # datos del comprobante cruzado (None si sin match)
+    fecha_emision: Optional[date] = None
+    tipo_comprobante: Optional[str] = None
+    numero_desde: Optional[str] = None
+    denominacion_receptor: Optional[str] = None
+    imp_total: Optional[float] = None
+    otros_tributos_comprobante: Optional[float] = None
+    match_score: Optional[str] = None  # "exact" | "approx" | "none"
+
+    class Config:
+        from_attributes = True
+
+
+class CruceResponse(BaseModel):
+    client_id: int
+    period: str
+    total_retenciones: int
+    matched: int
+    unmatched: int
+    items: List[CruceItem]
 
 
 # ─── Dashboard ───────────────────────────────────────────────────────────────

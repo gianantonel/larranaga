@@ -1,6 +1,111 @@
 ---
 name: afip-sdk-actions
 description: Usar este skill cuando el usuario pida integrar, usar o automatizar algo con AFIP / ARCA / AFIP SDK en el proyecto Larrañaga (estudio contable AGEP). Activar ante pedidos como "emitir factura electrónica", "consultar padrón de un CUIT", "descargar constancia de inscripción", "traer Mis Comprobantes", "Mis Retenciones", "SIPER", "libro IVA digital", "agregar acción AFIP al dashboard del colaborador", "crear endpoint FastAPI que llame a AFIP", "automatizar trámite ARCA con clave fiscal", "usar wsfe / ws_sr_constancia_inscripcion / padrón A4 A5 A13", o cualquier integración con https://app.afipsdk.com. También cuando se deba decidir entre Web Service (certificado) y Automatización (clave fiscal scraping).
+
+version: 2.1.0
+last_updated: 2026-04-22 (R-05 Mis Retenciones validado end-to-end con El Alba 2025-12)
+---
+
+> **Última actualización: 2026-04-22** — Se agregó wrapper genérico de Automatizaciones (`automations.py`) y CLI `retenciones.py` para R-05, validado con Agropecuaria El Alba período 2025-12 (7 percepciones IVA, agente 30500012516, total $8.045,13). Ver secciones **§ 0**, **§ 2.b**, **§ 9** y **§ 12**.
+
+# AFIP SDK Actions — Integración en backend Larrañaga
+
+Guía operativa para agregar acciones que consumen AFIP (ARCA) vía **app.afipsdk.com**. Refleja el estado actual del paquete `backend/app/afip_sdk/` y las convenciones validadas contra AFIP real (confirmado el 2026-04-21 con Agropecuaria El Alba, última Factura A Nro 41, CAE `86151427323266`; y el 2026-04-22 con la automation `mis-retenciones` del mismo CUIT).
+
+Documentación complementaria: [`README.md` § Integración AFIP SDK](../../../README.md), [`AGENTS.md`](../../../AGENTS.md).
+
+---
+
+## 0. Qué ya existe vs qué falta construir
+
+**Hecho y funcionando:**
+- Paquete CLI `backend/app/afip_sdk/` con `client.py` (factory), `bootstrap.py` (alta de cert+WSAuth), `smoke_test.py`, `info.py`.
+- **Wrapper de Automatizaciones** (`automations.py`) + **CLI Mis Retenciones** (`retenciones.py`) — usa clave fiscal, persiste JSON crudo en `backend/afip_raw/{cuit}/{automation}/{period}.json`.
+- Alta de clientes vía CLI (`backend/scripts/create_client.py`) sin pasar por la UI.
+- Persistencia de cert+key en `backend/afip_certs/{CUIT}-{env}.(cert|key)` (gitignoreado).
+- Validación end-to-end en producción contra un CUIT real (Agropecuaria El Alba, CUIT `23311348949`, pto vta 6) — **WS** (Factura A #41, CAE 86151427323266) y **Automatización** (`mis-retenciones` período 2025-12, 7 percepciones IVA).
+
+**Pendiente (construir cuando se pida):**
+- Endpoints FastAPI bajo `/api/afip/...` y `/api/retenciones/...` que expongan las operaciones al frontend.
+- Modelo SQLAlchemy `RetencionPercepcion` + migración (persistir resultados de `mis-retenciones` para cruzar con Mis Comprobantes).
+- Cruce automático Col AB (Otros Tributos) de Mis Comprobantes Recibidos → código Holistor (PIVC/PIBA/PGAN) vía match `(cuit_emisor, fecha, importe)`.
+- Más automatizaciones: `mis-comprobantes`, constancias, SIPER, Libro IVA Digital.
+- Tabla `afip_action_log` para auditoría.
+- Catálogos cacheados en DB (voucher_types, alícuotas, condición IVA receptor, etc.).
+- UI por cliente con botones de acción + polling para jobs async.
+
+---
+
+## 1. Clasificar la acción antes de codear
+
+**Pregunta siempre:** ¿la acción está expuesta como **Web Service SOAP** por ARCA, o solo está en el **portal web** (requiere scraping)?
+
+| Tipo | Autenticación | Cómo se invoca |
+|------|---------------|----------------|
+| **Web Service** (facturación, padrón, MiPyMe, exportación, carta de porte) | CUIT + **cert/key X.509** | Usar el paquete `app.afip_sdk` (via `load_context` → `ctx.afip.ElectronicBilling.*` u otros `ctx.afip.*`) |
+| **Automatización** (constancia PDF, Mis Comprobantes, Mis Retenciones, SIPER, SICORE, Mi Simplificación, DDJJ monotributo, presentación Libro IVA Digital) | CUIT + **clave fiscal** | `afip.createAutomation(...)` (sync o async con `job_id`) o POST REST a `/api/v1/automations` |
+
+Si no está clara la clasificación: dashboard de app.afipsdk.com y/o `https://docs.afipsdk.com/sitemap.md`.
+
+---
+
+## 2. Variables de entorno (`backend/.env`)
+
+```env
+AFIP_SDK_ACCESS_TOKEN=...       # Token de la cuenta en app.afipsdk.com (identifica la cuenta, no un CUIT)
+ENCRYPTION_KEY=...              # Fernet key (singular) para clients.clave_fiscal_encrypted
+```
+
+⚠️ **La variable se llama `ENCRYPTION_KEY` (singular).** Si se escribe `ENCRYPTION_KEYS`, `backend/app/security.py` cae a una Fernet key random por proceso y rompe las credenciales cifradas al reiniciar. Bug histórico ya corregido pero fácil de reintroducir.
+
+El entorno (dev/prod) **no** es una variable global — se pasa por flag `--prod` o argumento `production=True`. Permite que el mismo proceso opere contra homologación y producción según el caso.
+
+Nunca loguear el `AFIP_SDK_ACCESS_TOKEN` ni la clave fiscal. No deben salir del backend ni aparecer en respuestas HTTP.
+
+---
+
+## 3. Estructura actual del paquete
+
+```
+backend/
+├── app/
+│   ├── afip_sdk/
+│   │   ├── __init__.py
+│   │   ├── client.py        # load_context() — factory + persist cert/key
+│   │   ├── bootstrap.py     # CLI: createCert + createWSAuth
+│   │   ├── smoke_test.py    # CLI: FEDummy + último comprobante + detalle
+│   │   └── info.py          # CLI: FEParamGet* paramétrico
+│   ├── models.py            # Client.clave_fiscal_encrypted (Text, Fernet)
+│   ├── security.py          # encrypt_credential / decrypt_credential
+│   └── routers/
+│       └── clients.py       # POST/PUT /clients/ acepta clave_fiscal plaintext y cifra
+├── afip_certs/              # {CUIT}-{dev|prod}.cert / .key — NO commitear
+└── scripts/
+    └── create_client.py     # Alta de cliente via API (CLI)
+```
+
+Cuando se agreguen endpoints HTTP de AFIP, el lugar es `backend/app/routers/afip.py` (seguir la convención de los routers existentes, no inventar `app/api/routes/`).
+
+---
+
+## 4. Comandos listos para usar
+
+```powershell
+cd backend
+
+# Alta de cliente con clave fiscal cifrada
+.venv\Scripts\python -m scripts.create_client --name "Razón social" --cuit "XX-XXXXXXXX-X" `
+  --clave-fiscal "..." --fiscal-condition "Responsable Inscripto"
+
+# Bootstrap (one-time por CUIT+entorno). Genera cert X.509 y registra WSAuth wsfe.
+.venv\Scripts\python -m app.afip_sdk.bootstrap --client-id 12          # homologación
+.venv\Scripts\python -m app.afip_sdk.bootstrap --client-id 12 --prod   # producción
+
+# Smoke test — FEDummy + último comprobante + detalle
+.venv\Scripts\python -m app.afip_sdk.smoke_test --client-id 12 --prod --punto-venta 6 --tipo-cbte 1
+
+# Información paramétrica (sales-points | voucher-types | document-types | currencies | aliquots | concepts | taxes)
+.venv\Scripts\python -m app.afip_sdk.info --client-id 12 --prod --what sales-points
 version: 1.0.0
 ---
 
@@ -52,6 +157,59 @@ backend/app/models/
 
 ---
 
+
+## 5. Agregar una operación WSFE nueva — patrón
+
+`load_context()` devuelve un `Afip()` ya inicializado con cert+key descifrados y cargados. No reinventar el factory.
+
+```python
+# backend/app/afip_sdk/emitir_factura.py (nuevo, ejemplo)
+import argparse
+from .client import load_context, env_label
+
+
+def main() -> None:
+    p = argparse.ArgumentParser()
+    p.add_argument("--client-id", type=int, required=True)
+    p.add_argument("--prod", action="store_true")
+    p.add_argument("--pto-venta", type=int, required=True)
+    p.add_argument("--tipo-cbte", type=int, required=True)
+    # ... resto de flags de la factura
+    args = p.parse_args()
+
+    ctx = load_context(client_id=args.client_id, production=args.prod)
+    eb = ctx.afip.ElectronicBilling
+
+    data = {
+        "CantReg": 1, "PtoVta": args.pto_venta, "CbteTipo": args.tipo_cbte,
+        "Concepto": 1, "DocTipo": 80, "DocNro": 30708552654,
+        "CbteDesde": 1, "CbteHasta": 1,
+        # ... ImpTotal, ImpNeto, Iva[], CondicionIVAReceptorId, MonId, MonCotiz, etc.
+    }
+    res = eb.createNextVoucher(data)
+    print(res)  # {'CAE': '...', 'CAEFchVto': '...', 'voucher_number': N}
+```
+
+Cuando se expone como endpoint HTTP, la firma es:
+
+```python
+# backend/app/routers/afip.py (cuando exista)
+from fastapi import APIRouter, Depends, HTTPException
+from ..afip_sdk.client import load_context
+from .auth import get_current_user
+from .. import schemas
+
+router = APIRouter(prefix="/afip", tags=["afip"])
+
+
+@router.post("/factura/{client_id}")
+def emitir_factura(client_id: int, payload: schemas.FacturaIn, user=Depends(get_current_user)):
+    ctx = load_context(client_id=client_id, production=True)
+    try:
+        res = ctx.afip.ElectronicBilling.createNextVoucher(payload.to_wsfe_dict())
+    except Exception as e:
+        raise HTTPException(502, f"AFIP SDK: {e}")
+    # TODO: auditar en afip_action_log
 ## 3. Plantilla — Web Service (ej. emitir factura B)
 
 ```python
@@ -86,6 +244,134 @@ def emitir_factura(client_id: int, payload: FacturaIn, db=Depends(get_db), user=
 ```
 
 Puntos importantes:
+
+- El colaborador **nunca** envía CUIT / cert / key / clave fiscal: todo se resuelve desde `client_id`.
+- Validar permisos sobre el cliente antes de operar (colaborador solo sus asignados — patrón ya implementado en `routers/clients.py`, replicarlo).
+- Mapear DTO del frontend a WSFE exacto (`CbteTipo`, `Concepto`, `Iva[]`, `CondicionIVAReceptorId`). Usar enums en backend, no strings libres.
+- **`createNextVoucher`**: nunca reintentar a ciegas — puede haberse emitido. Antes de reintentar, llamar `getLastVoucher(pto, tipo)` para ver si avanzó la numeración.
+
+---
+
+## 6. Flow completo de alta de un CUIT nuevo en producción
+
+El caso típico "onboarding de un cliente nuevo para facturar":
+
+1. Alta del cliente con clave fiscal:
+   ```
+   python -m scripts.create_client --name "..." --cuit "..." --clave-fiscal "..."
+   ```
+2. Bootstrap en **producción** (usa la clave fiscal descifrada para que app.afipsdk.com genere el cert):
+   ```
+   python -m app.afip_sdk.bootstrap --client-id N --prod
+   ```
+3. Consultar qué ptos de venta tiene habilitados en AFIP:
+   ```
+   python -m app.afip_sdk.info --client-id N --prod --what sales-points
+   ```
+4. Smoke test con un pto de venta válido:
+   ```
+   python -m app.afip_sdk.smoke_test --client-id N --prod --punto-venta X --tipo-cbte 1
+   ```
+
+Si [1/3] (FEDummy) falla → problema de conectividad o `AFIP_SDK_ACCESS_TOKEN` inválido.
+Si [2/3] falla con `11002` → pto de venta no está habilitado en AFIP para ese CUIT/WS (verificar con `info`).
+Si [2/3] falla con `Certificado/Key obligatorio` → falta correr `bootstrap` (o se borró el archivo en `afip_certs/`).
+Si [2/3] falla con `Too few bytes to read ASN.1` → el PEM está con CRLF; `client.py` ya normaliza a LF, rebootstrap.
+
+---
+
+## 7. Automatizaciones — wrapper implementado, catálogo por expandir
+
+Las automatizaciones de app.afipsdk.com usan **clave fiscal** (scraping de portales ARCA), a diferencia de los WS que usan cert/key. Implementación viva: `backend/app/afip_sdk/automations.py`.
+
+```python
+from .client import load_context
+from .automations import run_automation, save_raw
+
+ctx = load_context(client_id=12, production=True)
+payload = run_automation(ctx, "mis-retenciones", {
+    "cuit": str(ctx.cuit_int),
+    "username": str(ctx.cuit_int),
+    "password": ctx.clave_fiscal,
+    "mode": "filter",
+    "page": 0, "size": 100,
+    "filters": {
+        "descripcionImpuesto": "IVA",
+        "fechaRetencionDesde": "2025-12-01",
+        "fechaRetencionHasta": "2025-12-31",
+        "impuestoRetenido": 217,
+        "tipoImpuesto": "IMP",
+        "percepciones": True, "retenciones": True,
+    },
+}, wait=True, include_credentials=False)
+save_raw(ctx, "mis-retenciones", "2025-12", payload)
+```
+
+Convenciones:
+
+- **Async** — `wait=True` deja que el SDK haga polling (~2 min máx). Para UI, usar `wait=False` + `GET /afip/jobs/{id}` + polling cliente 3–5 s.
+- Los credenciales van **dentro de `params`** (`username`, `password`, `cuit`), no como header. Por eso `run_automation(..., include_credentials=False)` y se arman a mano cuando la automation lo requiere.
+- JSON crudo siempre a `backend/afip_raw/{cuit}/{automation}/{period}.json` — sirve como cache y para debugging.
+
+### 7.a `mis-retenciones` — schema oficial
+
+Doc fuente: https://afipsdk.com/docs/automations/mis-retenciones/nodejs
+
+| Param | Tipo | Notas |
+|---|---|---|
+| `cuit` | string | CUIT a consultar |
+| `username` | string | CUIT con el que se loguea (mismo que `cuit` salvo delegación) |
+| `password` | string | Clave fiscal |
+| `mode` | string | **`"filter"`** o **`"preset"`** (los únicos valores válidos) |
+| `page` | int | **Arranca en 0** (no 1) |
+| `size` | int | Default recomendado: 100 |
+
+**Cuando `mode="filter"`** todos requeridos dentro de `filters`:
+`descripcionImpuesto`, `fechaRetencionDesde` (yyyy-mm-dd), `fechaRetencionHasta`, `impuestoRetenido` (int), `tipoImpuesto` (usar `"IMP"`), `percepciones` (bool), `retenciones` (bool).
+
+**Cuando `mode="preset"`** usar `preset` ∈ `{percepcion-ganancias, percepcion-bienes-personales, retencion-ganancias}`. **No cubre IVA** — para IVA siempre `filter` con `impuestoRetenido=217`.
+
+Códigos AFIP `impuestoRetenido` conocidos: **217=IVA**, **11=Ganancias (ret)**, **10=Ganancias (perc)**, **767=Bienes Personales**.
+
+Response: `data.rows[]` con `cuitAgenteRetencion, impuestoRetenido, codigoRegimen, fechaRetencion, importeRetenido, numeroComprobante, descripcionOperacion, fechaComprobante`.
+
+Mapa a código Holistor (col AR en HWCRARCA): 217→`PIVC`, 10/11→`PGAN`, 767→`OTRO`. Definido en `retenciones.py:IMPUESTO_TO_HOLISTOR`.
+
+### 7.b Otras automatizaciones candidatas (por implementar)
+
+Al sumar una nueva automation: antes de codear, leer la doc oficial (`https://afipsdk.com/docs/automations/<slug>/nodejs`) para capturar params exactos — probing a ciegas quema el cupo mensual de automatizaciones (100/mes en el plan actual).
+
+- `constancia-inscripcion` — PDF
+- `mis-comprobantes-emitidos` / `mis-comprobantes-recibidos` (clave para el cruce de R-05)
+- `siper` — perfil de riesgo
+- `libro-iva-digital`
+- `monotributo-recategorizacion`
+- `mi-simplificacion` — empleados
+
+Mantener un catálogo en `backend/app/afip_sdk/catalog.py` (slug, nombre visible, params requeridos, tipo WS/automation) cuando haya ≥3 automatizaciones implementadas.
+
+---
+
+## 8. Web Services cheat sheet
+
+```python
+# --- Healthcheck
+eb.getServerStatus()
+
+# --- Facturación
+eb.getLastVoucher(pto_vta, tipo)
+eb.getVoucherInfo(nro, pto_vta, tipo)     # respuesta anidada bajo "ResultGet"
+eb.createNextVoucher(data)                 # emite y devuelve CAE
+eb.getVoucherTypes()
+eb.getAliquotTypes()
+eb.executeRequest('FEParamGetCondicionIvaReceptor')
+
+# --- Padrón
+afip.RegisterInscriptionProof.getTaxpayerDetails(20111111111)
+# Padrón ampliado: wsid = ws_sr_padron_a4 | ws_sr_padron_a5 | ws_sr_padron_a13
+#                  method = getPersona_v2 / getPersonaList_v2
+
+# Catálogos a cachear en DB (cambian muy poco):
 - **Nunca** pedir al colaborador CUIT/cert/key: se arman desde `client`.
 - Mapear el DTO del frontend a los campos exactos de WSFE (`CbteTipo`, `Concepto`, `Iva[]`, `CondicionIVAReceptorId`). Usar enums en el backend, no strings libres.
 - En dev usar CUIT `20409378472` (override por flag de testing, no por cliente real).
@@ -184,6 +470,54 @@ afip.ElectronicBilling.executeRequest('FEParamGetCondicionIvaReceptor')
 #   monedas (FEParamGetTiposMonedas), conceptos, doc_tipos.
 ```
 
+
+### Tipos de comprobante más usados
+
+| Código | Tipo |
+|---|---|
+| 1  | Factura A |
+| 6  | Factura B |
+| 11 | Factura C |
+| 51 | Factura M |
+| 19 | Factura E (exportación) |
+
+---
+
+## 9. Gotchas observados en este repo
+
+Estos errores nos mordieron durante la integración — prevenir antes que depurar:
+
+| Síntoma | Causa | Remedio |
+|---|---|---|
+| `InvalidToken` al descifrar clave fiscal | `.env` dice `ENCRYPTION_KEYS` en vez de `ENCRYPTION_KEY`; `security.py` cae a Fernet random | Fixear `.env`, reiniciar backend, **recargar** la clave fiscal (`PUT /clients/{id}`) |
+| `El campo Certificado es obligatorio` post-bootstrap | `afip.py` **no persiste** cert/key retornados por `createCert`; hay que guardarlos y reinyectarlos en cada `Afip()` | `client.py` ya lo hace con `save_cert_key`/`load_cert_key`. Si fallara, rebootstrap con `--skip-wsauth` |
+| `Too few bytes to read ASN.1 value` | PEMs escritos con `write_text` en Windows → CRLF dobles | `client.py` escribe en binario normalizando a LF. No usar `Path.write_text` para PEMs |
+| `(11002) Punto de venta no habilitado` | El PV pasado no está declarado para el WS del CUIT en AFIP | `info --what sales-points` para listar los válidos |
+| `createCert` → `already exists` | El alias ya está tomado en app.afipsdk.com | `--alias <otro>` o `--skip-cert` si el PEM ya está en disco |
+
+---
+
+## 10. Seguridad — checklist por acción HTTP nueva
+
+- [ ] Requiere `get_current_user` (colaborador autenticado)
+- [ ] Verifica que el colaborador tenga permiso sobre `client_id` (asignación en `client_collaborators`)
+- [ ] Clave fiscal se descifra solo en memoria, nunca loguear ni devolver en response
+- [ ] `AFIP_SDK_ACCESS_TOKEN` solo en backend
+- [ ] Log en `afip_action_log` (cuando exista la tabla) con metadata, sin payloads sensibles
+- [ ] Errores al frontend: mensaje en castellano, sin stacktrace
+- [ ] Tests: mockear `Afip` y `httpx`, **nunca** golpear AFIP desde CI
+
+---
+
+## 11. Cliente real para validación en prod
+
+**Agropecuaria El Alba S.R.L.** — CUIT `23-31134894-9`, `client_id=12` en la DB.
+
+- Único pto de venta habilitado en WSFE producción: **6** (EmisionTipo: CAE - RI IVA).
+- Última Factura A conocida: Nro 41, fecha 2026-04-13, total $12.100.000, CAE `86151427323266`, receptor CUIT 30708552654.
+- Usarlo para smoke tests y para validar cualquier operación nueva de consulta antes de habilitarla para todos los clientes.
+
+Para desarrollo de WSFE en homologación (dev): CUIT genérico de prueba `20409378472` (sin ligar a ningún cliente real).
 ---
 
 ## 7. Errores y reintentos
