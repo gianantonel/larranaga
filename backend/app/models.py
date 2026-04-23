@@ -1,6 +1,6 @@
 from sqlalchemy import (
     Column, Integer, String, Float, Boolean, DateTime, Text,
-    ForeignKey, Enum, Date
+    ForeignKey, Enum, Date, LargeBinary
 )
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
@@ -83,6 +83,25 @@ class Client(Base):
     invoices = relationship("Invoice", back_populates="client")
     ingresos_brutos = relationship("IngresosBrutos", back_populates="client")
     action_logs = relationship("ActionLog", back_populates="client")
+    limpiezas_iva = relationship("LimpiezaIVA", back_populates="client")
+
+
+class LimpiezaIVA(Base):
+    """Historial de archivos procesados por R-01 (Limpieza Libro IVA Compras)."""
+    __tablename__ = "limpiezas_iva"
+
+    id                     = Column(Integer, primary_key=True, index=True)
+    client_id              = Column(Integer, ForeignKey("clients.id", ondelete="CASCADE"), nullable=False)
+    user_id                = Column(Integer, ForeignKey("users.id"), nullable=False)
+    nombre_original        = Column(String(255), nullable=False)
+    nombre_corregido       = Column(String(255), nullable=False)
+    archivo_corregido      = Column(LargeBinary, nullable=False)   # xlsx como bytes
+    total_filas            = Column(Integer, default=0)
+    filas_bc_corregidas    = Column(Integer, default=0)
+    created_at             = Column(DateTime(timezone=True), server_default=func.now())
+
+    client = relationship("Client", back_populates="limpiezas_iva")
+    user   = relationship("User")
 
 
 class ClientCollaborator(Base):
