@@ -106,7 +106,7 @@ export default function Herramientas() {
     <div className="p-6 space-y-6 max-w-3xl">
       <PageHeader
         title="Herramientas IVA"
-        subtitle="Procesamiento de archivos — R-01 Limpieza Libro IVA Compras"
+        subtitle="Procesamiento de archivos — R-01 Limpieza + R-02 División multi-alícuota"
       />
 
       {/* ── Formulario ── */}
@@ -211,7 +211,7 @@ export default function Herramientas() {
             <CheckCircle className="text-emerald-400" size={20} />
             <h3 className="text-emerald-400 font-semibold">Archivo procesado correctamente</h3>
           </div>
-          <div className="grid grid-cols-3 gap-3 text-center">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-center">
             <div className="bg-white/5 rounded-lg py-3">
               <p className="text-2xl font-bold text-white">{resultado.total_filas}</p>
               <p className="text-xs text-gray-400 mt-0.5">Comprobantes</p>
@@ -221,8 +221,12 @@ export default function Herramientas() {
               <p className="text-xs text-gray-400 mt-0.5">B/C corregidos</p>
             </div>
             <div className="bg-white/5 rounded-lg py-3">
-              <p className="text-2xl font-bold text-violet-400">{resultado.total_filas - resultado.filas_bc_corregidas}</p>
-              <p className="text-xs text-gray-400 mt-0.5">Sin cambios</p>
+              <p className="text-2xl font-bold text-amber-400">{resultado.filas_multi_alicuota ?? 0}</p>
+              <p className="text-xs text-gray-400 mt-0.5">Multi-alícuota divididas</p>
+            </div>
+            <div className="bg-white/5 rounded-lg py-3">
+              <p className="text-2xl font-bold text-violet-400">{resultado.filas_salida ?? resultado.total_filas}</p>
+              <p className="text-xs text-gray-400 mt-0.5">Filas salida</p>
             </div>
           </div>
           <button
