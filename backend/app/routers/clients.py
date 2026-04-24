@@ -11,6 +11,46 @@ from .auth import get_current_user, require_admin
 router = APIRouter(prefix="/clients", tags=["clients"])
 
 
+def _format_client_out(client: models.Client, db: Session) -> schemas.ClientOut:
+    """Helper to convert Client model to ClientOut schema handling relationships manually."""
+    client_dict = {
+        col.key: getattr(client, col.key)
+        for col in models.Client.__mapper__.column_attrs
+    }
+    
+    # Format collaborators
+    client_dict['collaborators'] = [
+        schemas.CollaboratorBrief.model_validate(cc.collaborator)
+        for cc in client.collaborators
+    ]
+    
+    # Task counts (handle if tasks are already loaded or query if not)
+    if hasattr(client, 'tasks') and client.tasks:
+        client_dict['task_count'] = len(client.tasks)
+        client_dict['pending_tasks'] = sum(1 for t in client.tasks if t.status == models.TaskStatus.pendiente)
+    else:
+        counts = db.query(
+            func.count(models.Task.id),
+            func.sum(func.cast(models.Task.status == models.TaskStatus.pendiente, models.Integer))
+        ).filter(models.Task.client_id == client.id).first()
+        client_dict['task_count'] = counts[0] or 0
+        client_dict['pending_tasks'] = counts[1] or 0
+
+    # Saldo CC
+    movimientos = db.query(models.MovimientoCuentaCorriente).filter(
+        models.MovimientoCuentaCorriente.client_id == client.id
+    ).all()
+    saldo = 0.0
+    for mov in movimientos:
+        if mov.tipo.lower() == 'ingreso':
+            saldo += mov.monto
+        else:
+            saldo -= mov.monto
+    client_dict['saldo_cc'] = saldo
+    
+    return schemas.ClientOut.model_validate(client_dict)
+
+
 @router.get("/", response_model=List[schemas.ClientOut])
 def list_clients(
     active_only: bool = False,
@@ -35,50 +75,7 @@ def list_clients(
 
     clients = query.all()
 
-    # Fetch task counts in a single lightweight query (only client_id + status)
-    # instead of loading full Task objects via selectinload.
-    client_ids = [c.id for c in clients]
-    task_counts = defaultdict(int)
-    pending_counts = defaultdict(int)
-    if client_ids:
-        rows = (
-            db.query(models.Task.client_id, models.Task.status)
-            .filter(models.Task.client_id.in_(client_ids))
-            .all()
-        )
-        for row in rows:
-            task_counts[row.client_id] += 1
-            if row.status == models.TaskStatus.pendiente:
-                pending_counts[row.client_id] += 1
-                
-        # Calculate saldo_cc
-        movimientos = (
-            db.query(models.MovimientoCuentaCorriente.client_id, models.MovimientoCuentaCorriente.tipo, models.MovimientoCuentaCorriente.monto)
-            .filter(models.MovimientoCuentaCorriente.client_id.in_(client_ids))
-            .all()
-        )
-        saldos = defaultdict(float)
-        for mov in movimientos:
-            if mov.tipo.lower() == 'ingreso':
-                saldos[mov.client_id] += mov.monto
-            else:
-                saldos[mov.client_id] -= mov.monto
-
-    result = []
-    for client in clients:
-        client_dict = {
-            col.key: getattr(client, col.key)
-            for col in models.Client.__mapper__.column_attrs
-        }
-        client_dict['collaborators'] = [
-            schemas.CollaboratorBrief.model_validate(cc.collaborator)
-            for cc in client.collaborators
-        ]
-        client_dict['task_count'] = task_counts.get(client.id, 0)
-        client_dict['pending_tasks'] = pending_counts.get(client.id, 0)
-        client_dict['saldo_cc'] = saldos.get(client.id, 0.0) if client_ids else 0.0
-        result.append(schemas.ClientOut.model_validate(client_dict))
-    return result
+    return [_format_client_out(c, db) for c in clients]
 
 
 @router.get("/{client_id}", response_model=schemas.ClientOut)
@@ -99,25 +96,7 @@ def get_client(
         if client_id not in assigned_ids:
             raise HTTPException(status_code=403, detail="Sin acceso a este cliente")
 
-    out = schemas.ClientOut.model_validate(client)
-    out.collaborators = [
-        schemas.CollaboratorBrief.model_validate(cc.collaborator)
-        for cc in client.collaborators
-    ]
-    out.task_count = len(client.tasks)
-    out.pending_tasks = sum(1 for t in client.tasks if t.status == models.TaskStatus.pendiente)
-    
-    # Calculate saldo_cc
-    movimientos = db.query(models.MovimientoCuentaCorriente).filter(models.MovimientoCuentaCorriente.client_id == client_id).all()
-    saldo = 0.0
-    for mov in movimientos:
-        if mov.tipo.lower() == 'ingreso':
-            saldo += mov.monto
-        else:
-            saldo -= mov.monto
-    out.saldo_cc = saldo
-    
-    return out
+    return _format_client_out(client, db)
 
 
 @router.post("/", response_model=schemas.ClientOut, status_code=status.HTTP_201_CREATED)
@@ -150,7 +129,7 @@ def create_client(
     db.add(client)
     db.commit()
     db.refresh(client)
-    return schemas.ClientOut.model_validate(client)
+    return _format_client_out(client, db)
 
 
 @router.put("/{client_id}", response_model=schemas.ClientOut)
@@ -172,7 +151,7 @@ def update_client(
 
     db.commit()
     db.refresh(client)
-    return schemas.ClientOut.model_validate(client)
+    return _format_client_out(client, db)
 
 
 @router.delete("/{client_id}", status_code=status.HTTP_204_NO_CONTENT)
