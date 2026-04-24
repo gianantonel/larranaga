@@ -106,7 +106,7 @@ export default function Herramientas() {
     <div className="p-6 space-y-6 max-w-3xl">
       <PageHeader
         title="Herramientas IVA"
-        subtitle="Procesamiento de archivos — R-01 Limpieza + R-02 División multi-alícuota"
+        subtitle="Procesamiento de archivos — R-01 Limpieza Libro IVA + R-02 División por alícuotas"
       />
 
       {/* ── Formulario ── */}
