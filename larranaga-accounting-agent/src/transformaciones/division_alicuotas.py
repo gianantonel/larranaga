@@ -37,7 +37,8 @@ from typing import Dict, List, Tuple, Any
 # ─────────────────────────────────────────────────────────────────────────────
 
 # Nombres de columnas ARCA (header=1)
-COL_NUMERO = "Número"
+COL_NUMERO = "Número Desde"  # ARCA real column name (fallback: "Número")
+COL_NUMERO_ALT = "Número"
 COL_NETO_TOTAL = "Neto Gravado Total"
 COL_IVA_TOTAL = "Total IVA"
 COL_OTROS_TRIBUTOS = "Otros Tributos"
@@ -202,8 +203,9 @@ def expand_multi_alicuota_row(
     """
     filas_expandidas = []
 
-    # Obtener número original para sufijo
-    numero_original = str(row[COL_NUMERO]) if COL_NUMERO in row.index else ""
+    # Obtener número original para sufijo (soporta "Número Desde" o "Número")
+    col_num = COL_NUMERO if COL_NUMERO in row.index else (COL_NUMERO_ALT if COL_NUMERO_ALT in row.index else None)
+    numero_original = str(row[col_num]) if col_num else ""
 
     # Determinar alícuota primaria (para Otros Tributos)
     alicuota_primaria = ALICUOTA_PRIMARIA if ALICUOTA_PRIMARIA in alicuotas else alicuotas[0]
@@ -218,8 +220,8 @@ def expand_multi_alicuota_row(
         # Actualizar número con sufijo (A, B, C, ...)
         sufijo = chr(65 + pos)  # A, B, C, ...
         nuevo_numero = f"{numero_original}/{sufijo}"
-        if COL_NUMERO in nueva_fila.index:
-            nueva_fila[COL_NUMERO] = nuevo_numero
+        if col_num:
+            nueva_fila[col_num] = nuevo_numero
 
         # Zerear todas las columnas de neto e IVA
         for col in COLS_A_CERO:
@@ -379,8 +381,9 @@ def validar_expansion(df_orig: pd.DataFrame, df_expanded: pd.DataFrame) -> Dict[
             advertencias.append(f"No se pudo validar suma Imp. Total: {str(e)}")
 
     # Validación 3: Formato de números con sufijos
-    if COL_NUMERO in df_expanded.columns:
-        for idx, numero in enumerate(df_expanded[COL_NUMERO]):
+    val_col = COL_NUMERO if COL_NUMERO in df_expanded.columns else (COL_NUMERO_ALT if COL_NUMERO_ALT in df_expanded.columns else None)
+    if val_col:
+        for idx, numero in enumerate(df_expanded[val_col]):
             s = str(numero).strip()
             # Números expandidos deben tener formato "###/A", "###/B", etc. O sin sufijo
             if "/" in s:

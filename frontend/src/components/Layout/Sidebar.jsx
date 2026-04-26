@@ -1,25 +1,38 @@
 import { NavLink } from 'react-router-dom'
+import { useState } from 'react'
 import {
   LayoutDashboard, Users, UserCheck, ClipboardList,
-  ReceiptText, BarChart3, Scale, LogOut, ChevronRight, FileSearch, Wrench, Wallet,
+  ReceiptText, BarChart3, Scale, LogOut, ChevronRight, FileSearch, Wrench, Wallet, PiggyBank
 } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import clsx from 'clsx'
 
-const navItems = [
+const VISTAS_ITEMS = [
   { to: '/dashboard',     icon: LayoutDashboard, label: 'Dashboard' },
   { to: '/clientes',      icon: Users,           label: 'Clientes' },
   { to: '/colaboradores', icon: UserCheck,       label: 'Colaboradores' },
   { to: '/tareas',        icon: ClipboardList,   label: 'Tareas' },
-  { to: '/cuentas-corrientes', icon: Wallet,   label: 'Cuentas Corrientes' },
-  { to: '/iva',           icon: BarChart3,       label: 'Balance IVA' },
-  { to: '/facturas',      icon: ReceiptText,     label: 'Facturación' },
-  { to: '/retenciones',   icon: FileSearch,      label: 'Retenciones' },
-  { to: '/herramientas',  icon: Wrench,          label: 'Herramientas' },
+]
+
+const ACCIONES_ITEMS = [
+  { to: '/cuentas-corrientes', icon: Wallet,      label: 'Cuentas Corrientes', req: 'R-07' },
+  { to: '/iva',                icon: BarChart3,    label: 'Retenciones / IVA', req: 'R-05, R-06, R-16' },
+  { to: '/facturas',           icon: ReceiptText,  label: 'Facturación', req: 'R-03, R-04' },
+  { to: '/retenciones',        icon: FileSearch,   label: 'Retenciones Avanzadas', req: 'R-05+' },
+  { icon: PiggyBank, label: 'Tesorería', req: 'R-08, R-14', disabled: true },
+]
+
+const OTRAS_ACCIONES_ITEMS = [
+  { to: '/herramientas', icon: Wrench, label: 'Corrección B/C Holistor Columna L', req: 'R-01, R-02, R-10' },
 ]
 
 export default function Sidebar() {
-  const { user, logout, isAdmin } = useAuth()
+  const { user, logout } = useAuth()
+  const [openGroups, setOpenGroups] = useState({ vistas: true, acciones: true, otras: true })
+
+  const toggleGroup = (key) => {
+    setOpenGroups(prev => ({ ...prev, [key]: !prev[key] }))
+  }
 
   return (
     <aside className="w-64 min-h-screen bg-[#0f172a] border-r border-gray-700/40 flex flex-col">
@@ -37,20 +50,112 @@ export default function Sidebar() {
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 px-3 py-4 space-y-1">
-        {navItems.map(({ to, icon: Icon, label }) => (
-          <NavLink
-            key={to}
-            to={to}
-            end={to === '/dashboard'}
-            className={({ isActive }) =>
-              clsx(isActive ? 'nav-link-active' : 'nav-link', 'w-full')
-            }
+      <nav className="flex-1 px-3 py-4 space-y-4 overflow-y-auto">
+
+        {/* VISTAS Group */}
+        <div>
+          <button
+            onClick={() => toggleGroup('vistas')}
+            className="nav-group-header w-full gap-2"
           >
-            <Icon size={20} />
-            <span>{label}</span>
-          </NavLink>
-        ))}
+            <span>Vistas</span>
+            <ChevronRight
+              size={14}
+              className={clsx('transition-transform duration-200', openGroups.vistas && 'rotate-90')}
+            />
+          </button>
+          {openGroups.vistas && (
+            <div className="space-y-1 mt-2">
+              {VISTAS_ITEMS.map(({ to, icon: Icon, label }) => (
+                <NavLink
+                  key={to}
+                  to={to}
+                  end={to === '/dashboard'}
+                  className={({ isActive }) =>
+                    clsx(isActive ? 'nav-link-child-active' : 'nav-link-child', 'w-full')
+                  }
+                >
+                  <Icon size={18} />
+                  <span>{label}</span>
+                </NavLink>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* ACCIONES Group */}
+        <div>
+          <button
+            onClick={() => toggleGroup('acciones')}
+            className="nav-group-header w-full gap-2"
+          >
+            <span>Acciones</span>
+            <ChevronRight
+              size={14}
+              className={clsx('transition-transform duration-200', openGroups.acciones && 'rotate-90')}
+            />
+          </button>
+          {openGroups.acciones && (
+            <div className="space-y-1 mt-2">
+              {ACCIONES_ITEMS.map((item, idx) => (
+                <div key={item.label || idx}>
+                  {item.disabled ? (
+                    // Disabled item
+                    <span className="nav-link-child opacity-50 cursor-not-allowed">
+                      <item.icon size={18} />
+                      <span className="flex-1">{item.label}</span>
+                      <span className="badge-gray text-xs px-1.5 py-0.5">Próx.</span>
+                    </span>
+                  ) : (
+                    // Active navlink
+                    <NavLink
+                      to={item.to}
+                      end={item.to === '/dashboard'}
+                      className={({ isActive }) =>
+                        clsx(isActive ? 'nav-link-child-active' : 'nav-link-child', 'w-full')
+                      }
+                    >
+                      <item.icon size={18} />
+                      <span>{item.label}</span>
+                    </NavLink>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* OTRAS ACCIONES Group */}
+        <div>
+          <button
+            onClick={() => toggleGroup('otras')}
+            className="nav-group-header w-full gap-2"
+          >
+            <span>Otras Acciones</span>
+            <ChevronRight
+              size={14}
+              className={clsx('transition-transform duration-200', openGroups.otras && 'rotate-90')}
+            />
+          </button>
+          {openGroups.otras && (
+            <div className="space-y-1 mt-2">
+              {OTRAS_ACCIONES_ITEMS.map((item, idx) => (
+                <NavLink
+                  key={item.to || idx}
+                  to={item.to}
+                  end={item.to === '/dashboard'}
+                  className={({ isActive }) =>
+                    clsx(isActive ? 'nav-link-child-active' : 'nav-link-child', 'w-full')
+                  }
+                >
+                  <item.icon size={18} />
+                  <span>{item.label}</span>
+                </NavLink>
+              ))}
+            </div>
+          )}
+        </div>
+
       </nav>
 
       {/* User */}

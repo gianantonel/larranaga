@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from .database import engine
 from . import models
+from .sync import register_sync_events, sync_now
 
 from .routers import auth, clients, collaborators, tasks, iva, facturas, dashboard, retenciones, comprobantes, herramientas
 from .routers import auth, clients, collaborators, tasks, iva, facturas, dashboard, cuentas_corrientes
@@ -42,6 +43,8 @@ app.include_router(cuentas_corrientes.router)
 
 @app.on_event("startup")
 async def startup_event():
+    # Registrar event listeners para sincronización automática con InsForge
+    register_sync_events(engine)
     seed_database()
 
 
@@ -58,3 +61,13 @@ def root():
 @app.get("/health")
 def health():
     return {"status": "ok"}
+
+
+@app.post("/admin/sync-insforge")
+def manual_sync_insforge():
+    """Dispara una sincronización manual a InsForge (endpoint admin)."""
+    success = sync_now()
+    return {
+        "status": "success" if success else "failed",
+        "message": "Sincronización completada" if success else "Error durante sincronización (ver logs)"
+    }
