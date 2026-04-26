@@ -26,7 +26,7 @@ from src.transformaciones.division_alicuotas import (
     aplicar_division_alicuotas,
     validar_expansion,
     ALICUOTA_COLS,
-    COL_NUMERO,
+    COL_NUMERO_ALT as COL_NUMERO,
     COL_NETO_TOTAL,
     COL_IVA_TOTAL,
     COL_OTROS_TRIBUTOS,
