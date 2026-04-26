@@ -77,7 +77,7 @@ export default function CuentasCorrientes() {
   )
 
   return (
-    <div className="space-y-6">
+    <div className="p-6 space-y-6">
       <header className="flex justify-between items-center">
         <div>
           <h1 className="text-2xl font-bold text-white flex items-center gap-2">

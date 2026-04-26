@@ -24,7 +24,7 @@ export default function Retenciones() {
   const selectedClient = clients.find(c => String(c.id) === String(clientId))
 
   return (
-    <div className="space-y-6">
+    <div className="p-6 space-y-6">
       <PageHeader
         title="Retenciones y Percepciones"
         subtitle="Consulta Mis Retenciones de ARCA por cliente y período (scraping con clave fiscal)"
