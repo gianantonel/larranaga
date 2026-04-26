@@ -14,6 +14,8 @@ import Facturas from './pages/Facturas'
 import Retenciones from './pages/Retenciones'
 import Herramientas from './pages/Herramientas'
 import CuentasCorrientes from './pages/CuentasCorrientes'
+import Honorarios from './pages/Honorarios'
+import Profesionales from './pages/Profesionales'
 import LoadingSpinner from './components/UI/LoadingSpinner'
 
 function ProtectedRoutes() {
@@ -35,6 +37,8 @@ function ProtectedRoutes() {
         <Route path="retenciones" element={<Retenciones />} />
         <Route path="herramientas" element={<Herramientas />} />
         <Route path="cuentas-corrientes" element={<CuentasCorrientes />} />
+        <Route path="honorarios" element={<Honorarios />} />
+        <Route path="profesionales" element={<Profesionales />} />
       </Route>
     </Routes>
   )

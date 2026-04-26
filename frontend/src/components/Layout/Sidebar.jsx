@@ -2,7 +2,8 @@ import { NavLink } from 'react-router-dom'
 import { useState } from 'react'
 import {
   LayoutDashboard, Users, UserCheck, ClipboardList,
-  ReceiptText, BarChart3, Scale, LogOut, ChevronRight, FileSearch, Wrench, Wallet, PiggyBank
+  ReceiptText, BarChart3, Scale, LogOut, ChevronRight, FileSearch, Wrench, Wallet,
+  PiggyBank, Calculator, Briefcase
 } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import clsx from 'clsx'
@@ -16,14 +17,16 @@ const VISTAS_ITEMS = [
 
 const ACCIONES_ITEMS = [
   { to: '/cuentas-corrientes', icon: Wallet,      label: 'Cuentas Corrientes', req: 'R-07' },
-  { to: '/iva',                icon: BarChart3,    label: 'Retenciones / IVA', req: 'R-05, R-06, R-16' },
+  { to: '/iva',                icon: BarChart3,    label: 'Balance IVA', req: 'R-05, R-06, R-16' },
   { to: '/facturas',           icon: ReceiptText,  label: 'Facturación', req: 'R-03, R-04' },
-  { to: '/retenciones',        icon: FileSearch,   label: 'Retenciones Avanzadas', req: 'R-05+' },
+  { to: '/retenciones',        icon: FileSearch,   label: 'Retenciones', req: 'R-05+' },
+  { to: '/honorarios',         icon: Calculator,   label: 'Honorarios', req: 'R-03, R-04' },
+  { to: '/profesionales',      icon: Briefcase,    label: 'Profesionales', req: 'ADM' },
   { icon: PiggyBank, label: 'Tesorería', req: 'R-08, R-14', disabled: true },
 ]
 
 const OTRAS_ACCIONES_ITEMS = [
-  { to: '/herramientas', icon: Wrench, label: 'Corrección B/C Holistor Columna L', req: 'R-01, R-02, R-10' },
+  { to: '/herramientas', icon: Wrench, label: 'Herramientas', req: 'R-01, R-02, R-10' },
 ]
 
 export default function Sidebar() {
@@ -143,7 +146,6 @@ export default function Sidebar() {
                 <NavLink
                   key={item.to || idx}
                   to={item.to}
-                  end={item.to === '/dashboard'}
                   className={({ isActive }) =>
                     clsx(isActive ? 'nav-link-child-active' : 'nav-link-child', 'w-full')
                   }

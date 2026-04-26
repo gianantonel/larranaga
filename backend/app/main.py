@@ -1,15 +1,42 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import text
 from .database import engine
 from . import models
 from .sync import register_sync_events, sync_now
 
 from .routers import (
-    auth, clients, collaborators, tasks, iva, facturas, 
-    dashboard, retenciones, comprobantes, herramientas, 
-    cuentas_corrientes, honorarios, profesionales_adm
+    auth, clients, collaborators, tasks, iva, facturas, dashboard,
+    retenciones, comprobantes, herramientas, cuentas_corrientes,
+    honorarios, profesionales_adm,
 )
-from .mock_data import seed_database
+from .mock_data import seed_database, seed_profesionales_y_productos
+
+
+def _migrate_sqlite():
+    """Migración liviana para SQLite: añade columnas nuevas y recrea tablas con schema incorrecto."""
+    new_client_cols = [
+        ("tipo_honorario",   "VARCHAR(20)"),
+        ("importe_honorario","FLOAT"),
+        ("producto_ref_id",  "INTEGER"),
+        ("cantidad_unidades","FLOAT"),
+        ("profesional_id",   "INTEGER"),
+    ]
+    with engine.connect() as conn:
+        # 1. Columnas nuevas en clients
+        existing_cols = {row[1] for row in conn.execute(text("PRAGMA table_info(clients)"))}
+        for col, col_type in new_client_cols:
+            if col not in existing_cols:
+                conn.execute(text(f"ALTER TABLE clients ADD COLUMN {col} {col_type}"))
+
+        # 2. Si honorarios existe con schema viejo (columna 'amount' en lugar de 'importe'), la borramos
+        #    para que create_all la recree correctamente.
+        hon_cols = {row[1] for row in conn.execute(text("PRAGMA table_info(honorarios)"))}
+        if hon_cols and "importe" not in hon_cols:
+            conn.execute(text("DROP TABLE honorarios"))
+
+        conn.commit()
+
 
 # Create tables
 models.Base.metadata.create_all(bind=engine)
@@ -47,9 +74,10 @@ app.include_router(profesionales_adm.router)
 
 @app.on_event("startup")
 async def startup_event():
-    # Registrar event listeners para sincronización automática con InsForge
+    _migrate_sqlite()
     register_sync_events(engine)
     seed_database()
+    seed_profesionales_y_productos()
 
 
 @app.get("/")

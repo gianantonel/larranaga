@@ -105,6 +105,12 @@ class ClientOut(BaseModel):
     task_count: Optional[int] = 0
     pending_tasks: Optional[int] = 0
     saldo_cc: Optional[float] = 0.0
+    # R-03: configuración de honorario
+    tipo_honorario: Optional[str] = None
+    importe_honorario: Optional[float] = None
+    producto_ref_id: Optional[int] = None
+    cantidad_unidades: Optional[float] = None
+    profesional_id: Optional[int] = None
 
     class Config:
         from_attributes = True
@@ -454,6 +460,194 @@ class CruceResponse(BaseModel):
     matched: int
     unmatched: int
     items: List[CruceItem]
+
+
+# ─── R-03: Productos de referencia ───────────────────────────────────────────
+
+class ProductoReferenciaCreate(BaseModel):
+    nombre: str
+    unidad: Optional[str] = None
+    precio_vigente: float
+
+
+class ProductoReferenciaUpdate(BaseModel):
+    nombre: Optional[str] = None
+    unidad: Optional[str] = None
+    precio_vigente: Optional[float] = None
+
+
+class HistorialPrecioOut(BaseModel):
+    id: int
+    precio: float
+    vigente_desde: date
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class ProductoReferenciaOut(BaseModel):
+    id: int
+    nombre: str
+    unidad: Optional[str] = None
+    precio_vigente: float
+    actualizado_en: Optional[datetime] = None
+    created_at: datetime
+    historial: List[HistorialPrecioOut] = []
+
+    class Config:
+        from_attributes = True
+
+
+class ClientHonorarioUpdate(BaseModel):
+    tipo_honorario: Optional[str] = None       # "fijo" | "producto"
+    importe_honorario: Optional[float] = None
+    producto_ref_id: Optional[int] = None
+    cantidad_unidades: Optional[float] = None
+    profesional_id: Optional[int] = None
+
+
+class HonorarioOut(BaseModel):
+    id: int
+    client_id: int
+    client_name: Optional[str] = None
+    period: str
+    importe: float
+    tipo: str
+    precio_producto_snapshot: Optional[float] = None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class ClienteActualizacionItem(BaseModel):
+    client_id: int
+    client_name: str
+    tipo_honorario: Optional[str] = None
+    importe_actual: Optional[float] = None
+    importe_propuesto: Optional[float] = None
+    delta_pct: Optional[float] = None
+    aplica_indice: bool = True
+
+
+class ActualizacionCuatrimestralPreview(BaseModel):
+    indice_pct: float
+    clientes: List[ClienteActualizacionItem]
+
+
+class ActualizacionItem(BaseModel):
+    client_id: int
+    nuevo_importe: float
+    confirmar: bool = True
+
+
+class ActualizacionCuatrimestralApply(BaseModel):
+    indice_pct: float
+    vigente_desde: str    # YYYY-MM
+    actualizaciones: List[ActualizacionItem]
+
+
+# ─── R-04: Profesionales, pagos y liquidaciones ───────────────────────────────
+
+class ProfesionalCreate(BaseModel):
+    nombre: str
+    tipo: str = "profesional"    # "profesional" | "socio"
+
+
+class ProfesionalUpdate(BaseModel):
+    nombre: Optional[str] = None
+    tipo: Optional[str] = None
+    activo: Optional[bool] = None
+
+
+class ProfesionalOut(BaseModel):
+    id: int
+    nombre: str
+    tipo: str
+    activo: bool
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class PagoCreate(BaseModel):
+    client_id: int
+    honorario_id: Optional[int] = None
+    fecha: date
+    importe: float
+    forma_pago: str              # "efectivo" | "transferencia"
+    fuente_pago: Optional[str] = None
+    banco_destino: Optional[str] = None
+    profesional_destinatario_id: Optional[int] = None
+    notas: Optional[str] = None
+
+
+class PagoOut(BaseModel):
+    id: int
+    client_id: int
+    client_name: Optional[str] = None
+    honorario_id: Optional[int] = None
+    fecha: date
+    importe: float
+    forma_pago: str
+    fuente_pago: Optional[str] = None
+    banco_destino: Optional[str] = None
+    profesional_destinatario_id: Optional[int] = None
+    profesional_destinatario_nombre: Optional[str] = None
+    notas: Optional[str] = None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class ReintegroGastoCreate(BaseModel):
+    concepto: str
+    importe: float
+
+
+class ReintegroGastoOut(BaseModel):
+    id: int
+    liquidacion_id: int
+    concepto: str
+    importe: float
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class LiquidacionHonorariosSet(BaseModel):
+    honorarios_totales: float
+
+
+class LiquidacionCerrarRequest(BaseModel):
+    cobro_efectivo: float = 0
+    cobro_transferencia: float = 0
+
+
+class LiquidacionOut(BaseModel):
+    id: int
+    profesional_id: int
+    profesional_nombre: Optional[str] = None
+    period: str
+    honorarios_totales: float
+    adelantos_percibidos: float
+    saldo_anterior: float
+    reintegros_gastos: float
+    total_a_cobrar: float
+    cobro_efectivo: float
+    cobro_transferencia: float
+    saldo_siguiente: float
+    cerrada: bool
+    cerrada_en: Optional[datetime] = None
+    reintegros: List[ReintegroGastoOut] = []
+    alerta_sobreadelanto: bool = False
+
+    class Config:
+        from_attributes = True
 
 
 # ─── Dashboard ───────────────────────────────────────────────────────────────

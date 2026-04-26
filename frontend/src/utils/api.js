@@ -118,3 +118,33 @@ export const deleteComprobante = (id) => api.delete(`/comprobantes/${id}`)
 export const getMovimientosCC = (clientId) => api.get(`/cuentas-corrientes/client/${clientId}`)
 export const getSaldoCC = (clientId) => api.get(`/cuentas-corrientes/client/${clientId}/saldo`)
 export const createMovimientoCC = (data) => api.post('/cuentas-corrientes/', data)
+
+// ─── R-03: Honorarios ────────────────────────────────────────────────────────
+export const getProductosReferencia = () => api.get('/honorarios/productos-referencia')
+export const createProducto = (data) => api.post('/honorarios/productos-referencia', data)
+export const updateProducto = (id, data) => api.put(`/honorarios/productos-referencia/${id}`, data)
+export const configurarHonorario = (clientId, data) => api.put(`/honorarios/clientes/${clientId}/configurar`, data)
+export const getHonorarios = (params) => api.get('/honorarios/', { params })
+export const calcularHonorario = (clientId, period) => api.post(`/honorarios/calcular/${clientId}/${period}`)
+export const calcularPeriodo = (period) => api.post(`/honorarios/calcular-periodo/${period}`)
+export const getPreviewActualizacion = (pct) =>
+  api.get('/honorarios/actualizacion-cuatrimestral/preview', { params: { indice_pct: pct } })
+export const aplicarActualizacion = (data) => api.post('/honorarios/actualizacion-cuatrimestral/aplicar', data)
+
+// ─── R-04: Profesionales, Pagos, Liquidaciones ───────────────────────────────
+export const getProfesionales = (params) => api.get('/profesionales/', { params })
+export const createProfesional = (data) => api.post('/profesionales/', data)
+export const updateProfesional = (id, data) => api.put(`/profesionales/${id}`, data)
+export const getPagos = (params) => api.get('/profesionales/pagos', { params })
+export const createPago = (data) => api.post('/profesionales/pagos', data)
+export const deletePago = (id) => api.delete(`/profesionales/pagos/${id}`)
+export const getLiquidacion = (profesionalId, period) =>
+  api.get(`/profesionales/liquidaciones/${profesionalId}/${period}`)
+export const setLiquidacionHonorarios = (profesionalId, period, data) =>
+  api.put(`/profesionales/liquidaciones/${profesionalId}/${period}/honorarios`, data)
+export const addReintegro = (profesionalId, period, data) =>
+  api.post(`/profesionales/liquidaciones/${profesionalId}/${period}/reintegros`, data)
+export const deleteReintegro = (profesionalId, period, reintegroId) =>
+  api.delete(`/profesionales/liquidaciones/${profesionalId}/${period}/reintegros/${reintegroId}`)
+export const cerrarLiquidacion = (profesionalId, period, data) =>
+  api.post(`/profesionales/liquidaciones/${profesionalId}/${period}/cerrar`, data)
