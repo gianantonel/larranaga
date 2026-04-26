@@ -25,7 +25,7 @@ logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler('backend/logs/insforge_sync.log'),
+        logging.FileHandler(os.path.join(os.path.dirname(__file__), '../../logs/insforge_sync.log')),
         logging.StreamHandler()
     ]
 )
