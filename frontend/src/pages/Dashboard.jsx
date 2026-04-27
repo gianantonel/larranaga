@@ -79,43 +79,41 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-6 space-y-8">
       <PageHeader
         title="Dashboard"
         subtitle="Resumen general del estudio Larrañaga"
       />
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <StatCard title="Clientes activos" value={stats.active_clients} subtitle={`${stats.total_clients} total`} icon={Users} color="cyan" />
-        <StatCard title="Colaboradores" value={stats.total_collaborators} icon={UserCheck} color="violet" />
-        <StatCard title="Tareas este mes" value={stats.tasks_this_month} icon={Activity} color="indigo" />
-        <StatCard title="Tareas totales" value={stats.total_tasks} icon={ClipboardList} color="amber" />
+      {/* Sección: Cartera y Actividad */}
+      <div className="space-y-3">
+        <p className="section-title">Cartera y Actividad</p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <StatCard title="Clientes activos" value={stats.active_clients} subtitle={`${stats.total_clients} total`} icon={Users} color="cyan" />
+          <StatCard title="Colaboradores" value={stats.total_collaborators} icon={UserCheck} color="violet" />
+          <StatCard title="Tareas este mes" value={stats.tasks_this_month} icon={Activity} color="indigo" />
+          <StatCard title="Tareas totales" value={stats.total_tasks} icon={ClipboardList} color="amber" />
+        </div>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <StatCard title="Terminadas" value={stats.completed_tasks} icon={CheckCircle} color="emerald" />
-        <StatCard title="En curso" value={stats.in_progress_tasks} icon={Clock} color="cyan" />
-        <StatCard title="Pendientes" value={stats.pending_tasks} icon={AlertCircle} color="amber" />
-        <StatCard title="Bloqueadas" value={stats.blocked_tasks} icon={AlertCircle} color="rose" />
-      </div>
-
-      {/* IVA summary */}
-      <div className="grid grid-cols-2 gap-4">
-        <StatCard
-          title="DDJJ IVA pendientes"
-          value={stats.iva_pendientes}
-          subtitle="Sin presentar"
-          icon={BarChart3}
-          color="rose"
-        />
-        <StatCard
-          title="IVA presentados este mes"
-          value={stats.iva_presentados_mes}
-          subtitle="Declaraciones juradas"
-          icon={CheckCircle}
-          color="emerald"
-        />
+      {/* Sección: Estado de Tareas + IVA */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2 space-y-3">
+          <p className="section-title">Estado de Tareas</p>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <StatCard title="Terminadas" value={stats.completed_tasks} icon={CheckCircle} color="emerald" />
+            <StatCard title="En curso" value={stats.in_progress_tasks} icon={Clock} color="cyan" />
+            <StatCard title="Pendientes" value={stats.pending_tasks} icon={AlertCircle} color="amber" />
+            <StatCard title="Bloqueadas" value={stats.blocked_tasks} icon={AlertCircle} color="rose" />
+          </div>
+        </div>
+        <div className="space-y-3">
+          <p className="section-title">Declaraciones IVA</p>
+          <div className="space-y-4">
+            <StatCard title="DDJJ IVA pendientes" value={stats.iva_pendientes} subtitle="Sin presentar" icon={BarChart3} color="rose" />
+            <StatCard title="IVA presentados este mes" value={stats.iva_presentados_mes} subtitle="Declaraciones juradas" icon={CheckCircle} color="emerald" />
+          </div>
+        </div>
       </div>
 
       {/* Charts row 1 */}
