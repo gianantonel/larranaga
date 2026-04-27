@@ -172,6 +172,17 @@ export default function Honorarios() {
     } catch (e) { alert(e.response?.data?.detail || 'Error al aplicar actualización') }
   }
 
+  useEffect(() => {
+    const handler = e => {
+      if (e.key !== 'Escape') return
+      if (showProductoModal) setShowProductoModal(false)
+      else if (showConfigModal) setShowConfigModal(false)
+      else if (showActModal) { setShowActModal(false); setActPreview(null); setActPct('') }
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [showProductoModal, showConfigModal, showActModal])
+
   if (loading) return <LoadingSpinner text="Cargando honorarios..." />
 
   const totalImporte = honorarios.reduce((a, h) => a + h.importe, 0)
@@ -201,7 +212,7 @@ export default function Honorarios() {
       </PageHeader>
 
       {/* KPIs */}
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <StatCard title="Honorarios calculados" value={honorarios.length} icon={Calculator} color="violet" />
         <StatCard title={`Total ${formatPeriod(period)}`} value={formatCurrency(totalImporte)} icon={DollarSign} color="emerald" />
         <StatCard title="Productos referencia" value={productos.length} icon={Package} color="amber" />
@@ -326,13 +337,13 @@ export default function Honorarios() {
 
       {/* ── MODAL: Producto de referencia ─────────────────────────────────────── */}
       {showProductoModal && (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 px-4">
-          <div className="bg-[#111827] border border-gray-700 rounded-2xl p-6 w-full max-w-md shadow-2xl">
-            <div className="flex items-center justify-between mb-5">
+        <div className="modal-backdrop" onClick={() => setShowProductoModal(false)}>
+          <div className="modal-panel max-w-md p-6" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
               <h2 className="text-lg font-bold text-white">
                 {editProducto ? 'Editar producto' : 'Nuevo producto'}
               </h2>
-              <button onClick={() => setShowProductoModal(false)} className="text-gray-500 hover:text-white">
+              <button onClick={() => setShowProductoModal(false)} className="btn-icon">
                 <X size={18} />
               </button>
             </div>
@@ -377,14 +388,14 @@ export default function Honorarios() {
 
       {/* ── MODAL: Configurar honorario del cliente ──────────────────────────── */}
       {showConfigModal && configClient && (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 px-4">
-          <div className="bg-[#111827] border border-gray-700 rounded-2xl p-6 w-full max-w-md shadow-2xl">
-            <div className="flex items-center justify-between mb-5">
+        <div className="modal-backdrop" onClick={() => setShowConfigModal(false)}>
+          <div className="modal-panel max-w-md p-6" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
               <div>
                 <h2 className="text-lg font-bold text-white">Configurar honorario</h2>
                 <p className="text-sm text-gray-400">{configClient.name}</p>
               </div>
-              <button onClick={() => setShowConfigModal(false)} className="text-gray-500 hover:text-white">
+              <button onClick={() => setShowConfigModal(false)} className="btn-icon">
                 <X size={18} />
               </button>
             </div>
@@ -483,16 +494,23 @@ export default function Honorarios() {
 
       {/* ── MODAL: Actualización cuatrimestral ──────────────────────────────── */}
       {showActModal && (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 px-4 overflow-y-auto py-8">
-          <div className="bg-[#111827] border border-gray-700 rounded-2xl p-6 w-full max-w-2xl shadow-2xl">
-            <div className="flex items-center justify-between mb-5">
+        <div
+          className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 overflow-y-auto"
+          onClick={() => { setShowActModal(false); setActPreview(null); setActPct('') }}
+        >
+          <div
+            className="modal-panel max-w-2xl mx-auto my-8 p-6"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="modal-header">
               <h2 className="text-lg font-bold text-white">Actualización cuatrimestral</h2>
-              <button onClick={() => { setShowActModal(false); setActPreview(null); setActPct('') }} className="text-gray-500 hover:text-white">
+              <button onClick={() => { setShowActModal(false); setActPreview(null); setActPct('') }} className="btn-icon">
                 <X size={18} />
               </button>
             </div>
 
-            <div className="flex gap-3 mb-5">
+            {/* Inputs — columna en mobile, fila en sm+ */}
+            <div className="flex flex-col sm:flex-row gap-3 mb-5">
               <div className="flex-1">
                 <label className="label">Índice de actualización (%)</label>
                 <input
@@ -513,8 +531,8 @@ export default function Honorarios() {
                   className="input-field"
                 />
               </div>
-              <div className="flex items-end">
-                <button onClick={handlePreviewAct} className="btn-secondary whitespace-nowrap">
+              <div className="flex sm:items-end">
+                <button onClick={handlePreviewAct} className="btn-secondary whitespace-nowrap w-full sm:w-auto">
                   Ver impacto
                 </button>
               </div>
@@ -522,33 +540,33 @@ export default function Honorarios() {
 
             {actPreview && (
               <>
-                <div className="overflow-x-auto mb-5">
+                <div className="overflow-x-auto mb-5 rounded-lg border border-gray-700/40">
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b border-gray-700/60 bg-[#0f172a]/60">
-                        <th className="table-header">Cliente</th>
-                        <th className="table-header">Tipo</th>
-                        <th className="table-header text-right">Importe actual</th>
-                        <th className="table-header text-right">Importe propuesto</th>
-                        <th className="table-header text-center">Aplica</th>
+                        <th className="table-header whitespace-nowrap">Cliente</th>
+                        <th className="table-header whitespace-nowrap">Tipo</th>
+                        <th className="table-header text-right whitespace-nowrap">Importe actual</th>
+                        <th className="table-header text-right whitespace-nowrap">Propuesto</th>
+                        <th className="table-header text-center whitespace-nowrap">Aplica</th>
                       </tr>
                     </thead>
                     <tbody>
                       {actPreview.clientes.map(c => (
                         <tr key={c.client_id} className="table-row">
-                          <td className="table-cell text-white font-medium">{c.client_name}</td>
-                          <td className="table-cell">
+                          <td className="table-cell text-white font-medium whitespace-nowrap">{c.client_name}</td>
+                          <td className="table-cell whitespace-nowrap">
                             <span className={c.tipo_honorario === 'fijo' ? 'badge-blue' : 'badge-purple'}>
                               {c.tipo_honorario === 'fijo' ? 'Fijo' : 'Producto'}
                             </span>
                           </td>
-                          <td className="table-cell text-right text-gray-400 font-mono">
+                          <td className="table-cell text-right text-gray-400 font-mono whitespace-nowrap">
                             {c.importe_actual != null ? formatCurrency(c.importe_actual) : '—'}
                           </td>
-                          <td className="table-cell text-right font-mono font-bold text-emerald-400">
+                          <td className="table-cell text-right font-mono font-bold text-emerald-400 whitespace-nowrap">
                             {c.importe_propuesto != null ? formatCurrency(c.importe_propuesto) : '—'}
                           </td>
-                          <td className="table-cell text-center">
+                          <td className="table-cell text-center whitespace-nowrap">
                             {c.aplica_indice
                               ? <span className="text-emerald-400 text-xs">+{actPreview.indice_pct}%</span>
                               : <span className="text-gray-600 text-xs">No aplica</span>
@@ -559,7 +577,7 @@ export default function Honorarios() {
                     </tbody>
                   </table>
                 </div>
-                <div className="flex gap-3">
+                <div className="flex flex-col sm:flex-row gap-3">
                   <button type="button" onClick={() => { setShowActModal(false); setActPreview(null); setActPct('') }} className="btn-secondary flex-1 justify-center">Cancelar</button>
                   <button onClick={handleAplicarAct} className="btn-primary flex-1 justify-center">
                     Aplicar actualización
