@@ -1,9 +1,9 @@
-import { NavLink } from 'react-router-dom'
-import { useState } from 'react'
+import { NavLink, useLocation } from 'react-router-dom'
+import { useState, useEffect } from 'react'
 import {
   LayoutDashboard, Users, UserCheck, ClipboardList,
   ReceiptText, BarChart3, Scale, LogOut, ChevronRight, FileSearch, Wrench, Wallet,
-  PiggyBank, Calculator, Briefcase
+  PiggyBank, Calculator, Briefcase, X
 } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import clsx from 'clsx'
@@ -29,9 +29,15 @@ const OTRAS_ACCIONES_ITEMS = [
   { to: '/herramientas', icon: Wrench, label: 'Herramientas', req: 'R-01, R-02, R-10' },
 ]
 
-export default function Sidebar() {
+export default function Sidebar({ onClose }) {
   const { user, logout } = useAuth()
   const [openGroups, setOpenGroups] = useState({ vistas: true, acciones: true, otras: true })
+  const location = useLocation()
+
+  // Close sidebar on navigation (mobile)
+  useEffect(() => {
+    if (onClose) onClose()
+  }, [location.pathname])
 
   const toggleGroup = (key) => {
     setOpenGroups(prev => ({ ...prev, [key]: !prev[key] }))
@@ -41,14 +47,26 @@ export default function Sidebar() {
     <aside className="w-64 min-h-screen bg-[#0f172a] border-r border-gray-700/40 flex flex-col">
       {/* Logo */}
       <div className="px-6 py-6 border-b border-gray-700/40">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-violet-600 flex items-center justify-center">
-            <Scale size={20} className="text-white" />
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-violet-600 flex items-center justify-center">
+              <Scale size={20} className="text-white" />
+            </div>
+            <div>
+              <h1 className="text-lg font-bold text-white leading-tight">Larrañaga</h1>
+              <p className="text-xs text-gray-400">Estudio Contable y Legal</p>
+            </div>
           </div>
-          <div>
-            <h1 className="text-lg font-bold text-white leading-tight">Larrañaga</h1>
-            <p className="text-xs text-gray-400">Estudio Contable y Legal</p>
-          </div>
+          {/* Close button — mobile only */}
+          {onClose && (
+            <button
+              onClick={onClose}
+              className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 transition-colors lg:hidden"
+              aria-label="Cerrar menú"
+            >
+              <X size={20} />
+            </button>
+          )}
         </div>
       </div>
 
@@ -104,7 +122,7 @@ export default function Sidebar() {
                 <div key={item.label || idx}>
                   {item.disabled ? (
                     // Disabled item
-                    <span className="nav-link-child opacity-50 cursor-not-allowed">
+                    <span className="nav-link-child opacity-40 cursor-not-allowed pointer-events-none select-none">
                       <item.icon size={18} />
                       <span className="flex-1">{item.label}</span>
                       <span className="badge-gray text-xs px-1.5 py-0.5">Próx.</span>
@@ -162,7 +180,7 @@ export default function Sidebar() {
 
       {/* User */}
       <div className="px-3 pb-4 border-t border-gray-700/40 pt-4">
-        <div className="flex items-center gap-3 px-3 py-2 rounded-xl bg-white/3">
+        <div className="flex items-center gap-3 px-3 py-2 rounded-xl bg-white/[0.04] border border-white/[0.06]">
           <div className="w-9 h-9 rounded-full bg-violet-600/30 border border-violet-500/30 flex items-center justify-center text-sm font-bold text-violet-300">
             {user?.avatar_initials || user?.name?.slice(0, 2).toUpperCase()}
           </div>
