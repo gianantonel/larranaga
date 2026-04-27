@@ -120,7 +120,27 @@
   }
 
   .stat-card {
-    @apply card flex flex-col gap-2 hover:border-gray-600/70 transition-all duration-200;
+    @apply card flex flex-col gap-2 hover:border-gray-600/70 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-black/20 transition-all duration-200;
+  }
+
+  .section-title {
+    @apply text-xs font-semibold uppercase tracking-widest text-gray-500;
+  }
+
+  .btn-icon {
+    @apply p-1.5 rounded-lg text-gray-500 hover:text-white hover:bg-white/5 transition-colors flex-shrink-0;
+  }
+
+  .modal-backdrop {
+    @apply fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 px-4;
+  }
+
+  .modal-panel {
+    @apply bg-[#111827] border border-gray-700/70 rounded-2xl shadow-2xl w-full;
+  }
+
+  .modal-header {
+    @apply flex items-center justify-between mb-5;
   }
 
   .badge {
