@@ -201,6 +201,17 @@ export default function Profesionales() {
 
   // ─── Render ──────────────────────────────────────────────────────────────────
 
+  useEffect(() => {
+    const handler = e => {
+      if (e.key !== 'Escape') return
+      if (showCerrarModal) setShowCerrarModal(false)
+      else if (showPagoModal) setShowPagoModal(false)
+      else if (showProfModal) setShowProfModal(false)
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [showCerrarModal, showPagoModal, showProfModal])
+
   if (loadingBase) return <LoadingSpinner text="Cargando profesionales..." />
 
   const profActivos = profesionales.filter(p => p.activo).length
@@ -220,7 +231,7 @@ export default function Profesionales() {
       </PageHeader>
 
       {/* KPIs */}
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <StatCard title="Profesionales activos" value={profActivos} icon={Users} color="violet" />
         <StatCard title={`Pagos ${formatPeriod(period)}`} value={pagos.length} icon={DollarSign} color="emerald" />
         <StatCard title="Total cobrado" value={formatCurrency(totalPagos)} icon={DollarSign} color="amber" />
@@ -560,14 +571,14 @@ export default function Profesionales() {
 
       {/* ── MODAL: Cerrar mes ─────────────────────────────────────────────────── */}
       {showCerrarModal && liq && (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 px-4">
-          <div className="bg-[#111827] border border-gray-700 rounded-2xl p-6 w-full max-w-md shadow-2xl">
-            <div className="flex items-center justify-between mb-5">
+        <div className="modal-backdrop" onClick={() => setShowCerrarModal(false)}>
+          <div className="modal-panel max-w-md p-6" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
               <div>
                 <h2 className="text-lg font-bold text-white">Cerrar mes</h2>
                 <p className="text-sm text-gray-400">{selectedProf?.nombre} — {formatPeriod(period)}</p>
               </div>
-              <button onClick={() => setShowCerrarModal(false)} className="text-gray-500 hover:text-white">
+              <button onClick={() => setShowCerrarModal(false)} className="btn-icon">
                 <X size={18} />
               </button>
             </div>
@@ -623,11 +634,11 @@ export default function Profesionales() {
 
       {/* ── MODAL: Nuevo pago ─────────────────────────────────────────────────── */}
       {showPagoModal && (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 px-4">
-          <div className="bg-[#111827] border border-gray-700 rounded-2xl p-6 w-full max-w-md shadow-2xl">
-            <div className="flex items-center justify-between mb-5">
+        <div className="modal-backdrop" onClick={() => setShowPagoModal(false)}>
+          <div className="modal-panel max-w-md p-6" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
               <h2 className="text-lg font-bold text-white">Registrar pago</h2>
-              <button onClick={() => setShowPagoModal(false)} className="text-gray-500 hover:text-white">
+              <button onClick={() => setShowPagoModal(false)} className="btn-icon">
                 <X size={18} />
               </button>
             </div>
@@ -712,13 +723,13 @@ export default function Profesionales() {
 
       {/* ── MODAL: Profesional ────────────────────────────────────────────────── */}
       {showProfModal && (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 px-4">
-          <div className="bg-[#111827] border border-gray-700 rounded-2xl p-6 w-full max-w-sm shadow-2xl">
-            <div className="flex items-center justify-between mb-5">
+        <div className="modal-backdrop" onClick={() => setShowProfModal(false)}>
+          <div className="modal-panel max-w-sm p-6" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
               <h2 className="text-lg font-bold text-white">
                 {editProf ? 'Editar profesional' : 'Nuevo profesional'}
               </h2>
-              <button onClick={() => setShowProfModal(false)} className="text-gray-500 hover:text-white">
+              <button onClick={() => setShowProfModal(false)} className="btn-icon">
                 <X size={18} />
               </button>
             </div>
