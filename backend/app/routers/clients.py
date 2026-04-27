@@ -25,7 +25,7 @@ def list_clients(
 
     # Collaborators only see their assigned clients — use a subquery to avoid
     # lazy-loading client_assignments on the user object
-    if current_user.role == models.UserRole.collaborator:
+    if current_user.role == models.UserRole.colaborador:
         assigned_subq = (
             db.query(models.ClientCollaborator.client_id)
             .filter(models.ClientCollaborator.collaborator_id == current_user.id)
@@ -94,7 +94,7 @@ def get_client(
     if not client:
         raise HTTPException(status_code=404, detail="Cliente no encontrado")
 
-    if current_user.role == models.UserRole.collaborator:
+    if current_user.role == models.UserRole.colaborador:
         assigned_ids = [ca.client_id for ca in current_user.client_assignments]
         if client_id not in assigned_ids:
             raise HTTPException(status_code=403, detail="Sin acceso a este cliente")
@@ -247,7 +247,7 @@ def get_credentials(
     if not client:
         raise HTTPException(status_code=404, detail="Cliente no encontrado")
 
-    if current_user.role == models.UserRole.collaborator:
+    if current_user.role == models.UserRole.colaborador:
         assigned = db.query(models.ClientCollaborator).filter(
             models.ClientCollaborator.client_id == client_id,
             models.ClientCollaborator.collaborator_id == current_user.id,

@@ -2,7 +2,7 @@ import { NavLink } from 'react-router-dom'
 import { useState } from 'react'
 import {
   LayoutDashboard, Users, UserCheck, ClipboardList,
-  ReceiptText, BarChart3, Scale, LogOut, ChevronRight, FileSearch, Wrench, Wallet, PiggyBank
+  ReceiptText, BarChart3, Scale, ChevronRight, FileSearch, Wrench, Wallet, PiggyBank
 } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import clsx from 'clsx'
@@ -27,7 +27,7 @@ const OTRAS_ACCIONES_ITEMS = [
 ]
 
 export default function Sidebar() {
-  const { user, logout } = useAuth()
+  const { user } = useAuth()
   const [openGroups, setOpenGroups] = useState({ vistas: true, acciones: true, otras: true })
 
   const toggleGroup = (key) => {
@@ -168,13 +168,6 @@ export default function Sidebar() {
             <p className="text-sm font-semibold text-white truncate">{user?.name}</p>
             <p className="text-xs text-gray-400 truncate">{user?.email}</p>
           </div>
-          <button
-            onClick={logout}
-            className="text-gray-500 hover:text-rose-400 transition-colors p-1"
-            title="Cerrar sesión"
-          >
-            <LogOut size={16} />
-          </button>
         </div>
       </div>
     </aside>

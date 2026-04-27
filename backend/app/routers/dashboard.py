@@ -22,7 +22,7 @@ def get_stats(
     return schemas.DashboardStats(
         total_clients=db.query(models.Client).count(),
         active_clients=db.query(models.Client).filter(models.Client.is_active == True).count(),
-        total_collaborators=db.query(models.User).filter(models.User.role == models.UserRole.collaborator).count(),
+        total_collaborators=db.query(models.User).filter(models.User.role == models.UserRole.colaborador).count(),
         total_tasks=db.query(models.Task).count(),
         pending_tasks=db.query(models.Task).filter(models.Task.status == models.TaskStatus.pendiente).count(),
         in_progress_tasks=db.query(models.Task).filter(models.Task.status == models.TaskStatus.en_curso).count(),
@@ -45,7 +45,7 @@ def get_all_collaborator_stats(
     current_user: models.User = Depends(get_current_user)
 ):
     collaborators = db.query(models.User).filter(
-        models.User.role == models.UserRole.collaborator,
+        models.User.role == models.UserRole.colaborador,
         models.User.is_active == True
     ).all()
 

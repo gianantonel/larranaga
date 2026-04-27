@@ -20,8 +20,14 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
 
 
 def require_admin(current_user: models.User = Depends(get_current_user)) -> models.User:
-    if current_user.role not in [models.UserRole.admin1, models.UserRole.admin2, models.UserRole.admin3]:
+    if current_user.role not in [models.UserRole.super_admin, models.UserRole.admin]:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Se requieren permisos de administrador")
+    return current_user
+
+
+def require_super_admin(current_user: models.User = Depends(get_current_user)) -> models.User:
+    if current_user.role != models.UserRole.super_admin:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Se requieren permisos de Super-Admin")
     return current_user
 
 

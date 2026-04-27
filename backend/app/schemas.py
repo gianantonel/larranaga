@@ -1,7 +1,7 @@
 from pydantic import BaseModel, EmailStr
 from typing import Optional, List
 from datetime import datetime, date
-from .models import UserRole, TaskType, TaskStatus, InvoiceType
+from .models import UserRole, UserStatus, TaskType, TaskStatus, InvoiceType
 
 
 # ─── Auth ────────────────────────────────────────────────────────────────────
@@ -21,24 +21,37 @@ class Token(BaseModel):
 
 class UserCreate(BaseModel):
     name: str
+    last_name: Optional[str] = None
+    cuit: Optional[str] = None
     email: str
     password: str
-    role: UserRole = UserRole.collaborator
+    role: UserRole = UserRole.colaborador
+    status: UserStatus = UserStatus.pending
 
 
 class UserUpdate(BaseModel):
     name: Optional[str] = None
+    last_name: Optional[str] = None
+    cuit: Optional[str] = None
     email: Optional[str] = None
     password: Optional[str] = None
     role: Optional[UserRole] = None
+    status: Optional[UserStatus] = None
     is_active: Optional[bool] = None
+
+
+class UserRoleUpdate(BaseModel):
+    role: UserRole
 
 
 class UserOut(BaseModel):
     id: int
     name: str
+    last_name: Optional[str] = None
+    cuit: Optional[str] = None
     email: str
     role: UserRole
+    status: UserStatus
     is_active: bool
     avatar_initials: Optional[str] = None
     created_at: datetime
