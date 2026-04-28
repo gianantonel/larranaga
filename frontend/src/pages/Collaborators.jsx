@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Plus, UserCheck, Users, X } from 'lucide-react'
+import { Plus, UserCheck, Users, X, Upload } from 'lucide-react'
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from 'recharts'
 import { getCollaborators, getCollaboratorStats, createCollaborator } from '../utils/api'
 import { useAuth } from '../context/AuthContext'
@@ -7,6 +7,7 @@ import { RoleBadge } from '../components/UI/Badge'
 import PageHeader from '../components/UI/PageHeader'
 import LoadingSpinner from '../components/UI/LoadingSpinner'
 import { CHART_COLORS } from '../utils/helpers'
+import BulkUploadModal from '../components/UI/BulkUploadModal'
 
 const STATUS_COLORS = { terminada: '#10b981', en_curso: '#0ea5e9', pendiente: '#f59e0b', bloqueada: '#f43f5e' }
 
@@ -16,6 +17,7 @@ export default function Collaborators() {
   const [stats, setStats] = useState([])
   const [loading, setLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
+  const [showBulkModal, setShowBulkModal] = useState(false)
   const [form, setForm] = useState({ name: '', email: '', password: '', role: 'collaborator' })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
@@ -55,9 +57,14 @@ export default function Collaborators() {
     <div className="p-6 space-y-6">
       <PageHeader title="Colaboradores" subtitle={`${collaborators.length} colaboradores activos`}>
         {isAdmin && (
-          <button className="btn-primary" onClick={() => setShowModal(true)}>
-            <Plus size={18} /> Nuevo colaborador
-          </button>
+          <div className="flex gap-2">
+            <button className="btn-secondary" onClick={() => setShowBulkModal(true)}>
+              <Upload size={18} /> Importar
+            </button>
+            <button className="btn-primary" onClick={() => setShowModal(true)}>
+              <Plus size={18} /> Nuevo colaborador
+            </button>
+          </div>
         )}
       </PageHeader>
 
@@ -177,6 +184,12 @@ export default function Collaborators() {
           </div>
         </div>
       )}
+
+      <BulkUploadModal
+        open={showBulkModal}
+        onClose={() => { setShowBulkModal(false); load() }}
+        entity="collaborators"
+      />
     </div>
   )
 }

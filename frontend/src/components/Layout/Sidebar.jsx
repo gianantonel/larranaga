@@ -26,7 +26,7 @@ const ACCIONES_ITEMS = [
 ]
 
 const OTRAS_ACCIONES_ITEMS = [
-  { to: '/herramientas', icon: Wrench, label: 'Herramientas', req: 'R-01, R-02, R-10' },
+  { to: '/herramientas', icon: Wrench, label: 'Corrección B/C Holistor Columna L', req: 'R-01, R-02' },
 ]
 
 export default function Sidebar({ onClose }) {

@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { Outlet } from 'react-router-dom'
 import Sidebar from './Sidebar'
-import { Menu, X } from 'lucide-react'
+import Header from './Header'
+import { Menu } from 'lucide-react'
 
 export default function Layout() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -26,8 +27,8 @@ export default function Layout() {
       </div>
 
       {/* Main content */}
-      <main className="flex-1 overflow-auto min-w-0">
-        {/* Mobile header */}
+      <div className="flex-1 flex flex-col min-w-0">
+        {/* Mobile header (burger) */}
         <div className="sticky top-0 z-30 flex items-center gap-3 px-4 py-3 bg-[#0a0f1e]/95 backdrop-blur-sm border-b border-gray-700/40 lg:hidden">
           <button
             onClick={() => setSidebarOpen(true)}
@@ -43,8 +44,16 @@ export default function Layout() {
             <span className="text-white font-semibold text-sm">Larrañaga</span>
           </div>
         </div>
-        <Outlet />
-      </main>
+
+        {/* Desktop header (dropdown usuarios) */}
+        <div className="hidden lg:block">
+          <Header />
+        </div>
+
+        <main className="flex-1 overflow-auto p-6">
+          <Outlet />
+        </main>
+      </div>
     </div>
   )
 }

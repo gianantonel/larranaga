@@ -9,10 +9,16 @@ from .database import Base
 
 
 class UserRole(str, enum.Enum):
-    admin1 = "admin1"
-    admin2 = "admin2"
-    admin3 = "admin3"
-    collaborator = "collaborator"
+    super_admin = "super_admin"
+    admin = "admin"
+    colaborador = "colaborador"
+    invitado = "invitado"
+
+
+class UserStatus(str, enum.Enum):
+    active = "active"
+    pending = "pending"
+    rejected = "rejected"
 
 
 class TipoHonorario(str, enum.Enum):
@@ -62,9 +68,12 @@ class User(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String(100), nullable=False)
+    last_name = Column(String(100))
+    cuit = Column(String(13), index=True)
     email = Column(String(100), unique=True, index=True, nullable=False)
     password_hash = Column(String(255), nullable=False)
-    role = Column(Enum(UserRole), nullable=False, default=UserRole.collaborator)
+    role = Column(Enum(UserRole), nullable=False, default=UserRole.colaborador)
+    status = Column(Enum(UserStatus), nullable=False, default=UserStatus.active)
     is_active = Column(Boolean, default=True)
     avatar_initials = Column(String(3))
     created_at = Column(DateTime(timezone=True), server_default=func.now())
@@ -92,7 +101,7 @@ class Client(Base):
     notes = Column(Text)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
-    # R-03: configuración de honorario
+    # R-03: configuración de honorario (Gero)
     tipo_honorario = Column(Enum(TipoHonorario), nullable=True)
     importe_honorario = Column(Float, nullable=True)           # para tipo "fijo"
     producto_ref_id = Column(Integer, ForeignKey("productos_referencia.id"), nullable=True)
@@ -363,14 +372,18 @@ class MovimientoCuentaCorriente(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     client_id = Column(Integer, ForeignKey("clients.id", ondelete="CASCADE"), nullable=False)
-    tipo = Column(String(20), nullable=False) # 'ingreso' or 'egreso'
+    tipo = Column(String(20), nullable=False)  # 'honorario' | 'pago' | 'ajuste'
     monto = Column(Float, nullable=False)
     concepto = Column(String(255), nullable=False)
     fecha = Column(Date, nullable=False)
+    periodo_honorario = Column(String(7))  # YYYY-MM — qué período imputa
+    forma_pago = Column(String(20))  # 'efectivo' | 'transferencia'
+    profesional_id = Column(Integer, ForeignKey("profesionales.id"), nullable=True)
     notas = Column(Text)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     client = relationship("Client", back_populates="movimientos_cc")
+    profesional = relationship("Profesional", back_populates="movimientos_cc")
 
 
 # ─── R-03: Productos de referencia y honorarios ───────────────────────────────
@@ -436,6 +449,7 @@ class Profesional(Base):
     clientes = relationship("Client", back_populates="profesional_a_cargo", foreign_keys="Client.profesional_id")
     pagos_recibidos = relationship("Pago", back_populates="profesional_destinatario")
     liquidaciones = relationship("Liquidacion", back_populates="profesional", cascade="all, delete-orphan")
+    movimientos_cc = relationship("MovimientoCuentaCorriente", back_populates="profesional")
 
 
 class Pago(Base):

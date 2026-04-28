@@ -106,14 +106,24 @@ export default function Login() {
             </button>
           </form>
 
-          {/* Hint */}
-          <div className="mt-6 p-4 bg-[#0f172a] rounded-lg border border-gray-700/40">
-            <p className="text-xs text-gray-500 font-medium mb-2">Cuentas de prueba:</p>
-            <div className="space-y-1 text-xs text-gray-400">
-              <p>admin1@larranaga.com / admin123</p>
-              <p>mgonzalez@larranaga.com / colab123</p>
-            </div>
-          </div>
+           {/* Hint */}
+           <div className="mt-6 p-4 bg-[#0f172a] rounded-lg border border-gray-700/40">
+             <p className="text-xs text-gray-500 font-medium mb-2">Cuentas de prueba:</p>
+             <div className="space-y-1 text-xs text-gray-400">
+               <p>admin1@larranaga.com / admin123</p>
+               <p>mgonzalez@larranaga.com / colab123</p>
+             </div>
+           </div>
+
+           {/* Register link */}
+           <div className="mt-4 text-center">
+             <p className="text-xs text-gray-400">
+               ¿No tenés una cuenta?{' '}
+               <a href="/register" className="text-blue-400 hover:text-blue-300 underline">
+                 Registrate acá
+               </a>
+             </p>
+           </div>
         </div>
       </div>
     </div>

@@ -1,0 +1,75 @@
+====================================================
+PLANTILLA PARA DOCUMENTAR CAMBIOS
+====================================================
+
+Copia esto en actualizaciones-larranaga.md cuando hagas cambios importantes.
+
+====================================================
+
+## YYYY-MM-DD — [Tu Título del Cambio]
+
+### 🎯 Resumen
+[1-2 líneas describiendo QUÉ se hizo y POR QUÉ]
+
+### ✨ Cambios Realizados
+
+#### 1. **[Nombre del Cambio]**
+
+**Archivos Creados:**
+- `ruta/archivo.ext` — Descripción breve
+
+**Archivos Modificados:**
+- `ruta/archivo.ext` — Breve descripción del cambio
+
+**Funcionalidad:**
+- ✅ Feature/Fix punto 1
+- ✅ Feature/Fix punto 2
+- ✅ Feature/Fix punto 3
+
+**Commit:** `hash-del-commit`
+
+---
+
+[Si tienes múltiples cambios, repite la sección "#### 1. **[Nombre del Cambio]**" con numeración 2, 3, etc.]
+
+====================================================
+INSTRUCCIONES:
+====================================================
+
+1. Reemplaza YYYY-MM-DD con la fecha actual (ej: 2026-04-28)
+2. Reemplaza [Tu Título del Cambio] con una descripción clara
+3. Llena el RESUMEN explicando qué y por qué
+4. Lista TODOS los archivos creados y modificados
+5. Agrega los puntos de funcionalidad
+6. Incluye el commit hash (git log --oneline)
+7. Pega esto al INICIO del archivo (antes de otros cambios)
+8. Hacer commit que incluya este documento
+
+====================================================
+EJEMPLOS DE TÍTULOS:
+====================================================
+
+## 2026-04-28 — Corrección de bug en login
+## 2026-04-28 — Sistema de notificaciones en tiempo real
+## 2026-04-28 — Refactor de componentes React
+## 2026-04-28 — Optimización de queries SQL
+## 2026-04-28 — Nueva página de reportes
+
+====================================================
+EJEMPLOS DE PUNTOS DE FUNCIONALIDAD:
+====================================================
+
+Bug Fixes:
+- ✅ Solucionado error de validación en formulario
+- ✅ Corregido crash al hacer logout
+
+Features:
+- ✅ Usuario puede subir archivos hasta 100MB
+- ✅ Sistema de notificaciones por email
+- ✅ Dashboard en tiempo real
+
+Performance:
+- ✅ Queries optimizadas (50% más rápido)
+- ✅ Reducción de bundle size en 30%
+
+====================================================

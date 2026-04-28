@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus, Search, Eye, UserPlus, UserMinus, Pencil, Building2, Phone, Mail, X } from 'lucide-react'
+import { Plus, Search, Eye, UserPlus, UserMinus, Pencil, Building2, Phone, Mail, X, Upload } from 'lucide-react'
 import { getClients, getCollaborators, assignCollaborator, removeCollaboratorFromClient, createClient } from '../utils/api'
 import { useAuth } from '../context/AuthContext'
 import PageHeader from '../components/UI/PageHeader'
 import LoadingSpinner from '../components/UI/LoadingSpinner'
 import { RoleBadge } from '../components/UI/Badge'
+import BulkUploadModal from '../components/UI/BulkUploadModal'
 
 export default function Clients() {
   const { isAdmin } = useAuth()
@@ -15,6 +16,7 @@ export default function Clients() {
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [showModal, setShowModal] = useState(false)
+  const [showBulkModal, setShowBulkModal] = useState(false)
   const [form, setForm] = useState({ name: '', business_name: '', cuit: '', clave_fiscal: '', address: '', phone: '', email: '', category: '', fiscal_condition: 'Responsable Inscripto', activity_code: '' })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
@@ -62,9 +64,14 @@ export default function Clients() {
     <div className="p-6 space-y-6">
       <PageHeader title="Clientes" subtitle={`${clients.length} clientes registrados`}>
         {isAdmin && (
-          <button className="btn-primary" onClick={() => setShowModal(true)}>
-            <Plus size={18} /> Nuevo cliente
-          </button>
+          <div className="flex gap-2">
+            <button className="btn-secondary" onClick={() => setShowBulkModal(true)}>
+              <Upload size={18} /> Importar
+            </button>
+            <button className="btn-primary" onClick={() => setShowModal(true)}>
+              <Plus size={18} /> Nuevo cliente
+            </button>
+          </div>
         )}
       </PageHeader>
 
@@ -194,6 +201,12 @@ export default function Clients() {
           </div>
         </div>
       )}
+
+      <BulkUploadModal
+        open={showBulkModal}
+        onClose={() => { setShowBulkModal(false); load() }}
+        entity="clients"
+      />
     </div>
   )
 }
