@@ -4,6 +4,42 @@ Documento de control de todas las actualizaciones realizadas en la plataforma La
 
 ---
 
+## 2026-04-28 — R-03 + R-04: Honorarios y Liquidación de Profesionales
+
+### Resumen
+Módulo completo para calcular honorarios mensuales por cliente (importe fijo o valor-producto) y liquidar a los profesionales del estudio.
+
+### Archivos creados
+- `backend/app/routers/honorarios.py` — Endpoints de ProductoReferencia, cálculo de honorarios por período, configuración por cliente
+- `backend/app/routers/profesionales.py` — CRUD de profesionales, liquidaciones, reintegros, sincronización de adelantos
+- `backend/scripts/migrate_r03_r04.py` — Migración idempotente (nuevas tablas + columnas + seed de profesionales)
+- `frontend/src/pages/Honorarios.jsx` — Tabla de clientes, modal config honorario, modal productos de referencia
+- `frontend/src/pages/Liquidaciones.jsx` — Cards por profesional con desglose, reintegros, cierre de mes
+
+### Archivos modificados
+- `backend/app/models.py` — +7 modelos nuevos (Profesional, ProductoReferencia, Honorario, Liquidacion, ReintegroGasto, enums TipoHonorario/TipoProfesional) + campos en Client y MovimientoCuentaCorriente
+- `backend/app/schemas.py` — +12 schemas Pydantic nuevos
+- `backend/app/main.py` — Registra routers profesionales y honorarios
+- `frontend/src/App.jsx` — Rutas /honorarios y /liquidaciones
+- `frontend/src/components/Layout/Sidebar.jsx` — Items Honorarios y Liquidaciones
+- `TODO.md` — R-03, R-04, R-07 marcados como completados
+
+### Lógica de honorarios
+- **Tipo fijo**: importe mensual directo en pesos
+- **Tipo producto**: cantidad_unidades × precio_vigente del ProductoReferencia (actualizable)
+- Al generar el período, crea automáticamente el movimiento en CC del cliente
+
+### Lógica de liquidaciones
+- `total_a_cobrar = honorarios_totales - adelantos_percibidos + saldo_anterior + reintegro_gastos`
+- `saldo_siguiente = total_a_cobrar - monto_cobrado`
+- Adelantos se calculan automáticamente desde movimientos CC donde profesional_id + periodo_honorario coinciden
+- Cierre mensual bloquea edición y arrastra saldo al siguiente mes
+
+### Commit
+`8e8e918 feat(R-03+R-04): módulo de honorarios y liquidación de profesionales`
+
+---
+
 ## 2026-04-27 — Panel de Gestión de Usuarios + Refactor de Roles
 
 ### 📌 Resumen
