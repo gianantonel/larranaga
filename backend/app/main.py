@@ -41,6 +41,7 @@ app.include_router(herramientas.router)
 app.include_router(cuentas_corrientes.router)
 app.include_router(profesionales.router)
 app.include_router(honorarios.router)
+app.include_router(bulk.router)
 
 
 @app.on_event("startup")
