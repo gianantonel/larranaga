@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { getClients, getMovimientosCC, createMovimientoCC } from '../utils/api'
-import { Wallet, Plus, ArrowUpRight, ArrowDownRight, Search } from 'lucide-react'
+import { Wallet, Plus, ArrowUpRight, ArrowDownRight, Search, X } from 'lucide-react'
 
 export default function CuentasCorrientes() {
   const [clients, setClients] = useState([])
@@ -42,6 +42,13 @@ export default function CuentasCorrientes() {
       console.error(err)
     }
   }
+
+  useEffect(() => {
+    if (!isModalOpen) return
+    const handleEsc = e => { if (e.key === 'Escape') setIsModalOpen(false) }
+    window.addEventListener('keydown', handleEsc)
+    return () => window.removeEventListener('keydown', handleEsc)
+  }, [isModalOpen])
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -92,7 +99,7 @@ export default function CuentasCorrientes() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left Column: Client List */}
-        <div className="bg-[#1e293b] rounded-xl border border-gray-700/50 flex flex-col h-[calc(100vh-12rem)]">
+        <div className="bg-[#1e293b] rounded-xl border border-gray-700/50 flex flex-col h-[400px] lg:h-[calc(100vh-12rem)]">
           <div className="p-4 border-b border-gray-700/50">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
@@ -132,7 +139,7 @@ export default function CuentasCorrientes() {
         </div>
 
         {/* Right Column: Details & Movements */}
-        <div className="lg:col-span-2 bg-[#1e293b] rounded-xl border border-gray-700/50 flex flex-col h-[calc(100vh-12rem)]">
+        <div className="lg:col-span-2 bg-[#1e293b] rounded-xl border border-gray-700/50 flex flex-col min-h-[500px] lg:h-[calc(100vh-12rem)]">
           {selectedClient ? (
             <>
               <div className="p-6 border-b border-gray-700/50 flex justify-between items-start">
@@ -196,9 +203,9 @@ export default function CuentasCorrientes() {
               </div>
             </>
           ) : (
-            <div className="flex-1 flex flex-col items-center justify-center text-gray-500">
+            <div className="flex-1 flex flex-col items-center justify-center text-gray-500 py-12 lg:py-0">
               <Wallet size={64} className="mb-4 opacity-20" />
-              <p>Selecciona un cliente para ver su cuenta corriente</p>
+              <p>Seleccioná un cliente para ver su cuenta corriente</p>
             </div>
           )}
         </div>
@@ -206,11 +213,14 @@ export default function CuentasCorrientes() {
 
       {/* Modal Nuevo Movimiento */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="bg-[#1e293b] rounded-2xl w-full max-w-md border border-gray-700 shadow-2xl overflow-hidden">
-            <div className="p-6 border-b border-gray-700">
-              <h2 className="text-xl font-bold text-white">Registrar Movimiento</h2>
-              <p className="text-sm text-gray-400 mt-1">Para {selectedClient?.name}</p>
+        <div className="modal-backdrop" onClick={() => setIsModalOpen(false)}>
+          <div className="modal-panel max-w-md overflow-hidden" onClick={e => e.stopPropagation()}>
+            <div className="p-6 border-b border-gray-700/60 flex items-start justify-between">
+              <div>
+                <h2 className="text-xl font-bold text-white">Registrar Movimiento</h2>
+                <p className="text-sm text-gray-400 mt-1">Para {selectedClient?.name}</p>
+              </div>
+              <button type="button" onClick={() => setIsModalOpen(false)} className="btn-icon mt-0.5"><X size={18} /></button>
             </div>
             
             <form onSubmit={handleSubmit} className="p-6 space-y-4">

@@ -192,10 +192,10 @@ export default function ClientDetail() {
 
       {/* Tabs */}
       <div>
-        <div className="flex gap-1 bg-[#0f172a] p-1 rounded-xl w-fit mb-4 border border-gray-700/40">
+        <div className="flex gap-1 bg-[#0f172a] p-1 rounded-xl mb-4 border border-gray-700/40 overflow-x-auto">
           {tabs.map(t => (
             <button key={t.id} onClick={() => setActiveTab(t.id)}
-              className={`px-5 py-2 rounded-lg text-base font-medium transition-all ${activeTab === t.id ? 'bg-violet-600 text-white shadow-lg' : 'text-gray-400 hover:text-gray-200'}`}>
+              className={`px-3 sm:px-5 py-2 rounded-lg text-sm sm:text-base font-medium whitespace-nowrap transition-all ${activeTab === t.id ? 'bg-violet-600 text-white shadow-lg' : 'text-gray-400 hover:text-gray-200'}`}>
               {t.label}
             </button>
           ))}

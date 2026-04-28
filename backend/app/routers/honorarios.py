@@ -1,58 +1,76 @@
-"""R-03 — Gestión de Productos de Referencia y cálculo de Honorarios."""
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from datetime import date
+
 from .. import models, schemas
 from ..database import get_db
-from ..routers.auth import get_current_user
+from .auth import get_current_user, require_admin
+from .clients import _format_client_out
 
 router = APIRouter(prefix="/honorarios", tags=["honorarios"])
 
 
-# ─── Productos de Referencia ──────────────────────────────────────────────────
+# ─── Helper ───────────────────────────────────────────────────────────────────
 
-@router.get("/productos", response_model=List[schemas.ProductoReferenciaOut])
-def list_productos(
-    activo: Optional[bool] = None,
-    db: Session = Depends(get_db),
-    _: models.User = Depends(get_current_user),
-):
-    q = db.query(models.ProductoReferencia)
-    if activo is not None:
-        q = q.filter(models.ProductoReferencia.activo == activo)
-    return q.order_by(models.ProductoReferencia.nombre).all()
+def _calcular_importe(client: models.Client, db: Session) -> tuple[float, Optional[float]]:
+    """Devuelve (importe, precio_producto_snapshot). Lanza 400 si no está configurado."""
+    if not client.tipo_honorario:
+        raise HTTPException(400, f"Cliente '{client.name}' no tiene tipo_honorario configurado")
+
+    if client.tipo_honorario == models.TipoHonorario.fijo:
+        if client.importe_honorario is None:
+            raise HTTPException(400, f"Cliente '{client.name}': importe_honorario no configurado")
+        return client.importe_honorario, None
+
+    if client.tipo_honorario == models.TipoHonorario.producto:
+        if not client.producto_ref_id or client.cantidad_unidades is None:
+            raise HTTPException(400, f"Cliente '{client.name}': producto_ref_id o cantidad_unidades no configurados")
+        prod = db.get(models.ProductoReferencia, client.producto_ref_id)
+        if not prod:
+            raise HTTPException(400, f"Producto de referencia id={client.producto_ref_id} no encontrado")
+        return round(client.cantidad_unidades * prod.precio_vigente, 2), prod.precio_vigente
+
+    raise HTTPException(400, f"tipo_honorario desconocido: {client.tipo_honorario}")
 
 
-@router.post("/productos", response_model=schemas.ProductoReferenciaOut, status_code=status.HTTP_201_CREATED)
-def create_producto(
-    data: schemas.ProductoReferenciaCreate,
-    db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_current_user),
-):
-    if current_user.role not in (models.UserRole.super_admin, models.UserRole.admin):
-        raise HTTPException(status_code=403, detail="Solo administradores")
+# ─── Productos de referencia ──────────────────────────────────────────────────
+
+@router.get("/productos-referencia", response_model=List[schemas.ProductoReferenciaOut])
+def list_productos(db: Session = Depends(get_db),
+                   _: models.User = Depends(get_current_user)):
+    return db.query(models.ProductoReferencia).order_by(models.ProductoReferencia.nombre).all()
+
+
+@router.post("/productos-referencia", response_model=schemas.ProductoReferenciaOut, status_code=201)
+def create_producto(data: schemas.ProductoReferenciaCreate, db: Session = Depends(get_db),
+                    _: models.User = Depends(require_admin)):
     prod = models.ProductoReferencia(**data.model_dump())
     db.add(prod)
+    db.flush()
+    db.add(models.HistorialPrecioProducto(
+        producto_id=prod.id, precio=prod.precio_vigente, vigente_desde=date.today()
+    ))
     db.commit()
     db.refresh(prod)
     return prod
 
 
-@router.patch("/productos/{prod_id}", response_model=schemas.ProductoReferenciaOut)
-def update_producto(
-    prod_id: int,
-    data: schemas.ProductoReferenciaUpdate,
-    db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_current_user),
-):
-    if current_user.role not in (models.UserRole.super_admin, models.UserRole.admin):
-        raise HTTPException(status_code=403, detail="Solo administradores")
-    prod = db.query(models.ProductoReferencia).filter(models.ProductoReferencia.id == prod_id).first()
+@router.put("/productos-referencia/{id}", response_model=schemas.ProductoReferenciaOut)
+def update_producto(id: int, data: schemas.ProductoReferenciaUpdate, db: Session = Depends(get_db),
+                    _: models.User = Depends(require_admin)):
+    prod = db.get(models.ProductoReferencia, id)
     if not prod:
-        raise HTTPException(status_code=404, detail="Producto no encontrado")
-    for k, v in data.model_dump(exclude_none=True).items():
-        setattr(prod, k, v)
+        raise HTTPException(404, "Producto no encontrado")
+
+    if data.precio_vigente is not None and data.precio_vigente != prod.precio_vigente:
+        db.add(models.HistorialPrecioProducto(
+            producto_id=prod.id, precio=data.precio_vigente, vigente_desde=date.today()
+        ))
+
+    for field, val in data.model_dump(exclude_none=True).items():
+        setattr(prod, field, val)
+
     db.commit()
     db.refresh(prod)
     return prod
@@ -60,207 +78,181 @@ def update_producto(
 
 # ─── Configuración de honorario por cliente ───────────────────────────────────
 
-@router.patch("/clientes/{client_id}/config", response_model=schemas.HonorarioOut)
-def update_client_honorario_config(
-    client_id: int,
-    data: schemas.ClientHonorarioUpdate,
-    db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_current_user),
-):
-    """Actualiza el tipo y parámetros de honorario de un cliente."""
-    if current_user.role not in (models.UserRole.super_admin, models.UserRole.admin):
-        raise HTTPException(status_code=403, detail="Solo administradores")
-    client = db.query(models.Client).filter(models.Client.id == client_id).first()
+@router.put("/clientes/{client_id}/configurar", response_model=schemas.ClientOut)
+def configurar_honorario(client_id: int, data: schemas.ClientHonorarioUpdate,
+                         db: Session = Depends(get_db),
+                         _: models.User = Depends(require_admin)):
+    client = db.get(models.Client, client_id)
     if not client:
-        raise HTTPException(status_code=404, detail="Cliente no encontrado")
-    for k, v in data.model_dump(exclude_none=True).items():
-        setattr(client, k, v)
+        raise HTTPException(404, "Cliente no encontrado")
+
+    for field, val in data.model_dump(exclude_none=True).items():
+        setattr(client, field, val)
+
     db.commit()
     db.refresh(client)
-    # Return a synthetic HonorarioOut showing current config
-    importe = _calcular_importe(client, db)
-    return schemas.HonorarioOut(
-        id=0,
-        client_id=client.id,
-        client_name=client.name,
-        periodo="config",
+
+    return _format_client_out(client, db)
+
+
+# ─── Honorarios calculados ────────────────────────────────────────────────────
+
+@router.get("/", response_model=List[schemas.HonorarioOut])
+def list_honorarios(client_id: Optional[int] = None, period: Optional[str] = None,
+                    db: Session = Depends(get_db),
+                    _: models.User = Depends(get_current_user)):
+    q = db.query(models.Honorario)
+    if client_id:
+        q = q.filter(models.Honorario.client_id == client_id)
+    if period:
+        q = q.filter(models.Honorario.period == period)
+
+    result = []
+    for h in q.order_by(models.Honorario.period.desc(), models.Honorario.client_id).all():
+        out = schemas.HonorarioOut.model_validate(h)
+        out.client_name = h.client.name if h.client else None
+        result.append(out)
+    return result
+
+
+@router.post("/calcular/{client_id}/{period}", response_model=schemas.HonorarioOut, status_code=201)
+def calcular_honorario(client_id: int, period: str, db: Session = Depends(get_db),
+                       _: models.User = Depends(require_admin)):
+    """Genera (o regenera) el honorario de un cliente para el período YYYY-MM."""
+    client = db.get(models.Client, client_id)
+    if not client:
+        raise HTTPException(404, "Cliente no encontrado")
+
+    importe, precio_snapshot = _calcular_importe(client, db)
+
+    existing = db.query(models.Honorario).filter(
+        models.Honorario.client_id == client_id,
+        models.Honorario.period == period
+    ).first()
+    if existing:
+        db.delete(existing)
+        db.flush()
+
+    h = models.Honorario(
+        client_id=client_id,
+        period=period,
         importe=importe,
-        estado="config",
-        created_at=client.created_at,
+        tipo=client.tipo_honorario.value,
+        precio_producto_snapshot=precio_snapshot,
     )
+    db.add(h)
+    db.commit()
+    db.refresh(h)
+
+    out = schemas.HonorarioOut.model_validate(h)
+    out.client_name = client.name
+    return out
 
 
-def _calcular_importe(client: models.Client, db: Session) -> float:
-    """Calcula el importe de honorario según el tipo configurado en el cliente."""
-    if client.tipo_honorario == "fijo":
-        return client.importe_honorario or 0.0
-    if client.tipo_honorario == "producto" and client.producto_ref_id:
-        prod = db.query(models.ProductoReferencia).filter(
-            models.ProductoReferencia.id == client.producto_ref_id
-        ).first()
-        if prod:
-            return (client.cantidad_unidades or 0) * prod.precio_vigente
-    return 0.0
+@router.post("/calcular-periodo/{period}", response_model=List[schemas.HonorarioOut])
+def calcular_periodo(period: str, db: Session = Depends(get_db),
+                     _: models.User = Depends(require_admin)):
+    """Genera honorarios de todos los clientes activos configurados para el período."""
+    clientes = db.query(models.Client).filter(
+        models.Client.is_active == True,
+        models.Client.tipo_honorario.isnot(None),
+    ).all()
 
-
-# ─── Calcular / Generar honorarios por período ────────────────────────────────
-
-@router.post("/calcular/{periodo}", response_model=List[schemas.HonorarioOut])
-def calcular_honorarios_periodo(
-    periodo: str,
-    db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_current_user),
-):
-    """
-    Genera (o actualiza) los registros de Honorario para todos los clientes activos
-    con honorario configurado en el período indicado (YYYY-MM).
-    Si ya existe para un cliente/período, lo actualiza (re-calcula).
-    """
-    if current_user.role not in (models.UserRole.super_admin, models.UserRole.admin):
-        raise HTTPException(status_code=403, detail="Solo administradores")
-
-    clientes = db.query(models.Client).filter(models.Client.is_active == True).all()
-    resultado = []
-
+    generados = []
     for client in clientes:
-        if not client.tipo_honorario or (client.importe_honorario == 0 and client.tipo_honorario == "fijo"):
-            continue  # Sin honorario configurado
-        importe = _calcular_importe(client, db)
-        if importe == 0:
+        try:
+            importe, precio_snapshot = _calcular_importe(client, db)
+        except HTTPException:
             continue
 
-        existing = (
-            db.query(models.Honorario)
-            .filter(models.Honorario.client_id == client.id, models.Honorario.periodo == periodo)
-            .first()
-        )
+        existing = db.query(models.Honorario).filter(
+            models.Honorario.client_id == client.id,
+            models.Honorario.period == period,
+        ).first()
         if existing:
-            existing.importe = importe
+            db.delete(existing)
             db.flush()
-            resultado.append(existing)
-        else:
-            hon = models.Honorario(client_id=client.id, periodo=periodo, importe=importe)
-            db.add(hon)
-            db.flush()
-            resultado.append(hon)
 
-        # Registrar movimiento en CC si no existe ya el cargo de honorarios para ese período
-        cc_existing = (
-            db.query(models.MovimientoCuentaCorriente)
-            .filter(
-                models.MovimientoCuentaCorriente.client_id == client.id,
-                models.MovimientoCuentaCorriente.tipo == "honorario",
-                models.MovimientoCuentaCorriente.periodo_honorario == periodo,
-            )
-            .first()
+        h = models.Honorario(
+            client_id=client.id,
+            period=period,
+            importe=importe,
+            tipo=client.tipo_honorario.value,
+            precio_producto_snapshot=precio_snapshot,
         )
-        if not cc_existing:
-            year, month = periodo.split("-")
-            from datetime import date
-            fecha = date(int(year), int(month), 1)
-            mov = models.MovimientoCuentaCorriente(
-                client_id=client.id,
-                tipo="honorario",
-                monto=importe,
-                concepto=f"HONORARIOS {periodo}",
-                fecha=fecha,
-                periodo_honorario=periodo,
-            )
-            db.add(mov)
+        db.add(h)
+        db.flush()
+        generados.append((h, client.name))
 
     db.commit()
 
-    # Refresh y devolver
-    for h in resultado:
-        db.refresh(h)
-
-    out = []
-    for h in resultado:
-        item = schemas.HonorarioOut.model_validate(h)
-        if h.client:
-            item.client_name = h.client.name
-        out.append(item)
-    return out
-
-
-@router.get("/periodo/{periodo}", response_model=List[schemas.HonorarioOut])
-def get_honorarios_periodo(
-    periodo: str,
-    db: Session = Depends(get_db),
-    _: models.User = Depends(get_current_user),
-):
-    hons = (
-        db.query(models.Honorario)
-        .filter(models.Honorario.periodo == periodo)
-        .all()
-    )
-    out = []
-    for h in hons:
-        item = schemas.HonorarioOut.model_validate(h)
-        if h.client:
-            item.client_name = h.client.name
-        out.append(item)
-    return out
-
-
-@router.get("/cliente/{client_id}", response_model=List[schemas.HonorarioOut])
-def get_honorarios_cliente(
-    client_id: int,
-    db: Session = Depends(get_db),
-    _: models.User = Depends(get_current_user),
-):
-    client = db.query(models.Client).filter(models.Client.id == client_id).first()
-    if not client:
-        raise HTTPException(status_code=404, detail="Cliente no encontrado")
-    hons = (
-        db.query(models.Honorario)
-        .filter(models.Honorario.client_id == client_id)
-        .order_by(models.Honorario.periodo.desc())
-        .all()
-    )
-    out = []
-    for h in hons:
-        item = schemas.HonorarioOut.model_validate(h)
-        item.client_name = client.name
-        out.append(item)
-    return out
-
-
-@router.get("/resumen/clientes", response_model=List[dict])
-def get_resumen_clientes(
-    db: Session = Depends(get_db),
-    _: models.User = Depends(get_current_user),
-):
-    """Lista todos los clientes activos con su configuración de honorario actual."""
-    clientes = db.query(models.Client).filter(models.Client.is_active == True).all()
     result = []
-    for c in clientes:
-        importe = _calcular_importe(c, db)
-        prod_nombre = None
-        if c.producto_ref_id and c.tipo_honorario == "producto":
-            prod = db.query(models.ProductoReferencia).filter(
-                models.ProductoReferencia.id == c.producto_ref_id
-            ).first()
-            if prod:
-                prod_nombre = prod.nombre
-        prof_nombre = None
-        if c.profesional_id:
-            prof = db.query(models.Profesional).filter(
-                models.Profesional.id == c.profesional_id
-            ).first()
-            if prof:
-                prof_nombre = f"{prof.nombre} {prof.apellido or ''}".strip()
-        result.append({
-            "client_id": c.id,
-            "client_name": c.name,
-            "cuit": c.cuit,
-            "tipo_honorario": c.tipo_honorario,
-            "importe_honorario": c.importe_honorario,
-            "cantidad_unidades": c.cantidad_unidades,
-            "producto_ref_id": c.producto_ref_id,
-            "producto_nombre": prod_nombre,
-            "importe_calculado": importe,
-            "profesional_id": c.profesional_id,
-            "profesional_nombre": prof_nombre,
-        })
+    for h, client_name in generados:
+        db.refresh(h)
+        out = schemas.HonorarioOut.model_validate(h)
+        out.client_name = client_name
+        result.append(out)
     return result
+
+
+# ─── Actualización cuatrimestral ─────────────────────────────────────────────
+
+@router.get("/actualizacion-cuatrimestral/preview",
+            response_model=schemas.ActualizacionCuatrimestralPreview)
+def preview_actualizacion(indice_pct: float = Query(..., gt=0, description="Índice en %, ej: 10 para +10%"),
+                          db: Session = Depends(get_db),
+                          _: models.User = Depends(require_admin)):
+    clientes = db.query(models.Client).filter(
+        models.Client.is_active == True,
+        models.Client.tipo_honorario.isnot(None),
+    ).order_by(models.Client.name).all()
+
+    items = []
+    for c in clientes:
+        if c.tipo_honorario == models.TipoHonorario.fijo:
+            actual = c.importe_honorario or 0.0
+            propuesto = round(actual * (1 + indice_pct / 100), 2)
+            items.append(schemas.ClienteActualizacionItem(
+                client_id=c.id, client_name=c.name,
+                tipo_honorario="fijo",
+                importe_actual=actual, importe_propuesto=propuesto,
+                delta_pct=indice_pct, aplica_indice=True,
+            ))
+        else:
+            items.append(schemas.ClienteActualizacionItem(
+                client_id=c.id, client_name=c.name,
+                tipo_honorario="producto",
+                aplica_indice=False,
+            ))
+
+    return schemas.ActualizacionCuatrimestralPreview(indice_pct=indice_pct, clientes=items)
+
+
+@router.post("/actualizacion-cuatrimestral/aplicar")
+def aplicar_actualizacion(data: schemas.ActualizacionCuatrimestralApply,
+                          db: Session = Depends(get_db),
+                          _: models.User = Depends(require_admin)):
+    """Aplica la actualización cuatrimestral a los clientes confirmados."""
+    actualizados = []
+    for item in data.actualizaciones:
+        if not item.confirmar:
+            continue
+        client = db.get(models.Client, item.client_id)
+        if not client or client.tipo_honorario != models.TipoHonorario.fijo:
+            continue
+        anterior = client.importe_honorario
+        client.importe_honorario = item.nuevo_importe
+        actualizados.append({
+            "client_id": item.client_id,
+            "client_name": client.name,
+            "importe_anterior": anterior,
+            "importe_nuevo": item.nuevo_importe,
+        })
+
+    db.commit()
+    return {
+        "indice_pct": data.indice_pct,
+        "vigente_desde": data.vigente_desde,
+        "actualizados": len(actualizados),
+        "detalle": actualizados,
+    }

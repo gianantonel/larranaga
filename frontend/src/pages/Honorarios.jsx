@@ -1,513 +1,592 @@
-import { useState, useEffect } from 'react'
-import api from '../utils/api'
-import { DollarSign, Settings, RefreshCw, Package, ChevronDown, ChevronRight, AlertCircle, Check } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { Plus, DollarSign, Package, RefreshCw, Settings, TrendingUp, X, Calculator } from 'lucide-react'
+import { useAuth } from '../context/AuthContext'
+import PageHeader from '../components/UI/PageHeader'
+import LoadingSpinner from '../components/UI/LoadingSpinner'
+import StatCard from '../components/UI/StatCard'
+import { formatCurrency, formatDate, formatPeriod } from '../utils/helpers'
+import {
+  getHonorarios, getClients, getProductosReferencia, getProfesionales,
+  calcularHonorario, calcularPeriodo,
+  createProducto, updateProducto,
+  configurarHonorario,
+  getPreviewActualizacion, aplicarActualizacion,
+} from '../utils/api'
 
-const MONTHS = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']
-
-function getPeriodo() {
-  const now = new Date()
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+const todayPeriod = () => {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
 }
-
-function formatARS(n) {
-  return new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', minimumFractionDigits: 0 }).format(n || 0)
-}
-
-// ─── Modal Configurar Honorario ───────────────────────────────────────────────
-
-function ConfigModal({ client, productos, profesionales, onClose, onSaved }) {
-  const [tipo, setTipo] = useState(client.tipo_honorario || 'fijo')
-  const [importe, setImporte] = useState(client.importe_honorario || 0)
-  const [cantidad, setCantidad] = useState(client.cantidad_unidades || 0)
-  const [productoId, setProductoId] = useState(client.producto_ref_id || '')
-  const [profesionalId, setProfesionalId] = useState(client.profesional_id || '')
-  const [saving, setSaving] = useState(false)
-  const [error, setError] = useState('')
-
-  async function handleSave() {
-    setSaving(true)
-    setError('')
-    try {
-      await api.patch(`/honorarios/clientes/${client.client_id}/config`, {
-        tipo_honorario: tipo,
-        importe_honorario: tipo === 'fijo' ? Number(importe) : 0,
-        cantidad_unidades: tipo === 'producto' ? Number(cantidad) : 0,
-        producto_ref_id: tipo === 'producto' && productoId ? Number(productoId) : null,
-        profesional_id: profesionalId ? Number(profesionalId) : null,
-      })
-      onSaved()
-      onClose()
-    } catch (e) {
-      setError(e.response?.data?.detail || 'Error al guardar')
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  const selectedProd = productos.find(p => p.id === Number(productoId))
-  const preview = tipo === 'fijo'
-    ? Number(importe)
-    : selectedProd ? Number(cantidad) * selectedProd.precio_vigente : 0
-
-  return (
-    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-      <div className="bg-[#1e293b] rounded-2xl border border-gray-700/50 w-full max-w-md shadow-2xl">
-        <div className="px-6 py-4 border-b border-gray-700/40">
-          <h3 className="text-lg font-semibold text-white">Configurar Honorario</h3>
-          <p className="text-sm text-gray-400 mt-0.5">{client.client_name}</p>
-        </div>
-        <div className="px-6 py-5 space-y-4">
-          {/* Tipo */}
-          <div>
-            <label className="block text-sm text-gray-300 mb-1.5">Tipo de honorario</label>
-            <div className="flex gap-3">
-              {['fijo', 'producto'].map(t => (
-                <button
-                  key={t}
-                  onClick={() => setTipo(t)}
-                  className={`flex-1 py-2 rounded-lg border text-sm font-medium transition-colors ${
-                    tipo === t
-                      ? 'border-violet-500 bg-violet-500/20 text-violet-300'
-                      : 'border-gray-600 text-gray-400 hover:border-gray-500'
-                  }`}
-                >
-                  {t === 'fijo' ? 'Importe fijo $' : 'Valor producto'}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {tipo === 'fijo' ? (
-            <div>
-              <label className="block text-sm text-gray-300 mb-1.5">Importe mensual ($)</label>
-              <input
-                type="number"
-                value={importe}
-                onChange={e => setImporte(e.target.value)}
-                className="w-full bg-[#0f172a] border border-gray-600 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-violet-500"
-                placeholder="254300"
-              />
-            </div>
-          ) : (
-            <>
-              <div>
-                <label className="block text-sm text-gray-300 mb-1.5">Producto de referencia</label>
-                <select
-                  value={productoId}
-                  onChange={e => setProductoId(e.target.value)}
-                  className="w-full bg-[#0f172a] border border-gray-600 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-violet-500"
-                >
-                  <option value="">-- Seleccionar --</option>
-                  {productos.filter(p => p.activo).map(p => (
-                    <option key={p.id} value={p.id}>
-                      {p.nombre} — {formatARS(p.precio_vigente)} / {p.unidad}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm text-gray-300 mb-1.5">Cantidad de unidades</label>
-                <input
-                  type="number"
-                  value={cantidad}
-                  onChange={e => setCantidad(e.target.value)}
-                  className="w-full bg-[#0f172a] border border-gray-600 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-violet-500"
-                  placeholder="50"
-                />
-              </div>
-            </>
-          )}
-
-          {/* Profesional a cargo */}
-          <div>
-            <label className="block text-sm text-gray-300 mb-1.5">Profesional a cargo</label>
-            <select
-              value={profesionalId}
-              onChange={e => setProfesionalId(e.target.value)}
-              className="w-full bg-[#0f172a] border border-gray-600 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-violet-500"
-            >
-              <option value="">-- Sin asignar --</option>
-              {profesionales.filter(p => p.activo).map(p => (
-                <option key={p.id} value={p.id}>
-                  {p.nombre} {p.apellido || ''} ({p.tipo})
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Preview */}
-          {preview > 0 && (
-            <div className="bg-violet-500/10 border border-violet-500/30 rounded-lg px-4 py-3">
-              <p className="text-xs text-gray-400">Honorario calculado</p>
-              <p className="text-xl font-bold text-violet-300">{formatARS(preview)}</p>
-            </div>
-          )}
-
-          {error && (
-            <div className="flex items-center gap-2 text-red-400 text-sm">
-              <AlertCircle size={16} /> {error}
-            </div>
-          )}
-        </div>
-        <div className="px-6 py-4 border-t border-gray-700/40 flex gap-3 justify-end">
-          <button onClick={onClose} className="px-4 py-2 text-sm text-gray-400 hover:text-white transition-colors">
-            Cancelar
-          </button>
-          <button
-            onClick={handleSave}
-            disabled={saving}
-            className="px-4 py-2 bg-violet-600 hover:bg-violet-500 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
-          >
-            {saving ? 'Guardando...' : 'Guardar'}
-          </button>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-// ─── Modal Gestionar Productos de Referencia ──────────────────────────────────
-
-function ProductosModal({ productos, onClose, onRefresh }) {
-  const [form, setForm] = useState({ nombre: '', unidad: 'unidad', precio_vigente: '', fecha_actualizacion: new Date().toISOString().slice(0, 10) })
-  const [saving, setSaving] = useState(false)
-  const [error, setError] = useState('')
-
-  async function handleAdd() {
-    if (!form.nombre || !form.precio_vigente) return
-    setSaving(true)
-    try {
-      await api.post('/honorarios/productos', {
-        nombre: form.nombre,
-        unidad: form.unidad,
-        precio_vigente: Number(form.precio_vigente),
-        fecha_actualizacion: form.fecha_actualizacion,
-      })
-      setForm({ nombre: '', unidad: 'unidad', precio_vigente: '', fecha_actualizacion: new Date().toISOString().slice(0, 10) })
-      onRefresh()
-    } catch (e) {
-      setError(e.response?.data?.detail || 'Error')
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  async function handleUpdatePrecio(id, precio) {
-    const val = parseFloat(precio)
-    if (isNaN(val) || val <= 0) return
-    try {
-      await api.patch(`/honorarios/productos/${id}`, {
-        precio_vigente: val,
-        fecha_actualizacion: new Date().toISOString().slice(0, 10),
-      })
-      onRefresh()
-    } catch { /* ignore */ }
-  }
-
-  return (
-    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-      <div className="bg-[#1e293b] rounded-2xl border border-gray-700/50 w-full max-w-lg shadow-2xl">
-        <div className="px-6 py-4 border-b border-gray-700/40 flex items-center justify-between">
-          <h3 className="text-lg font-semibold text-white">Productos de Referencia</h3>
-          <button onClick={onClose} className="text-gray-400 hover:text-white">✕</button>
-        </div>
-        <div className="px-6 py-4 space-y-4 max-h-[60vh] overflow-y-auto">
-          {/* Agregar nuevo */}
-          <div className="bg-[#0f172a] rounded-xl p-4 space-y-3">
-            <p className="text-sm font-medium text-gray-300">Agregar producto</p>
-            <div className="grid grid-cols-2 gap-2">
-              <input
-                value={form.nombre}
-                onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))}
-                placeholder="Bolsas de cemento"
-                className="col-span-2 bg-[#1e293b] border border-gray-600 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-violet-500"
-              />
-              <input
-                value={form.unidad}
-                onChange={e => setForm(f => ({ ...f, unidad: e.target.value }))}
-                placeholder="bolsa / kg / litro"
-                className="bg-[#1e293b] border border-gray-600 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-violet-500"
-              />
-              <input
-                type="number"
-                value={form.precio_vigente}
-                onChange={e => setForm(f => ({ ...f, precio_vigente: e.target.value }))}
-                placeholder="Precio ($)"
-                className="bg-[#1e293b] border border-gray-600 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-violet-500"
-              />
-            </div>
-            {error && <p className="text-red-400 text-xs">{error}</p>}
-            <button
-              onClick={handleAdd}
-              disabled={saving || !form.nombre || !form.precio_vigente}
-              className="w-full py-2 bg-violet-600 hover:bg-violet-500 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
-            >
-              Agregar
-            </button>
-          </div>
-
-          {/* Lista de productos */}
-          <div className="space-y-2">
-            {productos.map(p => (
-              <div key={p.id} className="flex items-center gap-3 bg-white/5 rounded-xl px-4 py-3">
-                <Package size={16} className="text-violet-400 flex-shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm text-white font-medium">{p.nombre}</p>
-                  <p className="text-xs text-gray-400">{p.unidad} — actualizado {p.fecha_actualizacion}</p>
-                </div>
-                <input
-                  type="number"
-                  defaultValue={p.precio_vigente}
-                  onBlur={e => handleUpdatePrecio(p.id, e.target.value)}
-                  className="w-28 bg-[#0f172a] border border-gray-600 rounded-lg px-2 py-1 text-white text-sm text-right focus:outline-none focus:border-violet-500"
-                />
-              </div>
-            ))}
-            {productos.length === 0 && (
-              <p className="text-gray-500 text-sm text-center py-4">Sin productos registrados</p>
-            )}
-          </div>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-// ─── Página Principal ─────────────────────────────────────────────────────────
 
 export default function Honorarios() {
-  const now = new Date()
-  const [periodo, setPeriodo] = useState(getPeriodo())
-  const [clientes, setClientes] = useState([])
-  const [honorariosPeriodo, setHonorariosPeriodo] = useState([])
+  const { isAdmin } = useAuth()
+  const [honorarios, setHonorarios] = useState([])
+  const [clients, setClients] = useState([])
   const [productos, setProductos] = useState([])
   const [profesionales, setProfesionales] = useState([])
+  const [period, setPeriod] = useState(todayPeriod())
   const [loading, setLoading] = useState(true)
-  const [generating, setGenerating] = useState(false)
+  const [busy, setBusy] = useState(false)
+
+  // Producto modal
+  const [showProductoModal, setShowProductoModal] = useState(false)
+  const [editProducto, setEditProducto] = useState(null)
+  const [productoForm, setProductoForm] = useState({ nombre: '', unidad: '', precio_vigente: '' })
+
+  // Config honorario modal
+  const [showConfigModal, setShowConfigModal] = useState(false)
   const [configClient, setConfigClient] = useState(null)
-  const [showProductos, setShowProductos] = useState(false)
-  const [filter, setFilter] = useState('')
+  const [configForm, setConfigForm] = useState({
+    tipo_honorario: '', importe_honorario: '', producto_ref_id: '', cantidad_unidades: '',
+  })
 
-  async function fetchAll() {
+  // Actualización cuatrimestral modal
+  const [showActModal, setShowActModal] = useState(false)
+  const [actPct, setActPct] = useState('')
+  const [actVigente, setActVigente] = useState(todayPeriod())
+  const [actPreview, setActPreview] = useState(null)
+
+  const load = () => {
     setLoading(true)
-    try {
-      const [resClientes, resProd, resProf, resHon] = await Promise.all([
-        api.get('/honorarios/resumen/clientes'),
-        api.get('/honorarios/productos'),
-        api.get('/profesionales/'),
-        api.get(`/honorarios/periodo/${periodo}`),
-      ])
-      setClientes(resClientes.data)
-      setProductos(resProd.data)
-      setProfesionales(resProf.data)
-      setHonorariosPeriodo(resHon.data)
-    } catch { /* ignore */ }
-    finally { setLoading(false) }
+    Promise.all([getHonorarios({ period }), getClients(), getProductosReferencia(), getProfesionales()])
+      .then(([h, c, p, pr]) => {
+        setHonorarios(h.data)
+        setClients(c.data)
+        setProductos(p.data)
+        setProfesionales(pr.data)
+      })
+      .catch(err => console.error('Honorarios load error:', err))
+      .finally(() => setLoading(false))
   }
 
-  useEffect(() => { fetchAll() }, [periodo])
+  useEffect(() => { load() }, [period])
 
-  async function generateHonorarios() {
-    setGenerating(true)
+  // ─── Calcular ────────────────────────────────────────────────────────────────
+
+  const handleCalcularOne = async (clientId) => {
+    setBusy(true)
     try {
-      await api.post(`/honorarios/calcular/${periodo}`)
-      await fetchAll()
-    } catch { /* ignore */ }
-    finally { setGenerating(false) }
+      await calcularHonorario(clientId, period)
+      load()
+    } catch (e) {
+      alert(e.response?.data?.detail || 'Error al calcular honorario')
+    } finally { setBusy(false) }
   }
 
-  const honMap = Object.fromEntries(honorariosPeriodo.map(h => [h.client_id, h]))
+  const handleCalcularPeriodo = async () => {
+    if (!confirm(`¿Calcular honorarios para todos los clientes configurados en ${formatPeriod(period)}?`)) return
+    setBusy(true)
+    try {
+      const res = await calcularPeriodo(period)
+      alert(`Honorarios calculados: ${res.data.length}`)
+      load()
+    } catch (e) {
+      alert(e.response?.data?.detail || 'Error al calcular período')
+    } finally { setBusy(false) }
+  }
 
-  const filtrados = clientes.filter(c =>
-    !filter || c.client_name.toLowerCase().includes(filter.toLowerCase())
-  )
-  const conHonorario = filtrados.filter(c => c.importe_calculado > 0)
-  const sinHonorario = filtrados.filter(c => c.importe_calculado === 0)
+  // ─── Productos ───────────────────────────────────────────────────────────────
 
-  const totalMes = conHonorario.reduce((s, c) => s + c.importe_calculado, 0)
-  const cobrados = honorariosPeriodo.filter(h => h.estado === 'cobrado').reduce((s, h) => s + h.importe, 0)
-  const pendientesTotal = totalMes - cobrados
+  const openProductoModal = (prod = null) => {
+    setEditProducto(prod)
+    setProductoForm(prod
+      ? { nombre: prod.nombre, unidad: prod.unidad || '', precio_vigente: prod.precio_vigente }
+      : { nombre: '', unidad: '', precio_vigente: '' }
+    )
+    setShowProductoModal(true)
+  }
 
-  const [year, month] = periodo.split('-')
-  const periodoLabel = `${MONTHS[Number(month) - 1]} ${year}`
+  const handleSaveProducto = async (e) => {
+    e.preventDefault()
+    const data = {
+      nombre: productoForm.nombre,
+      unidad: productoForm.unidad || null,
+      precio_vigente: parseFloat(productoForm.precio_vigente),
+    }
+    try {
+      if (editProducto) await updateProducto(editProducto.id, data)
+      else await createProducto(data)
+      setShowProductoModal(false)
+      load()
+    } catch (e) { alert(e.response?.data?.detail || 'Error al guardar producto') }
+  }
+
+  // ─── Configurar cliente ──────────────────────────────────────────────────────
+
+  const openConfigModal = (client) => {
+    setConfigClient(client)
+    setConfigForm({
+      tipo_honorario: client.tipo_honorario || '',
+      importe_honorario: client.importe_honorario ?? '',
+      producto_ref_id: client.producto_ref_id ?? '',
+      cantidad_unidades: client.cantidad_unidades ?? '',
+      profesional_id: client.profesional_id ?? '',
+    })
+    setShowConfigModal(true)
+  }
+
+  const handleSaveConfig = async (e) => {
+    e.preventDefault()
+    const data = {
+      tipo_honorario: configForm.tipo_honorario || null,
+      importe_honorario: configForm.importe_honorario !== '' ? parseFloat(configForm.importe_honorario) : null,
+      producto_ref_id: configForm.producto_ref_id !== '' ? parseInt(configForm.producto_ref_id) : null,
+      cantidad_unidades: configForm.cantidad_unidades !== '' ? parseFloat(configForm.cantidad_unidades) : null,
+      profesional_id: configForm.profesional_id !== '' ? parseInt(configForm.profesional_id) : null,
+    }
+    try {
+      await configurarHonorario(configClient.id, data)
+      setShowConfigModal(false)
+      load()
+    } catch (e) { alert(e.response?.data?.detail || 'Error al configurar cliente') }
+  }
+
+  // ─── Actualización cuatrimestral ─────────────────────────────────────────────
+
+  const handlePreviewAct = async () => {
+    const pct = parseFloat(actPct)
+    if (isNaN(pct) || pct <= 0) { alert('Ingresá un porcentaje válido mayor a 0'); return }
+    try {
+      const res = await getPreviewActualizacion(pct)
+      setActPreview(res.data)
+    } catch (e) { alert(e.response?.data?.detail || 'Error al generar vista previa') }
+  }
+
+  const handleAplicarAct = async () => {
+    if (!actPreview) return
+    if (!confirm(`¿Aplicar actualización de ${actPreview.indice_pct}% vigente desde ${formatPeriod(actVigente)}? Esta acción modifica los importes de los clientes.`)) return
+    const data = {
+      indice_pct: actPreview.indice_pct,
+      vigente_desde: actVigente,
+      actualizaciones: actPreview.clientes
+        .filter(c => c.aplica_indice)
+        .map(c => ({ client_id: c.client_id, nuevo_importe: c.importe_propuesto, confirmar: true })),
+    }
+    try {
+      const res = await aplicarActualizacion(data)
+      alert(`Actualización aplicada: ${res.data.actualizados} clientes actualizados`)
+      setShowActModal(false)
+      setActPreview(null)
+      setActPct('')
+      load()
+    } catch (e) { alert(e.response?.data?.detail || 'Error al aplicar actualización') }
+  }
+
+  useEffect(() => {
+    const handler = e => {
+      if (e.key !== 'Escape') return
+      if (showProductoModal) setShowProductoModal(false)
+      else if (showConfigModal) setShowConfigModal(false)
+      else if (showActModal) { setShowActModal(false); setActPreview(null); setActPct('') }
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [showProductoModal, showConfigModal, showActModal])
+
+  if (loading) return <LoadingSpinner text="Cargando honorarios..." />
+
+  const totalImporte = honorarios.reduce((a, h) => a + h.importe, 0)
+  const sinConfig = clients.filter(c => c.is_active && !c.tipo_honorario).length
 
   return (
     <div className="p-6 space-y-6">
-      {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-white">Honorarios</h1>
-          <p className="text-gray-400 text-sm mt-0.5">R-03 — Cálculo automático por cliente</p>
-        </div>
-        <div className="flex items-center gap-3 flex-wrap">
+      <PageHeader title="Honorarios" subtitle="Cálculo mensual de honorarios por cliente">
+        <div className="flex flex-wrap gap-2 items-center">
           <input
             type="month"
-            value={periodo}
-            onChange={e => setPeriodo(e.target.value)}
-            className="bg-[#1e293b] border border-gray-600 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-violet-500"
+            value={period}
+            onChange={e => setPeriod(e.target.value)}
+            className="input-field w-auto"
           />
-          <button
-            onClick={() => setShowProductos(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-white/5 hover:bg-white/10 border border-gray-600 rounded-lg text-sm text-gray-300 transition-colors"
-          >
-            <Package size={16} />
-            Productos ref.
-          </button>
-          <button
-            onClick={generateHonorarios}
-            disabled={generating}
-            className="flex items-center gap-2 px-4 py-2 bg-violet-600 hover:bg-violet-500 rounded-lg text-sm text-white font-medium transition-colors disabled:opacity-50"
-          >
-            <RefreshCw size={16} className={generating ? 'animate-spin' : ''} />
-            {generating ? 'Generando...' : `Generar ${periodoLabel}`}
-          </button>
-        </div>
-      </div>
-
-      {/* KPIs */}
-      <div className="grid grid-cols-3 gap-4">
-        {[
-          { label: 'Total devengado', value: formatARS(totalMes), color: 'text-white' },
-          { label: 'Cobrado', value: formatARS(cobrados), color: 'text-green-400' },
-          { label: 'Pendiente', value: formatARS(pendientesTotal), color: 'text-yellow-400' },
-        ].map(({ label, value, color }) => (
-          <div key={label} className="bg-[#1e293b] rounded-xl border border-gray-700/40 px-5 py-4">
-            <p className="text-xs text-gray-400">{label}</p>
-            <p className={`text-2xl font-bold mt-1 ${color}`}>{value}</p>
-            <p className="text-xs text-gray-500 mt-0.5">{periodoLabel}</p>
-          </div>
-        ))}
-      </div>
-
-      {/* Filtro */}
-      <input
-        value={filter}
-        onChange={e => setFilter(e.target.value)}
-        placeholder="Buscar cliente..."
-        className="w-full max-w-xs bg-[#1e293b] border border-gray-600 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-violet-500"
-      />
-
-      {loading ? (
-        <div className="text-center text-gray-400 py-20">Cargando...</div>
-      ) : (
-        <div className="space-y-4">
-          {/* Tabla clientes con honorario */}
-          <div className="bg-[#1e293b] rounded-2xl border border-gray-700/40 overflow-hidden">
-            <div className="px-5 py-3 border-b border-gray-700/40">
-              <h2 className="text-sm font-semibold text-gray-300">Clientes con honorario configurado ({conHonorario.length})</h2>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-gray-700/40">
-                    {['Cliente','Tipo','Config.','Importe mes','Profesional','Estado','Acciones'].map(h => (
-                      <th key={h} className="px-4 py-3 text-left text-xs font-medium text-gray-400 whitespace-nowrap">{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {conHonorario.map(c => {
-                    const hon = honMap[c.client_id]
-                    return (
-                      <tr key={c.client_id} className="border-b border-gray-700/20 hover:bg-white/3 transition-colors">
-                        <td className="px-4 py-3">
-                          <p className="text-white font-medium">{c.client_name}</p>
-                          <p className="text-xs text-gray-500">{c.cuit}</p>
-                        </td>
-                        <td className="px-4 py-3">
-                          <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                            c.tipo_honorario === 'fijo'
-                              ? 'bg-blue-500/20 text-blue-300'
-                              : 'bg-amber-500/20 text-amber-300'
-                          }`}>
-                            {c.tipo_honorario === 'fijo' ? 'Fijo' : 'Producto'}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 text-gray-400 text-xs">
-                          {c.tipo_honorario === 'fijo'
-                            ? formatARS(c.importe_honorario)
-                            : `${c.cantidad_unidades} × ${c.producto_nombre || '?'}`}
-                        </td>
-                        <td className="px-4 py-3 text-white font-semibold">{formatARS(c.importe_calculado)}</td>
-                        <td className="px-4 py-3 text-gray-400 text-xs">{c.profesional_nombre || '—'}</td>
-                        <td className="px-4 py-3">
-                          {!hon ? (
-                            <span className="text-xs text-gray-500">Sin generar</span>
-                          ) : hon.estado === 'cobrado' ? (
-                            <span className="flex items-center gap-1 text-xs text-green-400">
-                              <Check size={12} /> Cobrado
-                            </span>
-                          ) : (
-                            <span className="text-xs text-yellow-400">Pendiente</span>
-                          )}
-                        </td>
-                        <td className="px-4 py-3">
-                          <button
-                            onClick={() => setConfigClient(c)}
-                            className="flex items-center gap-1 text-xs text-violet-400 hover:text-violet-300 transition-colors"
-                          >
-                            <Settings size={13} /> Config.
-                          </button>
-                        </td>
-                      </tr>
-                    )
-                  })}
-                  {conHonorario.length === 0 && (
-                    <tr>
-                      <td colSpan={7} className="px-4 py-8 text-center text-gray-500">
-                        Ningún cliente con honorario configurado
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          {/* Clientes sin configurar */}
-          {sinHonorario.length > 0 && (
-            <div className="bg-[#1e293b] rounded-2xl border border-amber-500/20 overflow-hidden">
-              <div className="px-5 py-3 border-b border-gray-700/40 flex items-center gap-2">
-                <AlertCircle size={15} className="text-amber-400" />
-                <h2 className="text-sm font-semibold text-amber-300">Sin honorario configurado ({sinHonorario.length})</h2>
-              </div>
-              <div className="divide-y divide-gray-700/20">
-                {sinHonorario.slice(0, 10).map(c => (
-                  <div key={c.client_id} className="px-5 py-3 flex items-center justify-between">
-                    <div>
-                      <p className="text-sm text-white">{c.client_name}</p>
-                      <p className="text-xs text-gray-500">{c.cuit}</p>
-                    </div>
-                    <button
-                      onClick={() => setConfigClient(c)}
-                      className="flex items-center gap-1 text-xs text-violet-400 hover:text-violet-300 transition-colors"
-                    >
-                      <Settings size={13} /> Configurar
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
+          {isAdmin && (
+            <>
+              <button onClick={handleCalcularPeriodo} disabled={busy} className="btn-primary">
+                <RefreshCw size={16} /> Calcular período
+              </button>
+              <button onClick={() => setShowActModal(true)} className="btn-secondary">
+                <TrendingUp size={16} /> Actualización cuatrimestral
+              </button>
+            </>
           )}
         </div>
+      </PageHeader>
+
+      {/* KPIs */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <StatCard title="Honorarios calculados" value={honorarios.length} icon={Calculator} color="violet" />
+        <StatCard title={`Total ${formatPeriod(period)}`} value={formatCurrency(totalImporte)} icon={DollarSign} color="emerald" />
+        <StatCard title="Productos referencia" value={productos.length} icon={Package} color="amber" />
+      </div>
+
+      {/* Alerta clientes sin config */}
+      {isAdmin && sinConfig > 0 && (
+        <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl px-4 py-3 text-sm text-amber-300">
+          {sinConfig} cliente{sinConfig > 1 ? 's' : ''} activo{sinConfig > 1 ? 's' : ''} sin honorario configurado. Usá el botón <Settings size={12} className="inline" /> en la tabla para configurarlos.
+        </div>
       )}
 
-      {/* Modales */}
-      {configClient && (
-        <ConfigModal
-          client={configClient}
-          productos={productos}
-          profesionales={profesionales}
-          onClose={() => setConfigClient(null)}
-          onSaved={fetchAll}
-        />
+      {/* Productos de referencia */}
+      {isAdmin && (
+        <div className="card">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-base font-semibold text-white">Productos de referencia</h3>
+            <button className="btn-primary text-sm py-1.5" onClick={() => openProductoModal()}>
+              <Plus size={15} /> Nuevo producto
+            </button>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-gray-700/60 bg-[#0f172a]/60">
+                  <th className="table-header">Nombre</th>
+                  <th className="table-header">Unidad</th>
+                  <th className="table-header text-right">Precio vigente</th>
+                  <th className="table-header">Actualizado</th>
+                  <th className="table-header"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {productos.map(p => (
+                  <tr key={p.id} className="table-row">
+                    <td className="table-cell font-medium text-white">{p.nombre}</td>
+                    <td className="table-cell text-gray-400 text-sm">{p.unidad || '—'}</td>
+                    <td className="table-cell text-right font-mono font-bold text-emerald-400">{formatCurrency(p.precio_vigente)}</td>
+                    <td className="table-cell text-sm text-gray-500">{p.actualizado_en ? formatDate(p.actualizado_en) : '—'}</td>
+                    <td className="table-cell text-right">
+                      <button
+                        onClick={() => openProductoModal(p)}
+                        className="text-xs text-violet-400 hover:text-violet-300 transition-colors"
+                      >
+                        Editar precio
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+                {productos.length === 0 && (
+                  <tr><td colSpan={5} className="text-center py-6 text-gray-500 text-sm">Sin productos configurados.</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
       )}
-      {showProductos && (
-        <ProductosModal
-          productos={productos}
-          onClose={() => setShowProductos(false)}
-          onRefresh={fetchAll}
-        />
+
+      {/* Tabla de honorarios */}
+      <div className="card p-0 overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead>
+              <tr className="border-b border-gray-700/60 bg-[#0f172a]/60">
+                <th className="table-header">Cliente</th>
+                <th className="table-header">Período</th>
+                <th className="table-header">Tipo</th>
+                <th className="table-header text-right">Importe</th>
+                <th className="table-header text-right">Precio ref.</th>
+                {isAdmin && <th className="table-header text-right">Acciones</th>}
+              </tr>
+            </thead>
+            <tbody>
+              {honorarios.map(h => (
+                <tr key={h.id} className="table-row">
+                  <td className="table-cell font-medium text-white">{h.client_name}</td>
+                  <td className="table-cell text-gray-400">{formatPeriod(h.period)}</td>
+                  <td className="table-cell">
+                    <span className={h.tipo === 'fijo' ? 'badge-blue' : 'badge-purple'}>
+                      {h.tipo === 'fijo' ? 'Fijo' : 'Producto'}
+                    </span>
+                  </td>
+                  <td className="table-cell text-right font-bold text-white">{formatCurrency(h.importe)}</td>
+                  <td className="table-cell text-right text-gray-500 text-sm font-mono">
+                    {h.precio_producto_snapshot ? formatCurrency(h.precio_producto_snapshot) : '—'}
+                  </td>
+                  {isAdmin && (
+                    <td className="table-cell text-right">
+                      <div className="flex gap-3 justify-end">
+                        <button
+                          title="Configurar honorario"
+                          onClick={() => { const c = clients.find(c => c.id === h.client_id); if (c) openConfigModal(c) }}
+                          className="text-gray-400 hover:text-white transition-colors"
+                        >
+                          <Settings size={14} />
+                        </button>
+                        <button
+                          title="Recalcular"
+                          onClick={() => handleCalcularOne(h.client_id)}
+                          disabled={busy}
+                          className="text-violet-400 hover:text-violet-300 transition-colors disabled:opacity-40"
+                        >
+                          <RefreshCw size={14} />
+                        </button>
+                      </div>
+                    </td>
+                  )}
+                </tr>
+              ))}
+              {honorarios.length === 0 && (
+                <tr>
+                  <td colSpan={isAdmin ? 6 : 5} className="text-center py-12 text-gray-500">
+                    No hay honorarios calculados para {formatPeriod(period)}.
+                    {isAdmin && ' Hacé clic en "Calcular período" para generarlos.'}
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* ── MODAL: Producto de referencia ─────────────────────────────────────── */}
+      {showProductoModal && (
+        <div className="modal-backdrop" onClick={() => setShowProductoModal(false)}>
+          <div className="modal-panel max-w-md p-6" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2 className="text-lg font-bold text-white">
+                {editProducto ? 'Editar producto' : 'Nuevo producto'}
+              </h2>
+              <button onClick={() => setShowProductoModal(false)} className="btn-icon">
+                <X size={18} />
+              </button>
+            </div>
+            <form onSubmit={handleSaveProducto} className="space-y-4">
+              <div>
+                <label className="label">Nombre *</label>
+                <input
+                  value={productoForm.nombre}
+                  onChange={e => setProductoForm(f => ({ ...f, nombre: e.target.value }))}
+                  className="input-field"
+                  required
+                />
+              </div>
+              <div>
+                <label className="label">Unidad (ej: bolsa, kg, unidad)</label>
+                <input
+                  value={productoForm.unidad}
+                  onChange={e => setProductoForm(f => ({ ...f, unidad: e.target.value }))}
+                  className="input-field"
+                  placeholder="Opcional"
+                />
+              </div>
+              <div>
+                <label className="label">Precio vigente *</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={productoForm.precio_vigente}
+                  onChange={e => setProductoForm(f => ({ ...f, precio_vigente: e.target.value }))}
+                  className="input-field font-mono"
+                  required
+                />
+              </div>
+              <div className="flex gap-3 pt-2">
+                <button type="button" onClick={() => setShowProductoModal(false)} className="btn-secondary flex-1 justify-center">Cancelar</button>
+                <button type="submit" className="btn-primary flex-1 justify-center">Guardar</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── MODAL: Configurar honorario del cliente ──────────────────────────── */}
+      {showConfigModal && configClient && (
+        <div className="modal-backdrop" onClick={() => setShowConfigModal(false)}>
+          <div className="modal-panel max-w-md p-6" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <div>
+                <h2 className="text-lg font-bold text-white">Configurar honorario</h2>
+                <p className="text-sm text-gray-400">{configClient.name}</p>
+              </div>
+              <button onClick={() => setShowConfigModal(false)} className="btn-icon">
+                <X size={18} />
+              </button>
+            </div>
+            <form onSubmit={handleSaveConfig} className="space-y-4">
+              <div>
+                <label className="label">Tipo de honorario *</label>
+                <select
+                  value={configForm.tipo_honorario}
+                  onChange={e => setConfigForm(f => ({ ...f, tipo_honorario: e.target.value }))}
+                  className="input-field"
+                  required
+                >
+                  <option value="">Seleccionar...</option>
+                  <option value="fijo">Fijo mensual</option>
+                  <option value="producto">Por producto</option>
+                </select>
+              </div>
+
+              {configForm.tipo_honorario === 'fijo' && (
+                <div>
+                  <label className="label">Importe fijo mensual *</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={configForm.importe_honorario}
+                    onChange={e => setConfigForm(f => ({ ...f, importe_honorario: e.target.value }))}
+                    className="input-field font-mono"
+                    required
+                  />
+                </div>
+              )}
+
+              {configForm.tipo_honorario === 'producto' && (
+                <>
+                  <div>
+                    <label className="label">Producto de referencia *</label>
+                    <select
+                      value={configForm.producto_ref_id}
+                      onChange={e => setConfigForm(f => ({ ...f, producto_ref_id: e.target.value }))}
+                      className="input-field"
+                      required
+                    >
+                      <option value="">Seleccionar...</option>
+                      {productos.map(p => (
+                        <option key={p.id} value={p.id}>
+                          {p.nombre} — {formatCurrency(p.precio_vigente)}/{p.unidad || 'u'}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="label">Cantidad de unidades *</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={configForm.cantidad_unidades}
+                      onChange={e => setConfigForm(f => ({ ...f, cantidad_unidades: e.target.value }))}
+                      className="input-field font-mono"
+                      required
+                    />
+                  </div>
+                  {configForm.producto_ref_id && configForm.cantidad_unidades && (
+                    <p className="text-sm text-emerald-400 font-mono">
+                      Importe estimado:{' '}
+                      {formatCurrency(
+                        parseFloat(configForm.cantidad_unidades) *
+                        (productos.find(p => p.id === parseInt(configForm.producto_ref_id))?.precio_vigente || 0)
+                      )}
+                    </p>
+                  )}
+                </>
+              )}
+
+              <div>
+                <label className="label">Profesional responsable</label>
+                <select
+                  value={configForm.profesional_id}
+                  onChange={e => setConfigForm(f => ({ ...f, profesional_id: e.target.value }))}
+                  className="input-field"
+                >
+                  <option value="">Sin asignar</option>
+                  {profesionales.map(p => (
+                    <option key={p.id} value={p.id}>{p.nombre}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button type="button" onClick={() => setShowConfigModal(false)} className="btn-secondary flex-1 justify-center">Cancelar</button>
+                <button type="submit" className="btn-primary flex-1 justify-center">Guardar config</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── MODAL: Actualización cuatrimestral ──────────────────────────────── */}
+      {showActModal && (
+        <div
+          className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 overflow-y-auto"
+          onClick={() => { setShowActModal(false); setActPreview(null); setActPct('') }}
+        >
+          <div
+            className="modal-panel max-w-2xl mx-auto my-8 p-6"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="modal-header">
+              <h2 className="text-lg font-bold text-white">Actualización cuatrimestral</h2>
+              <button onClick={() => { setShowActModal(false); setActPreview(null); setActPct('') }} className="btn-icon">
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Inputs — columna en mobile, fila en sm+ */}
+            <div className="flex flex-col sm:flex-row gap-3 mb-5">
+              <div className="flex-1">
+                <label className="label">Índice de actualización (%)</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={actPct}
+                  onChange={e => { setActPct(e.target.value); setActPreview(null) }}
+                  placeholder="Ej: 12.5"
+                  className="input-field font-mono"
+                />
+              </div>
+              <div className="flex-1">
+                <label className="label">Vigente desde</label>
+                <input
+                  type="month"
+                  value={actVigente}
+                  onChange={e => setActVigente(e.target.value)}
+                  className="input-field"
+                />
+              </div>
+              <div className="flex sm:items-end">
+                <button onClick={handlePreviewAct} className="btn-secondary whitespace-nowrap w-full sm:w-auto">
+                  Ver impacto
+                </button>
+              </div>
+            </div>
+
+            {actPreview && (
+              <>
+                <div className="overflow-x-auto mb-5 rounded-lg border border-gray-700/40">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-gray-700/60 bg-[#0f172a]/60">
+                        <th className="table-header whitespace-nowrap">Cliente</th>
+                        <th className="table-header whitespace-nowrap">Tipo</th>
+                        <th className="table-header text-right whitespace-nowrap">Importe actual</th>
+                        <th className="table-header text-right whitespace-nowrap">Propuesto</th>
+                        <th className="table-header text-center whitespace-nowrap">Aplica</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {actPreview.clientes.map(c => (
+                        <tr key={c.client_id} className="table-row">
+                          <td className="table-cell text-white font-medium whitespace-nowrap">{c.client_name}</td>
+                          <td className="table-cell whitespace-nowrap">
+                            <span className={c.tipo_honorario === 'fijo' ? 'badge-blue' : 'badge-purple'}>
+                              {c.tipo_honorario === 'fijo' ? 'Fijo' : 'Producto'}
+                            </span>
+                          </td>
+                          <td className="table-cell text-right text-gray-400 font-mono whitespace-nowrap">
+                            {c.importe_actual != null ? formatCurrency(c.importe_actual) : '—'}
+                          </td>
+                          <td className="table-cell text-right font-mono font-bold text-emerald-400 whitespace-nowrap">
+                            {c.importe_propuesto != null ? formatCurrency(c.importe_propuesto) : '—'}
+                          </td>
+                          <td className="table-cell text-center whitespace-nowrap">
+                            {c.aplica_indice
+                              ? <span className="text-emerald-400 text-xs">+{actPreview.indice_pct}%</span>
+                              : <span className="text-gray-600 text-xs">No aplica</span>
+                            }
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <button type="button" onClick={() => { setShowActModal(false); setActPreview(null); setActPct('') }} className="btn-secondary flex-1 justify-center">Cancelar</button>
+                  <button onClick={handleAplicarAct} className="btn-primary flex-1 justify-center">
+                    Aplicar actualización
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
       )}
     </div>
   )

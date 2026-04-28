@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import Layout from './components/Layout/Layout'
 import Login from './pages/Login'
+import Register from './pages/Register'
 import Landing from './pages/Landing'
 import Dashboard from './pages/Dashboard'
 import Clients from './pages/Clients'
@@ -16,7 +17,7 @@ import Retenciones from './pages/Retenciones'
 import Herramientas from './pages/Herramientas'
 import CuentasCorrientes from './pages/CuentasCorrientes'
 import Honorarios from './pages/Honorarios'
-import Liquidaciones from './pages/Liquidaciones'
+import Profesionales from './pages/Profesionales'
 import LoadingSpinner from './components/UI/LoadingSpinner'
 
 function ProtectedRoutes() {
@@ -40,7 +41,7 @@ function ProtectedRoutes() {
         <Route path="herramientas" element={<Herramientas />} />
         <Route path="cuentas-corrientes" element={<CuentasCorrientes />} />
         <Route path="honorarios" element={<Honorarios />} />
-        <Route path="liquidaciones" element={<Liquidaciones />} />
+        <Route path="profesionales" element={<Profesionales />} />
       </Route>
     </Routes>
   )
