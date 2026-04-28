@@ -449,6 +449,7 @@ class Profesional(Base):
     clientes = relationship("Client", back_populates="profesional_a_cargo", foreign_keys="Client.profesional_id")
     pagos_recibidos = relationship("Pago", back_populates="profesional_destinatario")
     liquidaciones = relationship("Liquidacion", back_populates="profesional", cascade="all, delete-orphan")
+    movimientos_cc = relationship("MovimientoCuentaCorriente", back_populates="profesional")
 
 
 class Pago(Base):

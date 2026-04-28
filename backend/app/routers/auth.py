@@ -33,6 +33,25 @@ def require_super_admin(current_user: models.User = Depends(get_current_user)) -
     return current_user
 
 
+@router.post("/login", response_model=schemas.Token)
+def login(credentials: schemas.LoginRequest, db: Session = Depends(get_db)):
+    """Login con email + password. Devuelve JWT."""
+    user = db.query(models.User).filter(models.User.email == credentials.email).first()
+    if not user or not verify_password(credentials.password, user.password_hash):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Credenciales inválidas")
+    if not user.is_active:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Usuario inactivo")
+    access_token = create_access_token({"sub": str(user.id), "role": user.role})
+    user_out = schemas.UserOut.model_validate(user)
+    return schemas.Token(access_token=access_token, token_type="bearer", user=user_out)
+
+
+@router.get("/me", response_model=schemas.UserOut)
+def get_me(current_user: models.User = Depends(get_current_user)):
+    """Devuelve el usuario actualmente autenticado."""
+    return current_user
+
+
 @router.post("/register", response_model=schemas.Token)
 def register_user(
     user_data: schemas.UserCreate,

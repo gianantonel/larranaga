@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Plus, Filter, ChevronDown, ChevronRight, MessageSquare, X } from 'lucide-react'
+import { Plus, Filter, ChevronDown, ChevronRight, MessageSquare, X, Upload } from 'lucide-react'
 import { getTasks, getClients, getCollaborators, createTask, updateTask, createSubtask, updateSubtask } from '../utils/api'
 import { useAuth } from '../context/AuthContext'
 import { StatusBadge, TypeBadge } from '../components/UI/Badge'
@@ -7,6 +7,7 @@ import PageHeader from '../components/UI/PageHeader'
 import LoadingSpinner from '../components/UI/LoadingSpinner'
 import { formatDate, formatPeriod, taskTypeConfig, taskStatusConfig } from '../utils/helpers'
 import RetencionesPanel from '../components/RetencionesPanel'
+import BulkUploadModal from '../components/UI/BulkUploadModal'
 
 const TASK_TYPES = Object.entries(taskTypeConfig).map(([v, c]) => ({ value: v, ...c }))
 const TASK_STATUSES = Object.entries(taskStatusConfig).map(([v, c]) => ({ value: v, ...c }))
@@ -20,6 +21,7 @@ export default function Tasks() {
   const [expanded, setExpanded] = useState({})
   const [filters, setFilters] = useState({ client_id: '', collaborator_id: '', status: '', type: '' })
   const [showCreateModal, setShowCreateModal] = useState(false)
+  const [showBulkModal, setShowBulkModal] = useState(false)
   const [form, setForm] = useState({ title: '', description: '', task_type: 'ddjj_iva', client_id: '', collaborator_id: '', period: '', due_date: '' })
   const [saving, setSaving] = useState(false)
   const [subtaskInputs, setSubtaskInputs] = useState({})
@@ -90,9 +92,14 @@ export default function Tasks() {
   return (
     <div className="p-6 space-y-6">
       <PageHeader title="Tareas" subtitle={`${tasks.length} tareas`}>
-        <button className="btn-primary" onClick={() => setShowCreateModal(true)}>
-          <Plus size={18} /> Nueva tarea
-        </button>
+        <div className="flex gap-2">
+          <button className="btn-secondary" onClick={() => setShowBulkModal(true)}>
+            <Upload size={18} /> Importar
+          </button>
+          <button className="btn-primary" onClick={() => setShowCreateModal(true)}>
+            <Plus size={18} /> Nueva tarea
+          </button>
+        </div>
       </PageHeader>
 
       {/* Filters */}
@@ -259,6 +266,12 @@ export default function Tasks() {
           </div>
         </div>
       )}
+
+      <BulkUploadModal
+        open={showBulkModal}
+        onClose={() => { setShowBulkModal(false); load() }}
+        entity="tasks"
+      />
     </div>
   )
 }

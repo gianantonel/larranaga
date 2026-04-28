@@ -22,8 +22,38 @@ ENTITY_MAP: Dict[str, Dict[str, Any]] = {
         "model": models.User,  # Note: collaborators are users with role collaborator
         "schema": schemas.UserCreate,  # We'll handle password and role specially
     },
-    # Add more entities as needed
+    "tasks": {
+        "model": models.Task,
+        "schema": schemas.TaskCreate,
+    },
+    "invoices": {
+        "model": models.Invoice,
+        "schema": schemas.InvoiceCreate,
+    },
 }
+
+
+def _coerce_argentine_decimals(row_dict: Dict[str, Any], schema: Type[schemas.BaseModel]) -> Dict[str, Any]:
+    """Convierte coma decimal a punto en campos numéricos (1,500 → 1.500).
+
+    En Argentina la coma como decimal es lo normal en Excel/CSV. Pandas la lee
+    como string; este helper la normaliza silenciosamente para campos float/int
+    antes de la validación Pydantic.
+    """
+    for field_name, field in schema.model_fields.items():
+        val = row_dict.get(field_name)
+        if not isinstance(val, str):
+            continue
+        ann = field.annotation
+        # Resolver Optional[X] / Union[X, None]
+        if hasattr(ann, "__origin__") and ann.__origin__ is Union:
+            non_none = [a for a in ann.__args__ if a is not type(None)]
+            if non_none:
+                ann = non_none[0]
+        if ann in (float, int):
+            cleaned = val.strip().replace(",", ".")
+            row_dict[field_name] = cleaned
+    return row_dict
 
 def get_entity_info(entity: str):
     info = ENTITY_MAP.get(entity)
@@ -152,6 +182,8 @@ async def upload_bulk(
                 row_dict[col] = val
         
         try:
+            # Normalizar coma decimal argentina (1,500 → 1.500) antes de validar
+            row_dict = _coerce_argentine_decimals(row_dict, Schema)
             # Validate the row with the schema
             validated = Schema(**row_dict)
             # Convert the validated schema to a dictionary for the model

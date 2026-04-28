@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Plus, ReceiptText, TrendingUp, DollarSign, X } from 'lucide-react'
+import { Plus, ReceiptText, TrendingUp, DollarSign, X, Upload } from 'lucide-react'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip, Legend, ResponsiveContainer
@@ -9,6 +9,7 @@ import PageHeader from '../components/UI/PageHeader'
 import LoadingSpinner from '../components/UI/LoadingSpinner'
 import StatCard from '../components/UI/StatCard'
 import { formatCurrency, formatDate, formatPeriod } from '../utils/helpers'
+import BulkUploadModal from '../components/UI/BulkUploadModal'
 
 const INVOICE_TYPES = ['A', 'B', 'C', 'M', 'E']
 
@@ -20,6 +21,7 @@ export default function Facturas() {
   const [filterClient, setFilterClient] = useState('')
   const [filterType, setFilterType] = useState('')
   const [showModal, setShowModal] = useState(false)
+  const [showBulkModal, setShowBulkModal] = useState(false)
   const [form, setForm] = useState({
     client_id: '', invoice_type: 'A', punto_venta: 1, date: '',
     receptor_cuit: '', receptor_name: '', concept: 'Servicios',
@@ -83,9 +85,14 @@ export default function Facturas() {
   return (
     <div className="p-6 space-y-6">
       <PageHeader title="Facturación" subtitle="Comprobantes electrónicos — ARCA">
-        <button className="btn-primary" onClick={() => setShowModal(true)}>
-          <Plus size={18} /> Nueva factura
-        </button>
+        <div className="flex gap-2">
+          <button className="btn-secondary" onClick={() => setShowBulkModal(true)}>
+            <Upload size={18} /> Importar
+          </button>
+          <button className="btn-primary" onClick={() => setShowModal(true)}>
+            <Plus size={18} /> Nueva factura
+          </button>
+        </div>
       </PageHeader>
 
       {/* KPIs */}
@@ -234,6 +241,12 @@ export default function Facturas() {
           </div>
         </div>
       )}
+
+      <BulkUploadModal
+        open={showBulkModal}
+        onClose={() => { setShowBulkModal(false); load() }}
+        entity="invoices"
+      />
     </div>
   )
 }

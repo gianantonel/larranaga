@@ -22,6 +22,16 @@ def _migrate_sqlite():
         ("cantidad_unidades","FLOAT"),
         ("profesional_id",   "INTEGER"),
     ]
+    new_user_cols = [
+        ("last_name", "VARCHAR(100)"),
+        ("cuit",      "VARCHAR(13)"),
+        ("status",    "VARCHAR(10) DEFAULT 'active'"),
+    ]
+    new_movimiento_cols = [
+        ("periodo_honorario", "VARCHAR(7)"),
+        ("forma_pago",        "VARCHAR(20)"),
+        ("profesional_id",    "INTEGER"),
+    ]
     with engine.connect() as conn:
         # 1. Columnas nuevas en clients
         existing_cols = {row[1] for row in conn.execute(text("PRAGMA table_info(clients)"))}
@@ -29,7 +39,20 @@ def _migrate_sqlite():
             if col not in existing_cols:
                 conn.execute(text(f"ALTER TABLE clients ADD COLUMN {col} {col_type}"))
 
-        # 2. Si honorarios existe con schema viejo (columna 'amount' en lugar de 'importe'), la borramos
+        # 2. Columnas nuevas en users (sistema de roles v2)
+        existing_user_cols = {row[1] for row in conn.execute(text("PRAGMA table_info(users)"))}
+        for col, col_type in new_user_cols:
+            if col not in existing_user_cols:
+                conn.execute(text(f"ALTER TABLE users ADD COLUMN {col} {col_type}"))
+
+        # 2b. Columnas nuevas en movimientos_cc (R-03/R-04 — vínculo con honorarios y pagos)
+        existing_mov_cols = {row[1] for row in conn.execute(text("PRAGMA table_info(movimientos_cc)"))}
+        if existing_mov_cols:
+            for col, col_type in new_movimiento_cols:
+                if col not in existing_mov_cols:
+                    conn.execute(text(f"ALTER TABLE movimientos_cc ADD COLUMN {col} {col_type}"))
+
+        # 3. Si honorarios existe con schema viejo (columna 'amount' en lugar de 'importe'), la borramos
         #    para que create_all la recree correctamente.
         hon_cols = {row[1] for row in conn.execute(text("PRAGMA table_info(honorarios)"))}
         if hon_cols and "importe" not in hon_cols:
