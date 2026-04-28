@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Plus, UserCheck, Users } from 'lucide-react'
+import { Plus, UserCheck, Users, X, Upload } from 'lucide-react'
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from 'recharts'
 import { getCollaborators, getCollaboratorStats, createCollaborator } from '../utils/api'
 import { useAuth } from '../context/AuthContext'
@@ -7,6 +7,7 @@ import { RoleBadge } from '../components/UI/Badge'
 import PageHeader from '../components/UI/PageHeader'
 import LoadingSpinner from '../components/UI/LoadingSpinner'
 import { CHART_COLORS } from '../utils/helpers'
+import BulkUploadModal from '../components/UI/BulkUploadModal'
 
 const STATUS_COLORS = { terminada: '#10b981', en_curso: '#0ea5e9', pendiente: '#f59e0b', bloqueada: '#f43f5e' }
 
@@ -16,6 +17,7 @@ export default function Collaborators() {
   const [stats, setStats] = useState([])
   const [loading, setLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
+  const [showBulkModal, setShowBulkModal] = useState(false)
   const [form, setForm] = useState({ name: '', email: '', password: '', role: 'collaborator' })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
@@ -42,15 +44,27 @@ export default function Collaborators() {
     finally { setSaving(false) }
   }
 
+  useEffect(() => {
+    if (!showModal) return
+    const handleEsc = e => { if (e.key === 'Escape') setShowModal(false) }
+    window.addEventListener('keydown', handleEsc)
+    return () => window.removeEventListener('keydown', handleEsc)
+  }, [showModal])
+
   if (loading) return <LoadingSpinner text="Cargando colaboradores..." />
 
   return (
     <div className="p-6 space-y-6">
       <PageHeader title="Colaboradores" subtitle={`${collaborators.length} colaboradores activos`}>
         {isAdmin && (
-          <button className="btn-primary" onClick={() => setShowModal(true)}>
-            <Plus size={18} /> Nuevo colaborador
-          </button>
+          <div className="flex gap-2">
+            <button className="btn-secondary" onClick={() => setShowBulkModal(true)}>
+              <Upload size={18} /> Importar
+            </button>
+            <button className="btn-primary" onClick={() => setShowModal(true)}>
+              <Plus size={18} /> Nuevo colaborador
+            </button>
+          </div>
         )}
       </PageHeader>
 
@@ -141,9 +155,12 @@ export default function Collaborators() {
 
       {/* Create modal */}
       {showModal && isAdmin && (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 px-4">
-          <div className="bg-[#111827] border border-gray-700 rounded-2xl p-6 w-full max-w-md shadow-2xl">
-            <h2 className="text-xl font-bold text-white mb-5">Nuevo colaborador</h2>
+        <div className="modal-backdrop" onClick={() => setShowModal(false)}>
+          <div className="modal-panel max-w-md p-6" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2 className="text-xl font-bold text-white">Nuevo colaborador</h2>
+              <button type="button" onClick={() => setShowModal(false)} className="btn-icon"><X size={18} /></button>
+            </div>
             <form onSubmit={handleCreate} className="space-y-4">
               <div><label className="label">Nombre completo</label><input value={form.name} onChange={e => setForm(f=>({...f, name: e.target.value}))} className="input-field" required /></div>
               <div><label className="label">Email</label><input type="email" value={form.email} onChange={e => setForm(f=>({...f, email: e.target.value}))} className="input-field" required /></div>
@@ -167,6 +184,12 @@ export default function Collaborators() {
           </div>
         </div>
       )}
+
+      <BulkUploadModal
+        open={showBulkModal}
+        onClose={() => { setShowBulkModal(false); load() }}
+        entity="collaborators"
+      />
     </div>
   )
 }

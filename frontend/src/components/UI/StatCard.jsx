@@ -16,7 +16,7 @@ export default function StatCard({ title, value, subtitle, icon: Icon, color = '
       <div className="flex items-start justify-between">
         <div>
           <p className="text-sm font-medium text-gray-400">{title}</p>
-          <p className={clsx('text-3xl font-bold mt-1', c.text)}>{value}</p>
+          <p className={clsx('text-2xl sm:text-3xl font-bold mt-1 break-words', c.text)}>{value}</p>
           {subtitle && <p className="text-sm text-gray-500 mt-1">{subtitle}</p>}
         </div>
         {Icon && (

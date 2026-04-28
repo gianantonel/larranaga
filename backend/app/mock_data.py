@@ -8,7 +8,9 @@ import random
 from .models import (
     User, Client, ClientCollaborator, Task, Subtask,
     IVARecord, Invoice, IngresosBrutos, ActionLog,
-    UserRole, UserStatus, TaskType, TaskStatus, InvoiceType
+    UserRole, UserStatus, TaskType, TaskStatus, InvoiceType,
+    Profesional, TipoProfesional, ProductoReferencia, HistorialPrecioProducto,
+    TipoHonorario,
 )
 from .security import get_password_hash, encrypt_credential
 from .database import SessionLocal, engine, Base
@@ -509,6 +511,74 @@ def seed_database():
     print("    rgomez@larranaga.com      — Roberto Gómez")
     print("    ptorres@larranaga.com     — Patricia Torres")
     print("    smorales@larranaga.com    — Sebastián Morales")
+
+
+def seed_profesionales_y_productos():
+    """Seed idempotente para R-03/R-04. Se ejecuta sobre la DB existente sin borrarla."""
+    db = SessionLocal()
+
+    if db.query(Profesional).count() > 0:
+        db.close()
+        return
+
+    print("Agregando profesionales y productos de referencia (R-03/R-04)...")
+
+    # Profesionales del estudio
+    rodrigo  = Profesional(nombre="Rodrigo Larrañaga", tipo=TipoProfesional.socio)
+    manuel   = Profesional(nombre="Manuel Larrañaga",  tipo=TipoProfesional.socio)
+    marisol  = Profesional(nombre="Marisol Borrego",   tipo=TipoProfesional.socio)
+    silvana  = Profesional(nombre="Silvana Gómez",     tipo=TipoProfesional.profesional)
+    stefi    = Profesional(nombre="Stefania Vicente",  tipo=TipoProfesional.profesional)
+    mariana  = Profesional(nombre="Mariana Ruiz",      tipo=TipoProfesional.profesional)
+
+    for p in [rodrigo, manuel, marisol, silvana, stefi, mariana]:
+        db.add(p)
+    db.commit()
+    for p in [rodrigo, manuel, marisol, silvana, stefi, mariana]:
+        db.refresh(p)
+
+    # Producto de referencia: bolsa de cemento (para clientes constructoras)
+    cemento = ProductoReferencia(nombre="Bolsa de cemento", unidad="bolsa", precio_vigente=4600.0)
+    db.add(cemento)
+    db.commit()
+    db.refresh(cemento)
+    db.add(HistorialPrecioProducto(
+        producto_id=cemento.id, precio=4600.0, vigente_desde=date(2026, 4, 1)
+    ))
+    db.commit()
+
+    # Configurar honorarios en los clientes existentes (toma los primeros activos por orden de ID)
+    existing_clients = (
+        db.query(Client)
+        .filter(Client.is_active == True, Client.tipo_honorario == None)
+        .order_by(Client.id)
+        .all()
+    )
+
+    configs = [
+        # (tipo,       importe_fijo, prod,    unidades, profesional)
+        ("fijo",       850000.0,     None,    None,     silvana),
+        ("fijo",       1200000.0,    None,    None,     stefi),
+        ("fijo",       2500000.0,    None,    None,     mariana),
+        ("fijo",       3800000.0,    None,    None,     rodrigo),
+        ("fijo",       180000.0,     None,    None,     marisol),
+        ("fijo",       950000.0,     None,    None,     silvana),
+        ("fijo",       430000.0,     None,    None,     stefi),
+        ("fijo",       680000.0,     None,    None,     mariana),
+        ("producto",   None,         cemento, 50.0,     rodrigo),
+        ("fijo",       760000.0,     None,    None,     manuel),
+    ]
+
+    for client, (tipo, importe, prod, unidades, prof) in zip(existing_clients, configs):
+        client.tipo_honorario = TipoHonorario.fijo if tipo == "fijo" else TipoHonorario.producto
+        client.importe_honorario = importe
+        client.producto_ref_id = prod.id if prod else None
+        client.cantidad_unidades = unidades
+        client.profesional_id = prof.id
+
+    db.commit()
+    db.close()
+    print(f"[OK] R-03/R-04: {len([rodrigo, manuel, marisol, silvana, stefi, mariana])} profesionales y 1 producto de referencia creados.")
 
 
 if __name__ == "__main__":

@@ -47,6 +47,15 @@ export default function Usuarios() {
     }
   }
 
+  const rechazar = async (id) => {
+    try {
+      await api.patch(`/users/${id}/reject`)
+      fetchUsers()
+    } catch (e) {
+      alert(e.response?.data?.detail || 'Error al rechazar')
+    }
+  }
+
   const guardarRol = async (id, nuevoRol) => {
     try {
       await api.patch(`/users/${id}/role`, { role: nuevoRol })
@@ -105,9 +114,9 @@ export default function Usuarios() {
               </tr>
             </thead>
             <tbody>
-              {pendientes.map(u => (
-                <PendingRow key={u.id} user={u} assignableRoles={assignableRoles} onAprobar={aprobar} />
-              ))}
+{pendientes.map(u => (
+  <PendingRow key={u.id} user={u} assignableRoles={assignableRoles} onAprobar={aprobar} onRechazar={rechazar} />
+))}
             </tbody>
           </table>
         </div>
@@ -186,7 +195,7 @@ export default function Usuarios() {
 
 // ─── Subcomponentes ────────────────────────────────────────────────────────
 
-function PendingRow({ user, assignableRoles, onAprobar }) {
+function PendingRow({ user, assignableRoles, onAprobar, onRechazar }) {
   const [rol, setRol] = useState(assignableRoles[0] || 'colaborador')
   return (
     <tr className="border-b border-gray-700/30">
@@ -205,13 +214,20 @@ function PendingRow({ user, assignableRoles, onAprobar }) {
           ))}
         </select>
       </td>
-      <td className="py-3 text-right">
+      <td className="py-3 text-right flex gap-2">
         <button
           onClick={() => onAprobar(user.id, rol)}
           className="text-emerald-400 hover:text-emerald-300"
           title="Aprobar"
         >
           <Check size={20} />
+        </button>
+        <button
+          onClick={() => onRechazar(user.id)}
+          className="text-rose-400 hover:text-rose-300"
+          title="Rechazar"
+        >
+          <X size={20} />
         </button>
       </td>
     </tr>

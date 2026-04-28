@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Plus, ReceiptText, TrendingUp, DollarSign } from 'lucide-react'
+import { Plus, ReceiptText, TrendingUp, DollarSign, X, Upload } from 'lucide-react'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip, Legend, ResponsiveContainer
@@ -9,6 +9,7 @@ import PageHeader from '../components/UI/PageHeader'
 import LoadingSpinner from '../components/UI/LoadingSpinner'
 import StatCard from '../components/UI/StatCard'
 import { formatCurrency, formatDate, formatPeriod } from '../utils/helpers'
+import BulkUploadModal from '../components/UI/BulkUploadModal'
 
 const INVOICE_TYPES = ['A', 'B', 'C', 'M', 'E']
 
@@ -20,6 +21,7 @@ export default function Facturas() {
   const [filterClient, setFilterClient] = useState('')
   const [filterType, setFilterType] = useState('')
   const [showModal, setShowModal] = useState(false)
+  const [showBulkModal, setShowBulkModal] = useState(false)
   const [form, setForm] = useState({
     client_id: '', invoice_type: 'A', punto_venta: 1, date: '',
     receptor_cuit: '', receptor_name: '', concept: 'Servicios',
@@ -66,6 +68,13 @@ export default function Facturas() {
     finally { setSaving(false) }
   }
 
+  useEffect(() => {
+    if (!showModal) return
+    const handleEsc = e => { if (e.key === 'Escape') setShowModal(false) }
+    window.addEventListener('keydown', handleEsc)
+    return () => window.removeEventListener('keydown', handleEsc)
+  }, [showModal])
+
   if (loading) return <LoadingSpinner text="Cargando facturas..." />
 
   const totalMonto = facturas.reduce((a, f) => a + f.total, 0)
@@ -76,13 +85,18 @@ export default function Facturas() {
   return (
     <div className="p-6 space-y-6">
       <PageHeader title="Facturación" subtitle="Comprobantes electrónicos — ARCA">
-        <button className="btn-primary" onClick={() => setShowModal(true)}>
-          <Plus size={18} /> Nueva factura
-        </button>
+        <div className="flex gap-2">
+          <button className="btn-secondary" onClick={() => setShowBulkModal(true)}>
+            <Upload size={18} /> Importar
+          </button>
+          <button className="btn-primary" onClick={() => setShowModal(true)}>
+            <Plus size={18} /> Nueva factura
+          </button>
+        </div>
       </PageHeader>
 
       {/* KPIs */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard title="Total facturas" value={facturas.length} icon={ReceiptText} color="violet" />
         <StatCard title="Monto total" value={formatCurrency(totalMonto)} icon={DollarSign} color="emerald" />
         <StatCard title="IVA total" value={formatCurrency(totalIVA)} icon={TrendingUp} color="amber" />
@@ -172,11 +186,14 @@ export default function Facturas() {
 
       {/* Create modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 px-4">
-          <div className="bg-[#111827] border border-gray-700 rounded-2xl p-6 w-full max-w-xl shadow-2xl">
-            <h2 className="text-xl font-bold text-white mb-5">Emitir comprobante</h2>
+        <div className="modal-backdrop" onClick={() => setShowModal(false)}>
+          <div className="modal-panel max-w-xl p-6" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2 className="text-xl font-bold text-white">Emitir comprobante</h2>
+              <button type="button" onClick={() => setShowModal(false)} className="btn-icon"><X size={18} /></button>
+            </div>
             <form onSubmit={handleCreate} className="space-y-4">
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
                   <label className="label">Cliente *</label>
                   <select value={form.client_id} onChange={e => setForm(f=>({...f, client_id: e.target.value}))} className="input-field" required>
@@ -192,7 +209,7 @@ export default function Facturas() {
                 </div>
                 <div><label className="label">Fecha *</label><input type="date" value={form.date} onChange={e => setForm(f=>({...f, date: e.target.value}))} className="input-field" required /></div>
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div><label className="label">CUIT Receptor</label><input value={form.receptor_cuit} onChange={e => setForm(f=>({...f, receptor_cuit: e.target.value}))} placeholder="XX-XXXXXXXX-X" className="input-field font-mono" /></div>
                 <div><label className="label">Nombre Receptor</label><input value={form.receptor_name} onChange={e => setForm(f=>({...f, receptor_name: e.target.value}))} className="input-field" /></div>
               </div>
@@ -202,14 +219,14 @@ export default function Facturas() {
                   <option>Productos</option><option>Servicios</option><option>Productos y Servicios</option>
                 </select>
               </div>
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
                   <label className="label">Neto gravado *</label>
                   <input type="number" step="0.01" value={form.neto_gravado} onChange={e => handleNetoChange(e.target.value)} className="input-field font-mono" required />
                 </div>
                 <div>
                   <label className="label">IVA 21%</label>
-                  <input type="number" step="0.01" value={form.iva_21} onChange={e => setForm(f=>({...f, iva_21: e.target.value, total: (parseFloat(form.neto_gravado)||0) + (parseFloat(e.target.value)||0) }))} className="input-field font-mono" />
+                  <input type="number" step="0.01" value={form.iva_21} onChange={e => setForm(f=>({...f, iva_21: e.target.value, total: (parseFloat(f.neto_gravado)||0) + (parseFloat(e.target.value)||0) }))} className="input-field font-mono" />
                 </div>
                 <div>
                   <label className="label">Total</label>
@@ -224,6 +241,12 @@ export default function Facturas() {
           </div>
         </div>
       )}
+
+      <BulkUploadModal
+        open={showBulkModal}
+        onClose={() => { setShowBulkModal(false); load() }}
+        entity="invoices"
+      />
     </div>
   )
 }
