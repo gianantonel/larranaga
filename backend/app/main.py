@@ -4,7 +4,7 @@ from .database import engine
 from . import models
 from .sync import register_sync_events, sync_now
 
-from .routers import auth, clients, collaborators, tasks, iva, facturas, dashboard, retenciones, comprobantes, herramientas
+from .routers import auth, clients, collaborators, tasks, iva, facturas, dashboard, retenciones, comprobantes, herramientas, users
 from .routers import auth, clients, collaborators, tasks, iva, facturas, dashboard, cuentas_corrientes
 from .mock_data import seed_database
 
@@ -28,6 +28,7 @@ app.add_middleware(
 )
 
 app.include_router(auth.router)
+app.include_router(users.router)
 app.include_router(clients.router)
 app.include_router(collaborators.router)
 app.include_router(tasks.router)

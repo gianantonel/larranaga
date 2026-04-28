@@ -15,7 +15,7 @@ def list_collaborators(
     current_user: models.User = Depends(get_current_user)
 ):
     users = db.query(models.User).filter(
-        models.User.role == models.UserRole.collaborator,
+        models.User.role == models.UserRole.colaborador,
         models.User.is_active == True
     ).all()
     return users

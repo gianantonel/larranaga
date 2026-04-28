@@ -9,10 +9,15 @@ from .database import Base
 
 
 class UserRole(str, enum.Enum):
-    admin1 = "admin1"
-    admin2 = "admin2"
-    admin3 = "admin3"
-    collaborator = "collaborator"
+    super_admin = "super_admin"
+    admin = "admin"
+    colaborador = "colaborador"
+    invitado = "invitado"
+
+
+class UserStatus(str, enum.Enum):
+    active = "active"
+    pending = "pending"
 
 
 class TaskType(str, enum.Enum):
@@ -47,9 +52,12 @@ class User(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String(100), nullable=False)
+    last_name = Column(String(100))
+    cuit = Column(String(13), index=True)
     email = Column(String(100), unique=True, index=True, nullable=False)
     password_hash = Column(String(255), nullable=False)
-    role = Column(Enum(UserRole), nullable=False, default=UserRole.collaborator)
+    role = Column(Enum(UserRole), nullable=False, default=UserRole.colaborador)
+    status = Column(Enum(UserStatus), nullable=False, default=UserStatus.active)
     is_active = Column(Boolean, default=True)
     avatar_initials = Column(String(3))
     created_at = Column(DateTime(timezone=True), server_default=func.now())
