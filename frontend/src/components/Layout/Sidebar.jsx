@@ -2,7 +2,8 @@ import { NavLink } from 'react-router-dom'
 import { useState } from 'react'
 import {
   LayoutDashboard, Users, UserCheck, ClipboardList,
-  ReceiptText, BarChart3, Scale, ChevronRight, FileSearch, Wrench, Wallet, PiggyBank
+  ReceiptText, BarChart3, Scale, ChevronRight, FileSearch, Wrench, Wallet, PiggyBank,
+  DollarSign, Calculator
 } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import clsx from 'clsx'
@@ -16,8 +17,10 @@ const VISTAS_ITEMS = [
 
 const ACCIONES_ITEMS = [
   { to: '/cuentas-corrientes', icon: Wallet,      label: 'Cuentas Corrientes', req: 'R-07' },
+  { to: '/honorarios',         icon: DollarSign,  label: 'Honorarios', req: 'R-03' },
+  { to: '/liquidaciones',      icon: Calculator,  label: 'Liquidaciones', req: 'R-04' },
   { to: '/iva',                icon: BarChart3,    label: 'Retenciones / IVA', req: 'R-05, R-06, R-16' },
-  { to: '/facturas',           icon: ReceiptText,  label: 'Facturación', req: 'R-03, R-04' },
+  { to: '/facturas',           icon: ReceiptText,  label: 'Facturación' },
   { to: '/retenciones',        icon: FileSearch,   label: 'Retenciones Avanzadas', req: 'R-05+' },
   { icon: PiggyBank, label: 'Tesorería', req: 'R-08, R-14', disabled: true },
 ]

@@ -1,7 +1,7 @@
 from pydantic import BaseModel, EmailStr
 from typing import Optional, List
 from datetime import datetime, date
-from .models import UserRole, UserStatus, TaskType, TaskStatus, InvoiceType
+from .models import UserRole, UserStatus, TaskType, TaskStatus, InvoiceType, TipoHonorario, TipoProfesional
 
 
 # ─── Auth ────────────────────────────────────────────────────────────────────
@@ -354,10 +354,13 @@ class RetencionPercepcionOut(BaseModel):
 
 class MovimientoCCCreate(BaseModel):
     client_id: int
-    tipo: str  # 'ingreso' or 'egreso'
+    tipo: str  # 'honorario' | 'pago' | 'ajuste'
     monto: float
     concepto: str
     fecha: date
+    periodo_honorario: Optional[str] = None
+    forma_pago: Optional[str] = None  # 'efectivo' | 'transferencia'
+    profesional_id: Optional[int] = None
     notas: Optional[str] = None
 
 
@@ -368,8 +371,149 @@ class MovimientoCCOut(BaseModel):
     monto: float
     concepto: str
     fecha: date
+    periodo_honorario: Optional[str] = None
+    forma_pago: Optional[str] = None
+    profesional_id: Optional[int] = None
     notas: Optional[str] = None
     created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+# ─── R-03 — Productos de Referencia y Honorarios ─────────────────────────────
+
+class ProductoReferenciaCreate(BaseModel):
+    nombre: str
+    unidad: str = "unidad"
+    precio_vigente: float
+    fecha_actualizacion: date
+
+
+class ProductoReferenciaUpdate(BaseModel):
+    nombre: Optional[str] = None
+    unidad: Optional[str] = None
+    precio_vigente: Optional[float] = None
+    fecha_actualizacion: Optional[date] = None
+    activo: Optional[bool] = None
+
+
+class ProductoReferenciaOut(BaseModel):
+    id: int
+    nombre: str
+    unidad: str
+    precio_vigente: float
+    fecha_actualizacion: date
+    activo: bool
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class HonorarioCalcular(BaseModel):
+    """Parámetros para calcular/generar honorarios de un período."""
+    periodo: str  # YYYY-MM
+
+
+class HonorarioOut(BaseModel):
+    id: int
+    client_id: int
+    client_name: Optional[str] = None
+    periodo: str
+    importe: float
+    estado: str
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class ClientHonorarioUpdate(BaseModel):
+    """Actualizar configuración de honorario de un cliente."""
+    tipo_honorario: Optional[TipoHonorario] = None
+    importe_honorario: Optional[float] = None
+    cantidad_unidades: Optional[float] = None
+    producto_ref_id: Optional[int] = None
+    profesional_id: Optional[int] = None
+
+
+# ─── R-04 — Profesionales y Liquidaciones ────────────────────────────────────
+
+class ProfesionalCreate(BaseModel):
+    nombre: str
+    apellido: Optional[str] = None
+    email: Optional[str] = None
+    tipo: TipoProfesional = TipoProfesional.profesional
+
+
+class ProfesionalUpdate(BaseModel):
+    nombre: Optional[str] = None
+    apellido: Optional[str] = None
+    email: Optional[str] = None
+    tipo: Optional[TipoProfesional] = None
+    activo: Optional[bool] = None
+
+
+class ProfesionalOut(BaseModel):
+    id: int
+    nombre: str
+    apellido: Optional[str] = None
+    email: Optional[str] = None
+    tipo: TipoProfesional
+    activo: bool
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class ReintegroGastoCreate(BaseModel):
+    concepto: str
+    importe: float
+
+
+class ReintegroGastoOut(BaseModel):
+    id: int
+    liquidacion_id: int
+    concepto: str
+    importe: float
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class LiquidacionCreate(BaseModel):
+    profesional_id: int
+    periodo: str  # YYYY-MM
+    honorarios_totales: float
+    saldo_anterior: float = 0
+
+
+class LiquidacionUpdate(BaseModel):
+    honorarios_totales: Optional[float] = None
+    forma_cobro: Optional[str] = None
+    monto_cobrado: Optional[float] = None
+    cerrada: Optional[bool] = None
+
+
+class LiquidacionOut(BaseModel):
+    id: int
+    profesional_id: int
+    profesional_nombre: Optional[str] = None
+    periodo: str
+    honorarios_totales: float
+    adelantos_percibidos: float
+    saldo_anterior: float
+    reintegro_gastos: float
+    total_a_cobrar: float
+    forma_cobro: Optional[str] = None
+    monto_cobrado: float
+    saldo_siguiente: float
+    cerrada: bool
+    created_at: datetime
+    reintegros: List[ReintegroGastoOut] = []
 
     class Config:
         from_attributes = True

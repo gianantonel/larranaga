@@ -15,6 +15,8 @@ import Usuarios from './pages/Usuarios'
 import Retenciones from './pages/Retenciones'
 import Herramientas from './pages/Herramientas'
 import CuentasCorrientes from './pages/CuentasCorrientes'
+import Honorarios from './pages/Honorarios'
+import Liquidaciones from './pages/Liquidaciones'
 import LoadingSpinner from './components/UI/LoadingSpinner'
 
 function ProtectedRoutes() {
@@ -37,6 +39,8 @@ function ProtectedRoutes() {
         <Route path="retenciones" element={<Retenciones />} />
         <Route path="herramientas" element={<Herramientas />} />
         <Route path="cuentas-corrientes" element={<CuentasCorrientes />} />
+        <Route path="honorarios" element={<Honorarios />} />
+        <Route path="liquidaciones" element={<Liquidaciones />} />
       </Route>
     </Routes>
   )
@@ -47,12 +51,13 @@ export default function App() {
     <AuthProvider>
       <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <Routes>
-          {/* Public routes */}
-          {/* <Route path="/" element={<Landing />} /> */}{/* LANDING OCULTA — descomentar para rehabilitar */}
-          <Route path="/" element={<Navigate to="/login" replace />} />
-          <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
-          {/* Protected app routes */}
-          <Route path="/*" element={<ProtectedRoutes />} />
+           {/* Public routes */}
+           {/* <Route path="/" element={<Landing />} /> */}{/* LANDING OCULTA — descomentar para rehabilitar */}
+           <Route path="/" element={<Navigate to="/login" replace />} />
+           <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
+           <Route path="/register" element={<Register />} />
+           {/* Protected app routes */}
+           <Route path="/*" element={<ProtectedRoutes />} />
         </Routes>
       </BrowserRouter>
     </AuthProvider>

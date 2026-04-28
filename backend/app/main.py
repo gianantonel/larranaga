@@ -4,8 +4,7 @@ from .database import engine
 from . import models
 from .sync import register_sync_events, sync_now
 
-from .routers import auth, clients, collaborators, tasks, iva, facturas, dashboard, retenciones, comprobantes, herramientas, users
-from .routers import auth, clients, collaborators, tasks, iva, facturas, dashboard, cuentas_corrientes
+from .routers import auth, clients, collaborators, tasks, iva, facturas, dashboard, retenciones, comprobantes, herramientas, users, cuentas_corrientes, bulk, profesionales, honorarios
 from .mock_data import seed_database
 
 # Create tables
@@ -40,6 +39,8 @@ app.include_router(retenciones.router)
 app.include_router(comprobantes.router)
 app.include_router(herramientas.router)
 app.include_router(cuentas_corrientes.router)
+app.include_router(profesionales.router)
+app.include_router(honorarios.router)
 
 
 @app.on_event("startup")

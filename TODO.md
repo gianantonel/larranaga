@@ -8,10 +8,10 @@ Convención: marcar `[x]` al completar. Cada requerimiento (R-XX) corresponde a 
 
 ## Fase 1 — Infra + Quick wins (sem 1–3)
 
-- [ ] **R-01 + R-02** Corrección tipo B/C + división alícuotas — *Dev 2, Python puro*
-- [ ] **R-05** Separación retenciones IVA vs IIBB — *Dev 1, AFIP SDK*
-- [ ] **R-07** Cuentas corrientes — base de datos Supabase — *Dev 2*
-- [ ] **R-03 + R-04** Cálculo honorarios + Liquidación profesionales — *Dev 2, Python puro*
+- [x] **R-01 + R-02** Corrección tipo B/C + división alícuotas — *Dev 2, Python puro* ✓ `herramientas.py`
+- [ ] **R-05** Separación retenciones IVA vs IIBB — *Dev 1, AFIP SDK* — **BLOQUEADO: requiere credenciales AFIP SDK**
+- [x] **R-07** Cuentas corrientes — base de datos SQLite — *Dev 2* ✓ `cuentas_corrientes.py`
+- [x] **R-03 + R-04** Cálculo honorarios + Liquidación profesionales — *Dev 2, Python puro* ✓ `honorarios.py` + `profesionales.py` — implementado 2026-04-28
 - [ ] **Demo fin de fase**: procesar IVA de BUTALO SRL Feb 2026 punta a punta + registrar honorario de Juan Pérez con saldo en tiempo real.
 
 ## Fase 2 — Pipeline IVA + Tesorería (sem 4–6)
