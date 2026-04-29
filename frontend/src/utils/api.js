@@ -87,6 +87,7 @@ export const createIvaRecord = (data) => api.post('/iva/', data)
 export const updateIvaRecord = (id, data) => api.put(`/iva/${id}`, data)
 export const fileIva = (id, vep) => api.post(`/iva/${id}/file`, null, { params: { vep_number: vep } })
 export const getIvaSummary = (clientId) => api.get(`/iva/summary/${clientId}`)
+export const getPosicionIva = (periodo) => api.get('/iva/posicion', { params: { periodo } })
 
 // ─── Facturas ─────────────────────────────────────────────────────────────────
 export const getFacturas = (params) => api.get('/facturas/', { params })

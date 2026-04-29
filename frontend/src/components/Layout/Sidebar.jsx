@@ -18,6 +18,7 @@ const VISTAS_ITEMS = [
 const ACCIONES_ITEMS = [
   { to: '/cuentas-corrientes', icon: Wallet,      label: 'Cuentas Corrientes', req: 'R-07' },
   { to: '/iva',                icon: BarChart3,    label: 'Balance IVA', req: 'R-05, R-06, R-16' },
+  { to: '/posicion-iva',       icon: Scale,        label: 'Posición IVA', req: 'R-06' },
   { to: '/facturas',           icon: ReceiptText,  label: 'Facturación', req: 'R-03, R-04' },
   { to: '/retenciones',        icon: FileSearch,   label: 'Retenciones', req: 'R-05+' },
   { to: '/honorarios',         icon: Calculator,   label: 'Honorarios', req: 'R-03, R-04' },
