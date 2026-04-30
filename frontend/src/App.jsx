@@ -19,6 +19,7 @@ import CuentasCorrientes from './pages/CuentasCorrientes'
 import Honorarios from './pages/Honorarios'
 import Profesionales from './pages/Profesionales'
 import PosicionIVA from './pages/PosicionIVA'
+import MaestroProveedores from './pages/MaestroProveedores'
 import LoadingSpinner from './components/UI/LoadingSpinner'
 
 function ProtectedRoutes() {
@@ -44,6 +45,7 @@ function ProtectedRoutes() {
         <Route path="honorarios" element={<Honorarios />} />
         <Route path="profesionales" element={<Profesionales />} />
         <Route path="posicion-iva" element={<PosicionIVA />} />
+        <Route path="maestro-proveedores" element={<MaestroProveedores />} />
       </Route>
     </Routes>
   )

@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react'
 import {
   LayoutDashboard, Users, UserCheck, ClipboardList,
   ReceiptText, BarChart3, Scale, LogOut, ChevronRight, FileSearch, Wrench, Wallet,
-  PiggyBank, Calculator, Briefcase, X
+  PiggyBank, Calculator, Briefcase, X, BookOpen
 } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import clsx from 'clsx'
@@ -21,6 +21,7 @@ const ACCIONES_ITEMS = [
   { to: '/posicion-iva',       icon: Scale,        label: 'Posición IVA', req: 'R-06' },
   { to: '/facturas',           icon: ReceiptText,  label: 'Facturación', req: 'R-03, R-04' },
   { to: '/retenciones',        icon: FileSearch,   label: 'Retenciones', req: 'R-05+' },
+  { to: '/maestro-proveedores', icon: BookOpen,    label: 'Maestro Proveedores', req: 'R-09' },
   { to: '/honorarios',         icon: Calculator,   label: 'Honorarios', req: 'R-03, R-04' },
   { to: '/profesionales',      icon: Briefcase,    label: 'Profesionales', req: 'ADM' },
   { icon: PiggyBank, label: 'Tesorería', req: 'R-08, R-14', disabled: true },

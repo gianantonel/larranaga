@@ -149,3 +149,10 @@ export const deleteReintegro = (profesionalId, period, reintegroId) =>
   api.delete(`/profesionales/liquidaciones/${profesionalId}/${period}/reintegros/${reintegroId}`)
 export const cerrarLiquidacion = (profesionalId, period, data) =>
   api.post(`/profesionales/liquidaciones/${profesionalId}/${period}/cerrar`, data)
+
+// ─── R-09: Maestro de Proveedores / Imputación ────────────────────────────────
+export const resolverImputacion = (cuit) => api.get(`/imputacion/cuit/${cuit}`)
+export const getProveedores = (params) => api.get('/imputacion/proveedores', { params })
+export const createProveedor = (data) => api.post('/imputacion/proveedores', data)
+export const updateProveedor = (id, data) => api.put(`/imputacion/proveedores/${id}`, data)
+export const deleteProveedor = (id) => api.delete(`/imputacion/proveedores/${id}`)

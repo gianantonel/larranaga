@@ -491,6 +491,34 @@ class ReintegroGasto(Base):
     liquidacion = relationship("Liquidacion", back_populates="reintegros")
 
 
+# ─── R-09: Maestro de Proveedores ────────────────────────────────────────────
+
+class FuenteMaestro(str, enum.Enum):
+    manual = "manual"
+    padron = "padron"
+    ia = "ia"
+
+
+class MaestroProveedor(Base):
+    """Caché local del padrón ARCA.
+
+    Mapea CUIT → cuenta contable Holistor.
+    Alimentado manualmente, por consulta al padrón ARCA (ws_sr_padron_a4)
+    o por clasificación IA.  Clave para el pipeline R-10 (HWCRARCA).
+    """
+    __tablename__ = "maestro_proveedores"
+
+    id               = Column(Integer, primary_key=True, index=True)
+    cuit             = Column(String(13), unique=True, index=True, nullable=False)
+    razon_social     = Column(String(200), nullable=True)
+    cuenta_contable  = Column(String(50),  nullable=True)   # e.g. "PIVC", "PGAN", "1.1.1.01"
+    fuente           = Column(Enum(FuenteMaestro), default=FuenteMaestro.manual)
+    activo           = Column(Boolean, default=True)
+    notas            = Column(Text, nullable=True)
+    created_at       = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at       = Column(DateTime(timezone=True), onupdate=func.now())
+
+
 class Liquidacion(Base):
     """Liquidación mensual de un profesional.
 
