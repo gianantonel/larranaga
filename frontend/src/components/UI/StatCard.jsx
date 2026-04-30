@@ -13,10 +13,10 @@ export default function StatCard({ title, value, subtitle, icon: Icon, color = '
 
   return (
     <div className={clsx('stat-card', 'border', c.border)}>
-      <div className="flex items-start justify-between">
-        <div>
-          <p className="text-sm font-medium text-gray-400">{title}</p>
-          <p className={clsx('text-2xl sm:text-3xl font-bold mt-1 break-words', c.text)}>{value}</p>
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-medium text-gray-400 whitespace-nowrap">{title}</p>
+          <p className={clsx('text-2xl sm:text-3xl font-bold mt-1', c.text)}>{value}</p>
           {subtitle && <p className="text-sm text-gray-500 mt-1">{subtitle}</p>}
         </div>
         {Icon && (

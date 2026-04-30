@@ -515,3 +515,29 @@ class Liquidacion(Base):
 
     profesional = relationship("Profesional", back_populates="liquidaciones")
     reintegros = relationship("ReintegroGasto", back_populates="liquidacion", cascade="all, delete-orphan")
+
+
+# ─── F2-05: Control de billetes en caja ──────────────────────────────────────
+
+class ControlBillete(Base):
+    """Stock actual de billetes en caja por denominación."""
+    __tablename__ = "control_billetes"
+
+    id           = Column(Integer, primary_key=True, index=True)
+    denominacion = Column(Integer, nullable=False, unique=True, index=True)
+    cantidad     = Column(Integer, nullable=False, default=0)
+    updated_at   = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+
+class MovimientoBillete(Base):
+    """Auditoría de entradas/salidas de billetes. delta > 0 = entrada, delta < 0 = salida."""
+    __tablename__ = "movimientos_billetes"
+
+    id           = Column(Integer, primary_key=True, index=True)
+    denominacion = Column(Integer, nullable=False, index=True)
+    delta        = Column(Integer, nullable=False)
+    concepto     = Column(String(200), nullable=False)
+    pago_id      = Column(Integer, ForeignKey("pagos.id", ondelete="SET NULL"), nullable=True)
+    created_at   = Column(DateTime(timezone=True), server_default=func.now())
+
+    pago = relationship("Pago", foreign_keys=[pago_id])

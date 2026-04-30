@@ -102,6 +102,7 @@ export default function Usuarios() {
       {pendientes.length > 0 && (
         <div className="card border border-amber-500/30 bg-amber-500/5">
           <h2 className="text-amber-400 font-semibold mb-3">Pendientes de aprobación ({pendientes.length})</h2>
+          <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="text-xs text-gray-400 uppercase">
               <tr className="border-b border-gray-700/50">
@@ -119,12 +120,14 @@ export default function Usuarios() {
 ))}
             </tbody>
           </table>
+          </div>
         </div>
       )}
 
       {/* ACTIVOS */}
       <div className="card">
         <h2 className="text-white font-semibold mb-3">Usuarios activos ({activos.length})</h2>
+        <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="text-xs text-gray-400 uppercase">
             <tr className="border-b border-gray-700/50">
@@ -168,6 +171,7 @@ export default function Usuarios() {
             ))}
           </tbody>
         </table>
+        </div>
       </div>
 
       {/* MODAL EDIT */}
@@ -214,7 +218,8 @@ function PendingRow({ user, assignableRoles, onAprobar, onRechazar }) {
           ))}
         </select>
       </td>
-      <td className="py-3 text-right flex gap-2">
+      <td className="py-3 text-right">
+        <div className="flex gap-2 justify-end">
         <button
           onClick={() => onAprobar(user.id, rol)}
           className="text-emerald-400 hover:text-emerald-300"
@@ -229,6 +234,7 @@ function PendingRow({ user, assignableRoles, onAprobar, onRechazar }) {
         >
           <X size={20} />
         </button>
+        </div>
       </td>
     </tr>
   )
@@ -241,7 +247,7 @@ function EditRoleModal({ user, assignableRoles, onClose, onSave }) {
   )
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50" onClick={onClose}>
-      <div className="bg-[#1e293b] rounded-xl p-6 w-96 border border-gray-700" onClick={e => e.stopPropagation()}>
+      <div className="bg-[#1e293b] rounded-xl p-6 w-full max-w-sm border border-gray-700 mx-4" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-white font-semibold">Editar rol de usuario</h3>
           <button onClick={onClose} className="text-gray-400 hover:text-white"><X size={18} /></button>
@@ -253,7 +259,7 @@ function EditRoleModal({ user, assignableRoles, onClose, onSave }) {
         <select
           value={rol}
           onChange={e => setRol(e.target.value)}
-          className="w-full bg-[#0f172a] border border-gray-600 rounded px-3 py-2 mt-1 text-white"
+          className="w-full bg-[#0f172a] border border-gray-600 rounded px-3 py-2 mt-1 text-sm text-white"
         >
           {assignableRoles.map(r => (
             <option key={r} value={r}>{ROLE_LABEL[r]}</option>
@@ -284,7 +290,7 @@ function InviteModal({ assignableRoles, onClose, onSave }) {
 
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50" onClick={onClose}>
-      <div className="bg-[#1e293b] rounded-xl p-6 w-[28rem] border border-gray-700" onClick={e => e.stopPropagation()}>
+      <div className="bg-[#1e293b] rounded-xl p-6 w-full max-w-[28rem] border border-gray-700 mx-4" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-white font-semibold">Invitar usuario</h3>
           <button onClick={onClose} className="text-gray-400 hover:text-white"><X size={18} /></button>
@@ -305,7 +311,7 @@ function InviteModal({ assignableRoles, onClose, onSave }) {
             <select
               value={form.role}
               onChange={e => set('role', e.target.value)}
-              className="w-full bg-[#0f172a] border border-gray-600 rounded px-3 py-2 mt-1 text-white"
+              className="w-full bg-[#0f172a] border border-gray-600 rounded px-3 py-2 mt-1 text-sm text-white"
             >
               {assignableRoles.map(r => (
                 <option key={r} value={r}>{ROLE_LABEL[r]}</option>

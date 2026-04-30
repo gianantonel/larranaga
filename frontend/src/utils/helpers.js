@@ -7,6 +7,19 @@ export const formatCurrency = (value) => {
   }).format(value)
 }
 
+export const formatCurrencyCompact = (value) => {
+  if (value == null) return '—'
+  const abs = Math.abs(value)
+  const NBSP = ' '
+  if (abs >= 1_000_000) {
+    return `$${NBSP}${new Intl.NumberFormat('es-AR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(value / 1_000_000)}${NBSP}M`
+  }
+  if (abs >= 1_000) {
+    return `$${NBSP}${new Intl.NumberFormat('es-AR', { minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(value / 1_000)}${NBSP}K`
+  }
+  return formatCurrency(value)
+}
+
 export const formatNumber = (value) => {
   if (value == null) return '—'
   return new Intl.NumberFormat('es-AR').format(value)

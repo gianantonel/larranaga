@@ -9,7 +9,7 @@ import { FiledBadge } from '../components/UI/Badge'
 import PageHeader from '../components/UI/PageHeader'
 import LoadingSpinner from '../components/UI/LoadingSpinner'
 import StatCard from '../components/UI/StatCard'
-import { formatCurrency, formatPeriod, formatDate } from '../utils/helpers'
+import { formatCurrency, formatCurrencyCompact, formatPeriod, formatDate } from '../utils/helpers'
 
 export default function IVA() {
   const [records, setRecords] = useState([])
@@ -76,8 +76,8 @@ export default function IVA() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard title="Pendientes de presentar" value={pending.length} icon={AlertTriangle} color="rose" />
         <StatCard title="Presentados" value={filed.length} icon={CheckCircle} color="emerald" />
-        <StatCard title="Saldo total a pagar" value={formatCurrency(totalSaldo)} icon={TrendingUp} color="amber" />
-        <StatCard title="Total débito fiscal" value={formatCurrency(totalDebito)} icon={BarChart3} color="violet" />
+        <StatCard title="Saldo total a pagar" value={formatCurrencyCompact(totalSaldo)} icon={TrendingUp} color="amber" />
+        <StatCard title="Total débito fiscal" value={formatCurrencyCompact(totalDebito)} icon={BarChart3} color="violet" />
       </div>
 
       {/* Chart */}
