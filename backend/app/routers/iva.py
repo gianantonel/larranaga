@@ -31,6 +31,67 @@ def list_iva_records(
     return [_build_iva_out(r) for r in records]
 
 
+@router.get("/posicion")
+def get_posicion_iva(
+    periodo: str = Query(..., description="Período en formato AAAA-MM, ej: 2026-02"),
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    """
+    Calcula la posición IVA del estudio para un período dado.
+    Agrega todos los registros IVA de todos los clientes del período.
+
+    - debito_fiscal  = IVA de ventas (débito fiscal total)
+    - credito_fiscal = IVA de compras (crédito fiscal total)
+    - posicion       = debito - credito  (positivo = deuda AFIP | negativo = saldo a favor)
+
+    NOTA: este endpoint debe declararse ANTES de /{record_id} porque sino FastAPI
+    intenta interpretar "posicion" como un int y devuelve 422.
+    """
+    records = db.query(models.IVARecord).filter(
+        models.IVARecord.period == periodo
+    ).all()
+
+    if not records:
+        return {
+            "periodo": periodo,
+            "debito_fiscal": 0.0,
+            "credito_fiscal": 0.0,
+            "posicion": 0.0,
+            "tipo": "sin_datos",
+            "clientes_incluidos": 0,
+            "detalle_por_cliente": []
+        }
+
+    debito_total = sum(r.debito_fiscal for r in records)
+    credito_total = sum(r.credito_fiscal for r in records)
+    posicion = debito_total - credito_total
+
+    detalle = [
+        {
+            "client_id": r.client_id,
+            "client_name": r.client.name if r.client else None,
+            "debito_fiscal": r.debito_fiscal,
+            "credito_fiscal": r.credito_fiscal,
+            "saldo": r.saldo,
+            "presentada": r.filed,
+        }
+        for r in db.query(models.IVARecord).options(
+            selectinload(models.IVARecord.client)
+        ).filter(models.IVARecord.period == periodo).all()
+    ]
+
+    return {
+        "periodo": periodo,
+        "debito_fiscal": round(debito_total, 2),
+        "credito_fiscal": round(credito_total, 2),
+        "posicion": round(posicion, 2),
+        "tipo": "deuda" if posicion > 0 else "a_favor" if posicion < 0 else "neutro",
+        "clientes_incluidos": len(records),
+        "detalle_por_cliente": detalle,
+    }
+
+
 @router.get("/{record_id}", response_model=schemas.IVARecordOut)
 def get_iva_record(
     record_id: int,
@@ -118,64 +179,6 @@ def file_iva(
     ))
     db.commit()
     return {"message": "DDJJ IVA presentada correctamente"}
-
-
-@router.get("/posicion")
-def get_posicion_iva(
-    periodo: str = Query(..., description="Período en formato AAAA-MM, ej: 2026-02"),
-    db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_current_user)
-):
-    """
-    Calcula la posición IVA del estudio para un período dado.
-    Agrega todos los registros IVA de todos los clientes del período.
-
-    - debito_fiscal  = IVA de ventas (débito fiscal total)
-    - credito_fiscal = IVA de compras (crédito fiscal total)
-    - posicion       = debito - credito  (positivo = deuda AFIP | negativo = saldo a favor)
-    """
-    records = db.query(models.IVARecord).filter(
-        models.IVARecord.period == periodo
-    ).all()
-
-    if not records:
-        return {
-            "periodo": periodo,
-            "debito_fiscal": 0.0,
-            "credito_fiscal": 0.0,
-            "posicion": 0.0,
-            "tipo": "sin_datos",
-            "clientes_incluidos": 0,
-            "detalle_por_cliente": []
-        }
-
-    debito_total = sum(r.debito_fiscal for r in records)
-    credito_total = sum(r.credito_fiscal for r in records)
-    posicion = debito_total - credito_total
-
-    detalle = [
-        {
-            "client_id": r.client_id,
-            "client_name": r.client.name if r.client else None,
-            "debito_fiscal": r.debito_fiscal,
-            "credito_fiscal": r.credito_fiscal,
-            "saldo": r.saldo,
-            "presentada": r.filed,
-        }
-        for r in db.query(models.IVARecord).options(
-            selectinload(models.IVARecord.client)
-        ).filter(models.IVARecord.period == periodo).all()
-    ]
-
-    return {
-        "periodo": periodo,
-        "debito_fiscal": round(debito_total, 2),
-        "credito_fiscal": round(credito_total, 2),
-        "posicion": round(posicion, 2),
-        "tipo": "deuda" if posicion > 0 else "a_favor" if posicion < 0 else "neutro",
-        "clientes_incluidos": len(records),
-        "detalle_por_cliente": detalle,
-    }
 
 
 @router.get("/summary/{client_id}")

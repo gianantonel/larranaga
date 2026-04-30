@@ -108,7 +108,13 @@ export default function IVA() {
           <option value="false">Pendientes</option>
           <option value="true">Presentados</option>
         </select>
-        <input value={filterPeriod} onChange={e => setFilterPeriod(e.target.value)} placeholder="Período YYYY-MM" className="input-field w-40 font-mono" />
+        <input
+          type="month"
+          value={filterPeriod}
+          onChange={e => setFilterPeriod(e.target.value)}
+          className="input-field w-44 font-mono"
+          title="Filtrar por período"
+        />
       </div>
 
       {/* Table */}
