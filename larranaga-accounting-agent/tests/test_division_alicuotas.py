@@ -17,6 +17,8 @@ from pathlib import Path
 
 # Importar el módulo a testear
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+import math
+
 from src.transformaciones.division_alicuotas import (
     parse_string_float,
     format_string_float,
@@ -37,6 +39,40 @@ from src.transformaciones.division_alicuotas import (
 # ─────────────────────────────────────────────────────────────────────────────
 # TESTS: Funciones auxiliares
 # ─────────────────────────────────────────────────────────────────────────────
+
+class TestParseStringFloatBothFormats:
+    """Detección automática de formato ARCA (es_AR) vs standard (en_US).
+
+    Bug histórico: ARCA exporta valores con punto decimal estándar ("16779.21")
+    cuando los lee como número, pero los exporta como "16.779,21" cuando los
+    expone como texto. parse_string_float originalmente sólo soportaba el
+    segundo formato y multiplicaba por 100 los valores en formato standard.
+    """
+    @pytest.mark.parametrize("entrada,esperado", [
+        # Formato ARCA / es_AR (coma decimal, punto miles)
+        ("16.779,21",     16779.21),
+        ("89.516,16",     89516.16),
+        ("1.234.567,89",  1234567.89),
+        # Formato standard / en_US (punto decimal)
+        ("16779.21",      16779.21),
+        ("1234567.89",    1234567.89),
+        # ARCA con miles (3 dígitos tras punto)
+        ("16.779",        16779.0),
+        # Standard con 1-2 decimales
+        ("16.79",         16.79),
+        ("16.7",          16.7),
+        # Enteros y casos borde
+        ("17850",         17850.0),
+        ("0",             0.0),
+        ("",              0.0),
+        # Inputs ya numéricos (pandas puede pasarlos así)
+        (89516.16,        89516.16),
+        (17850,           17850.0),
+        (0,               0.0),
+    ])
+    def test_format_detection(self, entrada, esperado):
+        assert math.isclose(parse_string_float(entrada), esperado, abs_tol=0.001)
+
 
 class TestParseStringFloat:
     """Tests para parse_string_float()"""
