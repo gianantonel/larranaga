@@ -33,34 +33,34 @@ export default function PosicionIVA() {
 
   const handlePeriodo = (e) => setPeriodo(e.target.value)
 
-  // Configuración visual según tipo de posición
+  // Configuración visual según tipo de posición — dark theme
   const config = {
     deuda: {
-      color: 'text-red-600',
-      bg: 'bg-red-50 border-red-200',
-      badge: 'bg-red-100 text-red-700',
-      icon: <TrendingUp className="w-8 h-8 text-red-500" />,
+      color: 'text-rose-400',
+      bg: 'bg-rose-500/10 border-rose-500/30',
+      badge: 'bg-rose-500/15 text-rose-300 border-rose-500/30',
+      icon: <TrendingUp className="w-8 h-8 text-rose-400" />,
       label: 'Deuda con AFIP',
     },
     a_favor: {
-      color: 'text-green-600',
-      bg: 'bg-green-50 border-green-200',
-      badge: 'bg-green-100 text-green-700',
-      icon: <TrendingDown className="w-8 h-8 text-green-500" />,
+      color: 'text-emerald-400',
+      bg: 'bg-emerald-500/10 border-emerald-500/30',
+      badge: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30',
+      icon: <TrendingDown className="w-8 h-8 text-emerald-400" />,
       label: 'Saldo a favor',
     },
     neutro: {
-      color: 'text-gray-600',
-      bg: 'bg-gray-50 border-gray-200',
-      badge: 'bg-gray-100 text-gray-700',
+      color: 'text-gray-300',
+      bg: 'bg-gray-500/10 border-gray-500/30',
+      badge: 'bg-gray-500/15 text-gray-300 border-gray-500/30',
       icon: <Minus className="w-8 h-8 text-gray-400" />,
       label: 'Posición neutra',
     },
     sin_datos: {
-      color: 'text-gray-400',
-      bg: 'bg-gray-50 border-gray-200',
-      badge: 'bg-gray-100 text-gray-500',
-      icon: <AlertCircle className="w-8 h-8 text-gray-400" />,
+      color: 'text-gray-500',
+      bg: 'bg-gray-800/30 border-gray-700/40',
+      badge: 'bg-gray-700/40 text-gray-400 border-gray-700/40',
+      icon: <AlertCircle className="w-8 h-8 text-gray-500" />,
       label: 'Sin datos',
     },
   }
@@ -68,7 +68,6 @@ export default function PosicionIVA() {
   const tipo = data?.tipo ?? 'sin_datos'
   const cfg = config[tipo] ?? config.sin_datos
 
-  // Formato legible del período "2026-02" → "Febrero 2026"
   const periodoLegible = (p) => {
     if (!p) return ''
     const [anio, mes] = p.split('-')
@@ -84,13 +83,13 @@ export default function PosicionIVA() {
       />
 
       {/* Selector de período */}
-      <div className="bg-white rounded-xl border border-gray-200 p-4 flex items-center gap-4">
-        <label className="text-sm font-medium text-gray-700 whitespace-nowrap">Período:</label>
+      <div className="card p-4 flex items-center gap-4">
+        <label className="text-sm font-medium text-gray-300 whitespace-nowrap">Período:</label>
         <input
           type="month"
           value={periodo}
           onChange={handlePeriodo}
-          className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="input-field w-44 font-mono"
         />
         <span className="text-sm text-gray-500 capitalize">{periodoLegible(periodo)}</span>
       </div>
@@ -102,7 +101,7 @@ export default function PosicionIVA() {
       )}
 
       {error && (
-        <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-center gap-3 text-red-700 text-sm">
+        <div className="bg-rose-500/10 border border-rose-500/30 rounded-xl p-4 flex items-center gap-3 text-rose-300 text-sm">
           <AlertCircle className="w-5 h-5 shrink-0" />
           {error}
         </div>
@@ -113,31 +112,31 @@ export default function PosicionIVA() {
           {/* Tarjetas principales */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {/* Débito fiscal */}
-            <div className="bg-white rounded-xl border border-gray-200 p-5">
-              <p className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">
+            <div className="card">
+              <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-1">
                 IVA Débito Fiscal
               </p>
-              <p className="text-2xl font-bold text-gray-800">
+              <p className="text-2xl font-bold text-white">
                 {formatCurrency(data.debito_fiscal)}
               </p>
-              <p className="text-xs text-gray-400 mt-1">IVA generado por ventas</p>
+              <p className="text-xs text-gray-500 mt-1">IVA generado por ventas</p>
             </div>
 
             {/* Crédito fiscal */}
-            <div className="bg-white rounded-xl border border-gray-200 p-5">
-              <p className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">
+            <div className="card">
+              <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-1">
                 IVA Crédito Fiscal
               </p>
-              <p className="text-2xl font-bold text-gray-800">
+              <p className="text-2xl font-bold text-white">
                 {formatCurrency(data.credito_fiscal)}
               </p>
-              <p className="text-xs text-gray-400 mt-1">IVA deducible por compras</p>
+              <p className="text-xs text-gray-500 mt-1">IVA deducible por compras</p>
             </div>
 
             {/* Posición del mes */}
-            <div className={`rounded-xl border p-5 ${cfg.bg}`}>
+            <div className={`rounded-xl border p-6 ${cfg.bg}`}>
               <div className="flex items-center justify-between mb-1">
-                <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">
                   Posición del Mes
                 </p>
                 {cfg.icon}
@@ -145,7 +144,7 @@ export default function PosicionIVA() {
               <p className={`text-2xl font-bold ${cfg.color}`}>
                 {formatCurrency(Math.abs(data.posicion))}
               </p>
-              <span className={`inline-block mt-2 text-xs font-semibold px-2 py-0.5 rounded-full ${cfg.badge}`}>
+              <span className={`inline-block mt-2 text-xs font-semibold px-2 py-0.5 rounded-full border ${cfg.badge}`}>
                 {cfg.label}
               </span>
             </div>
@@ -153,9 +152,9 @@ export default function PosicionIVA() {
 
           {/* Detalle por cliente (colapsable) */}
           {data.clientes_incluidos > 0 && (
-            <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+            <div className="card p-0 overflow-hidden">
               <button
-                className="w-full flex items-center justify-between px-5 py-4 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                className="w-full flex items-center justify-between px-5 py-4 text-sm font-medium text-gray-200 hover:bg-white/5 transition-colors"
                 onClick={() => setDetalleAbierto(!detalleAbierto)}
               >
                 <span>
@@ -170,37 +169,37 @@ export default function PosicionIVA() {
               </button>
 
               {detalleAbierto && (
-                <div className="overflow-x-auto border-t border-gray-100">
+                <div className="overflow-x-auto border-t border-gray-700/50">
                   <table className="w-full text-sm">
-                    <thead className="bg-gray-50">
+                    <thead className="bg-[#0f172a]/60">
                       <tr>
-                        <th className="text-left px-5 py-3 font-medium text-gray-500">Cliente</th>
-                        <th className="text-right px-5 py-3 font-medium text-gray-500">Débito Fiscal</th>
-                        <th className="text-right px-5 py-3 font-medium text-gray-500">Crédito Fiscal</th>
-                        <th className="text-right px-5 py-3 font-medium text-gray-500">Saldo</th>
-                        <th className="text-center px-5 py-3 font-medium text-gray-500">DDJJ</th>
+                        <th className="text-left px-5 py-3 font-medium text-gray-400 uppercase tracking-wide text-xs">Cliente</th>
+                        <th className="text-right px-5 py-3 font-medium text-gray-400 uppercase tracking-wide text-xs">Débito Fiscal</th>
+                        <th className="text-right px-5 py-3 font-medium text-gray-400 uppercase tracking-wide text-xs">Crédito Fiscal</th>
+                        <th className="text-right px-5 py-3 font-medium text-gray-400 uppercase tracking-wide text-xs">Saldo</th>
+                        <th className="text-center px-5 py-3 font-medium text-gray-400 uppercase tracking-wide text-xs">DDJJ</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-gray-100">
+                    <tbody className="divide-y divide-gray-700/50">
                       {data.detalle_por_cliente.map((row) => (
-                        <tr key={row.client_id} className="hover:bg-gray-50 transition-colors">
-                          <td className="px-5 py-3 font-medium text-gray-800">
+                        <tr key={row.client_id} className="hover:bg-white/5 transition-colors">
+                          <td className="px-5 py-3 font-medium text-white">
                             {row.client_name ?? `Cliente #${row.client_id}`}
                           </td>
-                          <td className="px-5 py-3 text-right text-gray-700">
+                          <td className="px-5 py-3 text-right text-gray-300">
                             {formatCurrency(row.debito_fiscal)}
                           </td>
-                          <td className="px-5 py-3 text-right text-gray-700">
+                          <td className="px-5 py-3 text-right text-gray-300">
                             {formatCurrency(row.credito_fiscal)}
                           </td>
-                          <td className={`px-5 py-3 text-right font-semibold ${row.saldo > 0 ? 'text-red-600' : row.saldo < 0 ? 'text-green-600' : 'text-gray-500'}`}>
+                          <td className={`px-5 py-3 text-right font-semibold ${row.saldo > 0 ? 'text-rose-400' : row.saldo < 0 ? 'text-emerald-400' : 'text-gray-500'}`}>
                             {formatCurrency(row.saldo)}
                           </td>
                           <td className="px-5 py-3 text-center">
                             {row.presentada ? (
-                              <CheckCircle2 className="w-4 h-4 text-green-500 mx-auto" />
+                              <CheckCircle2 className="w-4 h-4 text-emerald-400 mx-auto" />
                             ) : (
-                              <span className="inline-block w-2 h-2 rounded-full bg-yellow-400 mx-auto" title="Pendiente" />
+                              <span className="inline-block w-2 h-2 rounded-full bg-amber-400 mx-auto" title="Pendiente" />
                             )}
                           </td>
                         </tr>
@@ -214,11 +213,11 @@ export default function PosicionIVA() {
 
           {/* Sin datos */}
           {data.tipo === 'sin_datos' && (
-            <div className="bg-gray-50 border border-gray-200 rounded-xl p-8 text-center">
-              <AlertCircle className="w-10 h-10 text-gray-300 mx-auto mb-3" />
-              <p className="text-gray-500 font-medium">No hay registros IVA para {periodoLegible(periodo)}</p>
-              <p className="text-gray-400 text-sm mt-1">
-                Cargá registros IVA desde la sección <strong>IVA</strong> o importá comprobantes desde <strong>Herramientas</strong>.
+            <div className="card text-center py-12">
+              <AlertCircle className="w-10 h-10 text-gray-600 mx-auto mb-3" />
+              <p className="text-gray-300 font-medium">No hay registros IVA para {periodoLegible(periodo)}</p>
+              <p className="text-gray-500 text-sm mt-1">
+                Cargá registros IVA desde la sección <strong className="text-gray-300">Balance IVA</strong> o importá comprobantes desde <strong className="text-gray-300">Herramientas</strong>.
               </p>
             </div>
           )}
