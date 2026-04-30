@@ -26,3 +26,16 @@ frontend/.env
 .DS_Store
 Thumbs.db
 *.log
+
+# Credenciales locales — NUNCA commitear
+Credenciales_*.txt
+afip_dev_credentials.txt
+*_credentials*.txt
+*_passwords*.txt
+
+# Carpeta OneDrive accidentalmente incluida
+OneDrive/
+
+# SQLite WAL/SHM (archivos de transacción en vuelo)
+backend/larranaga.db-shm
+backend/larranaga.db-wal

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { GitMerge, Download, Loader2, CheckCircle, XCircle, MinusCircle } from 'lucide-react'
-import { syncComprobantes, getCruce, exportHolistor } from '../utils/api'
-import { formatCurrency, formatDate } from '../utils/helpers'
+import { syncComprobantes, getCruce, exportHolistor } from '../../utils/api'
+import { formatCurrency, formatDate } from '../../utils/helpers'
 
 const SCORE_CONFIG = {
   exact:  { label: 'Exacto',    icon: CheckCircle,  cls: 'text-emerald-400' },

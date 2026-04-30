@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Download, Loader2, RefreshCw, Trash2 } from 'lucide-react'
-import { syncRetenciones, getRetenciones, deleteRetencion } from '../utils/api'
-import { formatCurrency, formatDate } from '../utils/helpers'
+import { syncRetenciones, getRetenciones, deleteRetencion } from '../../utils/api'
+import { formatCurrency, formatDate } from '../../utils/helpers'
 import CrucePanel from './CrucePanel'
 
 const IMPUESTOS = [
