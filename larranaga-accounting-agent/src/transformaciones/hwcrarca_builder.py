@@ -208,18 +208,71 @@ def aplicar_reglas_tipo_b_c(row: pd.Series) -> pd.Series:
 # VALIDACIÓN DE CUADRE
 # ─────────────────────────────────────────────────────────────────────────────
 
-def validar_cuadre(df: pd.DataFrame, tolerancia: float = 0.01) -> Dict[str, Any]:
+class CuadreError(Exception):
+    """Excepción que se lanza cuando los totales agregados Debe ≠ Haber.
+
+    El endpoint captura esta excepción y la traduce a HTTP 422 con el
+    detalle estructurado en `result` para que el frontend muestre dónde
+    rompe el cuadre.
     """
-    Valida que para cada fila se cumpla:
-      Imp.Total ≈ Neto Grav. Total + No Gravados + Exentas + Total IVA + Otros Tributos
+    def __init__(self, mensaje: str, result: "Dict[str, Any]"):
+        super().__init__(mensaje)
+        self.result = result
 
-    Tolerancia: 0.01 (centavos por redondeo).
-    Las filas Tipo B/C donde solo Imp. Total tiene valor son aceptadas siempre.
 
-    Returns: { valido, errores, advertencias, total_filas, filas_con_advertencia }
+def validar_cuadre(
+    df: pd.DataFrame,
+    tolerancia: float = 0.01,
+    tolerancia_pct: float = 1.0,
+) -> Dict[str, Any]:
+    """
+    Hook de validación pre-exportación HWCRARCA.
+
+    Verifica DOS niveles:
+
+    1. AGREGADO (Debe = Haber a nivel contable, BLOQUEANTE):
+         Σ Imp.Total ≈ Σ (Neto Grav + No Gravados + Exentas + Total IVA + Otros Tributos
+                          + Imp.Total de Tipo B/C, que Holistor trata como No Gravado)
+       Si la diferencia agregada > max(tolerancia, haber * tolerancia_pct/100),
+       retorna `cuadre_ok=False` y el archivo NO debe exportarse.
+
+    2. POR FILA (informativo, NO BLOQUEANTE):
+         Para cada fila chequea coherencia interna. Las diferencias se reportan
+         como `advertencias` pero no detienen la exportación.
+
+    Tolerancia dual:
+      - Absoluta (default $0.01): cubre errores de redondeo en archivos chicos.
+      - Relativa (default 1.0%): cubre archivos grandes donde ARCA no expone
+        percepciones discriminadas (caso típico BUTALO Feb 2026: dif 0.05%).
+      Se acepta si la diferencia es <= MAX(tolerancia, haber * tolerancia_pct/100).
+
+    Args:
+        df: DataFrame post R-01/R-02
+        tolerancia: diferencia absoluta aceptable (default $0.01)
+        tolerancia_pct: diferencia relativa aceptable en % del haber (default 1.0)
+
+    Returns: dict con
+        - cuadre_ok: bool (basado en agregados)
+        - debe_total / haber_total / diferencia_agregada / diferencia_pct
+        - tolerancia / tolerancia_pct / tolerancia_efectiva
+        - totales: dict con desglose
+        - advertencias / errores
+        - total_filas / filas_con_advertencia
+        - valido: alias retrocompatible de cuadre_ok
     """
     errores: List[str] = []
     advertencias: List[str] = []
+
+    suma_neto = 0.0
+    suma_no_gravado = 0.0
+    suma_exentas = 0.0
+    suma_iva = 0.0
+    suma_otros = 0.0
+    suma_total = 0.0
+    # Holistor trata el Imp.Total de Tipo B/C como No Gravado (instructivo: "Holistor
+    # toma Otros tributos como No gravados"). Para que el cuadre agregado funcione,
+    # acumulamos esos montos por separado para sumarlos al Debe contable.
+    suma_b_c_imp_total = 0.0
 
     for idx, row in df.iterrows():
         try:
@@ -233,11 +286,22 @@ def validar_cuadre(df: pd.DataFrame, tolerancia: float = 0.01) -> Dict[str, Any]
             otros   = parse_string_float(row.get("Otros Tributos",     "0"))
             total   = parse_string_float(row.get("Imp. Total",         "0"))
 
+            # Agregar a sumas
+            suma_neto       += neto
+            suma_no_gravado += no_grav
+            suma_exentas    += exentas
+            suma_iva        += iva
+            suma_otros      += otros
+            suma_total      += total
+
+            # Validación por fila (informativa)
             calculado = neto + no_grav + exentas + iva + otros
             diff = abs(calculado - total)
 
-            # Tipo B/C: si el total está bien y el resto está en 0, OK
+            # Tipo B/C: si solo Imp.Total tiene valor, OK individual
+            # y el Imp.Total se imputa como No Gravado a nivel agregado
             if es_b_c and total > 0 and calculado < 0.01:
+                suma_b_c_imp_total += total
                 continue
 
             if diff > tolerancia:
@@ -250,8 +314,40 @@ def validar_cuadre(df: pd.DataFrame, tolerancia: float = 0.01) -> Dict[str, Any]
         except Exception as exc:
             errores.append(f"Fila {idx + 1}: error al validar — {exc}")
 
+    # ── Validación AGREGADA — lo que determina si exportar o no ──
+    # Debe = Σ componentes + Imp.Total de B/C (Holistor lo trata como No Gravado)
+    debe_total      = (
+        suma_neto + suma_no_gravado + suma_exentas + suma_iva + suma_otros
+        + suma_b_c_imp_total
+    )
+    haber_total     = suma_total
+    diff_agregada   = abs(debe_total - haber_total)
+    diff_pct        = (diff_agregada / haber_total * 100.0) if haber_total > 0 else 0.0
+
+    # Tolerancia dual: pasa si está dentro de la absoluta O de la relativa
+    tol_relativa_abs = haber_total * tolerancia_pct / 100.0
+    tol_efectiva     = max(tolerancia, tol_relativa_abs)
+    cuadre_ok        = diff_agregada <= tol_efectiva and len(errores) == 0
+
     return {
-        "valido":                len(errores) == 0,
+        "cuadre_ok":             cuadre_ok,
+        "valido":                cuadre_ok,
+        "debe_total":            round(debe_total, 2),
+        "haber_total":           round(haber_total, 2),
+        "diferencia_agregada":   round(diff_agregada, 2),
+        "diferencia_pct":        round(diff_pct, 4),
+        "tolerancia":            tolerancia,
+        "tolerancia_pct":        tolerancia_pct,
+        "tolerancia_efectiva":   round(tol_efectiva, 2),
+        "totales": {
+            "neto_gravado":    round(suma_neto, 2),
+            "no_gravado":      round(suma_no_gravado, 2),
+            "exentas":         round(suma_exentas, 2),
+            "iva":             round(suma_iva, 2),
+            "otros_tributos":  round(suma_otros, 2),
+            "imp_total":       round(suma_total, 2),
+            "b_c_no_grav_implicito": round(suma_b_c_imp_total, 2),
+        },
         "errores":               errores,
         "advertencias":          advertencias,
         "total_filas":           len(df),
@@ -302,8 +398,19 @@ def construir_hwcrarca_xlsx(df: pd.DataFrame) -> Tuple[bytes, Dict[str, Any]]:
     filas_consumidor_final = int((df["Denominación Emisor"] == "CONSUMIDOR FINAL").sum())
     filas_b_c              = int(df["Tipo"].isin(TIPOS_B_C).sum())
 
-    # 4. Validación de cuadre
+    # 4. Validación de cuadre — HOOK PRE-EXPORTACIÓN
+    # Si los totales agregados NO cuadran (Debe ≠ Haber a nivel contable),
+    # bloqueamos la exportación lanzando CuadreError. El endpoint la traduce a HTTP 422.
     validacion = validar_cuadre(df)
+    if not validacion["cuadre_ok"]:
+        raise CuadreError(
+            f"El archivo NO cuadra contablemente: "
+            f"Debe={validacion['debe_total']:.2f} vs Haber={validacion['haber_total']:.2f} "
+            f"(diferencia={validacion['diferencia_agregada']:.2f}, "
+            f"tolerancia={validacion['tolerancia']:.2f}). "
+            f"Revise los datos antes de importar a Holistor.",
+            result=validacion,
+        )
 
     # 5. Construcción del Workbook
     wb = Workbook()

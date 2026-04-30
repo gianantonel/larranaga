@@ -40,10 +40,11 @@ if str(_AGENT) not in sys.path:
 try:
     from src.transformaciones.limpieza_inicial import limpiar_comprobantes_desde_bytes
     from src.transformaciones.division_alicuotas import aplicar_division_alicuotas
-    from src.transformaciones.hwcrarca_builder import construir_hwcrarca_xlsx
+    from src.transformaciones.hwcrarca_builder import construir_hwcrarca_xlsx, CuadreError
     _MODULO_OK = True
 except ImportError:
     _MODULO_OK = False
+    CuadreError = Exception  # placeholder cuando módulo no disponible
 
 router = APIRouter(prefix="/herramientas", tags=["herramientas"])
 
@@ -213,9 +214,24 @@ def generar_hwcrarca(
     except Exception as e:
         raise HTTPException(422, f"No se pudo leer el archivo procesado: {e}")
 
-    # Aplicar R-10
+    # Aplicar R-10 con hook de validación pre-exportación (F-10)
     try:
         xlsx_bytes, stats = construir_hwcrarca_xlsx(df)
+    except CuadreError as ce:
+        # Cuadre Debe=Haber falla a nivel agregado: HTTP 422 con detalle estructurado
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "error":        "cuadre_invalido",
+                "message":      str(ce),
+                "debe_total":   ce.result["debe_total"],
+                "haber_total":  ce.result["haber_total"],
+                "diferencia":   ce.result["diferencia_agregada"],
+                "totales":      ce.result["totales"],
+                "advertencias": ce.result["advertencias"][:20],  # primeras 20 filas
+                "filas_con_advertencia": ce.result["filas_con_advertencia"],
+            },
+        )
     except Exception as e:
         raise HTTPException(422, f"Error al generar HWCRARCA: {e}")
 

@@ -13,6 +13,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from src.transformaciones.hwcrarca_builder import (  # noqa: E402
     BANNER_TEXT,
     HWCRARCA_HEADERS,
+    CuadreError,
     aplicar_reglas_tipo_b_c,
     construir_hwcrarca_xlsx,
     extraer_codigo_tipo,
@@ -203,6 +204,7 @@ class TestValidarCuadre:
         assert v["filas_con_advertencia"] == 0
 
     def test_factura_a_no_cuadra(self):
+        # Una sola fila Factura A con Imp.Total mal — el agregado no cuadra (F-10)
         df = pd.DataFrame([{
             "Tipo":               "1 - Factura A",
             "Número Desde":      "991",
@@ -214,7 +216,8 @@ class TestValidarCuadre:
             "Imp. Total":         "15000",  # debería ser 12100
         }])
         v = validar_cuadre(df)
-        assert v["valido"]   # errores=0, son advertencias
+        # F-10: si los totales agregados no cuadran, cuadre_ok=False
+        assert v["cuadre_ok"] is False
         assert v["filas_con_advertencia"] == 1
         assert "991" in v["advertencias"][0]
 
@@ -232,6 +235,97 @@ class TestValidarCuadre:
         }])
         v = validar_cuadre(df)
         assert v["filas_con_advertencia"] == 0
+
+
+# ─── F-10: Hook pre-exportación con CuadreError ──────────────────────────────
+
+class TestF10HookPreExportacion:
+    """Tests del hook que bloquea exportación cuando Debe ≠ Haber a nivel agregado."""
+
+    def _df_minimo(self, imp_total="102850", neto="85000", iva="17850"):
+        """DataFrame de 1 fila Factura A coherente."""
+        return pd.DataFrame([{
+            "Fecha": "01/02/2026", "Tipo": "1 - Factura A",
+            "Punto de Venta": "1", "Número Desde": "991", "Número Hasta": "991",
+            "Cód. Autorización": "86052408575117",
+            "Tipo Doc. Emisor": "CUIT", "Nro. Doc. Emisor": "30717628485",
+            "Denominación Emisor": "DE CONTEINER S. A. S.",
+            "Tipo Doc. Receptor": "CUIT", "Nro. Doc. Receptor": "30709212083",
+            "Tipo Cambio": "1", "Moneda": "$",
+            "Neto Grav. IVA 0%":   "0",
+            "IVA 2,5%":            "0", "Neto Grav. IVA 2,5%":   "0",
+            "IVA 5%":              "0", "Neto Grav. IVA 5%":     "0",
+            "IVA 10,5%":           "0", "Neto Grav. IVA 10,5%":  "0",
+            "IVA 21%":             iva, "Neto Grav. IVA 21%":    neto,
+            "IVA 27%":             "0", "Neto Grav. IVA 27%":    "0",
+            "Neto Gravado Total":  neto,
+            "Neto No Gravado":     "0", "Op. Exentas":           "0",
+            "Otros Tributos":      "0", "Total IVA":             iva,
+            "Imp. Total":          imp_total,
+        }])
+
+    def test_validar_cuadre_devuelve_estructura_completa(self):
+        """validar_cuadre() devuelve dict con campos cuadre_ok, totales, etc."""
+        df = self._df_minimo()
+        v = validar_cuadre(df)
+        assert "cuadre_ok"     in v
+        assert "debe_total"    in v
+        assert "haber_total"   in v
+        assert "diferencia_agregada" in v
+        assert "totales"       in v
+        assert "advertencias"  in v
+        assert v["cuadre_ok"]  is True
+
+    def test_validar_cuadre_agregado_ok(self):
+        """Una fila con Imp.Total = Σ componentes → cuadre OK."""
+        df = self._df_minimo()
+        v = validar_cuadre(df)
+        assert v["cuadre_ok"]
+        assert v["debe_total"]  == 102850.0
+        assert v["haber_total"] == 102850.0
+        assert v["diferencia_agregada"] == 0.0
+
+    def test_validar_cuadre_agregado_descuadrado(self):
+        """Imp.Total grossly diferente de Σ componentes (>>1%) → cuadre_ok=False."""
+        df = self._df_minimo(imp_total="999999")  # debería ser 102850 (~870% de dif)
+        v = validar_cuadre(df)
+        assert v["cuadre_ok"] is False
+        assert v["diferencia_pct"] > 1.0
+
+    def test_validar_cuadre_dentro_de_tolerancia_relativa(self):
+        """Diferencia <1% del haber → pasa por tolerancia relativa (default 1%)."""
+        # haber = 102850, dif de 50 → 0.048% → OK
+        df = self._df_minimo(imp_total="102900")  # dif 50
+        v = validar_cuadre(df)
+        assert v["cuadre_ok"] is True
+        assert v["diferencia_pct"] < 1.0
+
+    def test_construir_lanza_cuadre_error_si_no_cuadra(self):
+        """Si validar_cuadre falla → CuadreError con detalle estructurado."""
+        df = self._df_minimo(imp_total="999999")
+        with pytest.raises(CuadreError) as exc_info:
+            construir_hwcrarca_xlsx(df)
+        assert exc_info.value.result["cuadre_ok"] is False
+        assert exc_info.value.result["debe_total"] == 102850.0
+        assert exc_info.value.result["haber_total"] == 999999.0
+        assert "Debe" in str(exc_info.value)
+        assert "Haber" in str(exc_info.value)
+
+    def test_construir_no_lanza_si_cuadra(self):
+        """Pipeline normal con datos coherentes → genera xlsx, no lanza excepción."""
+        df = self._df_minimo()
+        xlsx, stats = construir_hwcrarca_xlsx(df)
+        assert xlsx
+        assert stats["validacion"]["cuadre_ok"]
+
+    def test_advertencias_no_bloquean_si_dif_pct_pequena(self):
+        """Diferencia individual < 1% del haber → cuadre OK pero advertencia registrada."""
+        df = self._df_minimo(imp_total="121000", neto="100000", iva="21000")  # OK
+        df.loc[0, "Otros Tributos"] = "100"
+        # Haber = 121000, Debe = 121100. Diferencia 100, pct = 0.082% < 1% → OK
+        v = validar_cuadre(df)
+        assert v["cuadre_ok"] is True   # tolerancia relativa lo absorbe
+        assert v["filas_con_advertencia"] == 1   # pero registra advertencia individual
 
 
 # ─── construir_hwcrarca_xlsx (integración) ────────────────────────────────────
