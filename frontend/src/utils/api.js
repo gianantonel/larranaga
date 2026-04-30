@@ -150,6 +150,10 @@ export const deleteReintegro = (profesionalId, period, reintegroId) =>
 export const cerrarLiquidacion = (profesionalId, period, data) =>
   api.post(`/profesionales/liquidaciones/${profesionalId}/${period}/cerrar`, data)
 
+// ─── R-10: Generación HWCRARCA ────────────────────────────────────────────────
+export const generarHwcrarca = (limpiezaId) =>
+  api.post(`/herramientas/${limpiezaId}/generar-hwcrarca`, null, { responseType: 'blob' })
+
 // ─── R-09: Maestro de Proveedores / Imputación ────────────────────────────────
 export const resolverImputacion = (cuit) => api.get(`/imputacion/cuit/${cuit}`)
 export const getProveedores = (params) => api.get('/imputacion/proveedores', { params })

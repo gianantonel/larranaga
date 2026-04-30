@@ -1,0 +1,388 @@
+"""
+R-10: Generación del archivo HWCRARCA para importar a Holistor.
+
+Toma el DataFrame procesado (post R-01 + R-02) y genera un .xlsx con la
+estructura que Holistor espera, listo para que el usuario lo abra y lo guarde
+como .prn (texto delimitado por espacios) para importarlo en su módulo IVA.
+
+Estructura del archivo de salida (pestaña "HWComprobantes Recibidos"):
+  Fila 1: Banner "Datos origen copia desde ARCA - MIS COMPROBANTES RECIBIDOS"
+  Fila 2: Headers (30 columnas A-AD según convención Holistor)
+  Fila 3+: Datos transformados
+
+Transformaciones aplicadas respecto del output de R-02:
+  - Tipo: "1 - Factura A" → "1" (solo código numérico)
+  - Tipo Cambio: "1" → 1.00 (numérico con 2 decimales)
+  - Tipo Doc: "CUIT" → "80", "DNI" → "96", vacío → "99"
+  - Consumidor Final: si CUIT está vacío/0 → "0" + "CONSUMIDOR FINAL" + tipo doc 99
+  - Razón social vacía: "SIN DENOMINACION"
+  - Validación: chequea que Imp.Total ≈ Σ(componentes) ± 0.01
+
+Referencias:
+  - "Instructivo Holistor — Importación de Mis Comprobantes Recibidos ARCA"
+  - Fixture HWCRARCA.xls (template oficial de Holistor)
+"""
+
+import io
+import re
+from typing import Any, Dict, List, Tuple
+
+import pandas as pd
+from openpyxl import Workbook
+from openpyxl.styles import Alignment, Font, PatternFill
+
+from .division_alicuotas import parse_string_float
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# CONSTANTES
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Headers de las 30 columnas A-AD según el template oficial de Holistor
+HWCRARCA_HEADERS: List[str] = [
+    "Fecha Emisión",                           # A
+    "Cpbte",                                   # B
+    "Suc.",                                    # C
+    "Número",                                  # D
+    "N° Hasta",                                # E
+    "Cód. Autorización",                       # F
+    "Tipo Doc.",                               # G
+    "CUIT",                                    # H
+    "Razón Social/Denominación Proveedor",     # I
+    "Tipo Doc. Receptor",                      # J
+    "Nro. Doc. Receptor",                      # K
+    "Tipo Cbio.",                              # L
+    "Moneda",                                  # M
+    "Neto Gravado",                            # N
+    "IVA 2,5%",                                # O
+    "Imp. Neto Gravado IVA 2,5%",              # P
+    "IVA 5%",                                  # Q
+    "Imp. Neto Gravado IVA 5%",                # R
+    "IVA 10,5%",                               # S
+    "Imp. Neto Gravado IVA 10,5%",             # T
+    "IVA 21%",                                 # U
+    "Imp. Neto Gravado IVA 21%",               # V
+    "IVA 27%",                                 # W
+    "Imp. Neto Gravado IVA 27%",               # X
+    "Imp. Neto Gravado Total",                 # Y
+    "Importes No Gravados",                    # Z
+    "Importes Exentos",                        # AA
+    "Otros Tributos",                          # AB
+    "Total IVA",                               # AC
+    "Importe Total",                           # AD
+]
+
+# Mapeo R-02 → posición HWCRARCA (índices A-AD = 0-29)
+ARCA_COLS_ORDERED: List[str] = [
+    "Fecha", "Tipo", "Punto de Venta", "Número Desde", "Número Hasta",
+    "Cód. Autorización", "Tipo Doc. Emisor", "Nro. Doc. Emisor",
+    "Denominación Emisor", "Tipo Doc. Receptor", "Nro. Doc. Receptor",
+    "Tipo Cambio", "Moneda",
+    # Columnas N-AD (numéricas)
+    "Neto Grav. IVA 0%",
+    "IVA 2,5%", "Neto Grav. IVA 2,5%",
+    "IVA 5%", "Neto Grav. IVA 5%",
+    "IVA 10,5%", "Neto Grav. IVA 10,5%",
+    "IVA 21%", "Neto Grav. IVA 21%",
+    "IVA 27%", "Neto Grav. IVA 27%",
+    "Neto Gravado Total", "Neto No Gravado", "Op. Exentas",
+    "Otros Tributos", "Total IVA", "Imp. Total",
+]
+
+# Índices de columnas que deben emitirse como números (no strings)
+NUMERIC_COL_INDICES = list(range(13, 30))  # N a AD: Neto, IVAs, Netos, Totales
+
+# Mapeo de Tipo Doc texto → código numérico AFIP
+TIPO_DOC_MAP: Dict[str, str] = {
+    "CUIT": "80",
+    "CUIL": "86",
+    "DNI":  "96",
+    "":     "99",
+    "0":    "99",
+    "NAN":  "99",
+}
+
+# Códigos de comprobantes Tipo B y C (no llevan IVA discriminado)
+# Holistor: para estos tipos, Neto Gravado e IVA Liquidado deben ser 0
+TIPOS_B_C = {
+    "6", "7", "8", "9",                          # B básicos
+    "11", "12", "13", "15",                      # C básicos
+    "206", "207", "208",                          # B MiPyME
+    "211", "212", "213",                          # C MiPyME
+}
+
+# Banner de la fila 1 del template Holistor
+BANNER_TEXT = "Datos origen copia desde ARCA - MIS COMPROBANTES RECIBIDOS"
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# TRANSFORMACIONES
+# ─────────────────────────────────────────────────────────────────────────────
+
+def extraer_codigo_tipo(tipo_str: Any) -> str:
+    """'1 - Factura A' → '1' · '11 - Factura C' → '11' · vacío → ''"""
+    if pd.isna(tipo_str):
+        return ""
+    s = str(tipo_str).strip()
+    if not s:
+        return ""
+    m = re.match(r"^\s*(\d+)\s*-", s)
+    if m:
+        return m.group(1)
+    # Si ya es solo un número, devolverlo
+    if s.isdigit():
+        return s
+    return ""
+
+
+def formatear_tipo_cambio(valor: Any) -> float:
+    """Devuelve siempre un float. '1' → 1.0 · '1,00' → 1.0 · vacío → 1.0"""
+    if pd.isna(valor) or str(valor).strip() == "":
+        return 1.0
+    s = str(valor).strip()
+    if s in {"$", ""}:
+        return 1.0
+    try:
+        return parse_string_float(s) or 1.0
+    except Exception:
+        return 1.0
+
+
+def mapear_tipo_doc(valor: Any) -> str:
+    """'CUIT' → '80' · 'DNI' → '96' · vacío → '99' · ya numérico → tal cual"""
+    if pd.isna(valor):
+        return "99"
+    s = str(valor).strip().upper()
+    # Si ya es numérico (e.g. "80", "96"), devolverlo
+    if s.isdigit():
+        return s
+    return TIPO_DOC_MAP.get(s, "99")
+
+
+def normalizar_consumidor_final(row: pd.Series) -> pd.Series:
+    """
+    Si CUIT vacío/0 → CUIT="0", Razón Social="CONSUMIDOR FINAL", Tipo Doc=99.
+    Si solo Razón Social vacía → "SIN DENOMINACION".
+    """
+    cuit  = str(row.get("Nro. Doc. Emisor", "")).strip()
+    razon = str(row.get("Denominación Emisor", "")).strip()
+
+    cuit_vacio = cuit in {"", "0", "nan", "NaN", "None"}
+    if cuit_vacio:
+        row["Nro. Doc. Emisor"]   = "0"
+        row["Denominación Emisor"] = "CONSUMIDOR FINAL"
+        row["Tipo Doc. Emisor"]   = "99"
+    elif razon in {"", "nan", "NaN", "None"}:
+        row["Denominación Emisor"] = "SIN DENOMINACION"
+
+    return row
+
+
+def aplicar_reglas_tipo_b_c(row: pd.Series) -> pd.Series:
+    """
+    Para comprobantes Tipo B/C, Holistor exige Neto Gravado e IVA = 0.
+    Solo el Importe Total debe tener valor.
+    R-01 ya hace gran parte; acá lo reforzamos para asegurar el formato Holistor.
+    """
+    tipo_codigo = extraer_codigo_tipo(row.get("Tipo", ""))
+    if tipo_codigo not in TIPOS_B_C:
+        return row
+
+    # Forzar a 0 las columnas de neto e IVA por alícuota
+    cols_a_cero = [
+        "Neto Grav. IVA 0%",
+        "IVA 2,5%", "Neto Grav. IVA 2,5%",
+        "IVA 5%", "Neto Grav. IVA 5%",
+        "IVA 10,5%", "Neto Grav. IVA 10,5%",
+        "IVA 21%", "Neto Grav. IVA 21%",
+        "IVA 27%", "Neto Grav. IVA 27%",
+        "Neto Gravado Total", "Total IVA",
+    ]
+    for col in cols_a_cero:
+        if col in row.index:
+            row[col] = "0"
+    return row
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# VALIDACIÓN DE CUADRE
+# ─────────────────────────────────────────────────────────────────────────────
+
+def validar_cuadre(df: pd.DataFrame, tolerancia: float = 0.01) -> Dict[str, Any]:
+    """
+    Valida que para cada fila se cumpla:
+      Imp.Total ≈ Neto Grav. Total + No Gravados + Exentas + Total IVA + Otros Tributos
+
+    Tolerancia: 0.01 (centavos por redondeo).
+    Las filas Tipo B/C donde solo Imp. Total tiene valor son aceptadas siempre.
+
+    Returns: { valido, errores, advertencias, total_filas, filas_con_advertencia }
+    """
+    errores: List[str] = []
+    advertencias: List[str] = []
+
+    for idx, row in df.iterrows():
+        try:
+            tipo = extraer_codigo_tipo(row.get("Tipo", ""))
+            es_b_c = tipo in TIPOS_B_C
+
+            neto    = parse_string_float(row.get("Neto Gravado Total", "0"))
+            no_grav = parse_string_float(row.get("Neto No Gravado",    "0"))
+            exentas = parse_string_float(row.get("Op. Exentas",        "0"))
+            iva     = parse_string_float(row.get("Total IVA",          "0"))
+            otros   = parse_string_float(row.get("Otros Tributos",     "0"))
+            total   = parse_string_float(row.get("Imp. Total",         "0"))
+
+            calculado = neto + no_grav + exentas + iva + otros
+            diff = abs(calculado - total)
+
+            # Tipo B/C: si el total está bien y el resto está en 0, OK
+            if es_b_c and total > 0 and calculado < 0.01:
+                continue
+
+            if diff > tolerancia:
+                num = row.get("Número Desde", "?")
+                advertencias.append(
+                    f"Fila {idx + 1} (cbte {num}): "
+                    f"Imp.Total={total:.2f} vs Σcomponentes={calculado:.2f} "
+                    f"(dif={diff:.2f})"
+                )
+        except Exception as exc:
+            errores.append(f"Fila {idx + 1}: error al validar — {exc}")
+
+    return {
+        "valido":                len(errores) == 0,
+        "errores":               errores,
+        "advertencias":          advertencias,
+        "total_filas":           len(df),
+        "filas_con_advertencia": len(advertencias),
+    }
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# CONSTRUCCIÓN DEL ARCHIVO HWCRARCA
+# ─────────────────────────────────────────────────────────────────────────────
+
+def construir_hwcrarca_xlsx(df: pd.DataFrame) -> Tuple[bytes, Dict[str, Any]]:
+    """
+    Genera un .xlsx con la estructura HWCRARCA lista para importar a Holistor.
+
+    El usuario debe:
+      1. Abrir el archivo descargado.
+      2. Guardar como .prn (Texto delimitado por espacios) — pestaña activa
+         "HWComprobantes Recibidos".
+      3. Importar en Holistor: Útiles → Importar Datos de otros sistemas →
+         Compras → IVA Compras → seleccionar el .prn.
+
+    Args:
+        df: DataFrame del output de R-02 (post limpieza + división de alícuotas).
+
+    Returns:
+        (xlsx_bytes, stats):
+          - xlsx_bytes: bytes del archivo .xlsx generado
+          - stats: { total_filas, filas_consumidor_final, filas_b_c,
+                     validacion: { valido, errores, advertencias, ... } }
+    """
+    df = df.copy()
+
+    # 1. Transformaciones por celda
+    if "Tipo" in df.columns:
+        df["Tipo"] = df["Tipo"].apply(extraer_codigo_tipo)
+
+    if "Tipo Doc. Emisor" in df.columns:
+        df["Tipo Doc. Emisor"] = df["Tipo Doc. Emisor"].apply(mapear_tipo_doc)
+    if "Tipo Doc. Receptor" in df.columns:
+        df["Tipo Doc. Receptor"] = df["Tipo Doc. Receptor"].apply(mapear_tipo_doc)
+
+    # 2. Reglas por fila
+    df = df.apply(normalizar_consumidor_final, axis=1)
+    df = df.apply(aplicar_reglas_tipo_b_c,    axis=1)
+
+    # 3. Stats agregados (informativos)
+    filas_consumidor_final = int((df["Denominación Emisor"] == "CONSUMIDOR FINAL").sum())
+    filas_b_c              = int(df["Tipo"].isin(TIPOS_B_C).sum())
+
+    # 4. Validación de cuadre
+    validacion = validar_cuadre(df)
+
+    # 5. Construcción del Workbook
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "HWComprobantes Recibidos"
+
+    # Fila 1: banner
+    cell = ws.cell(row=1, column=1, value=BANNER_TEXT)
+    cell.font = Font(bold=True, color="FFFFFF", size=11)
+    cell.fill = PatternFill("solid", fgColor="305496")
+    cell.alignment = Alignment(horizontal="center", vertical="center")
+    ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=30)
+    ws.row_dimensions[1].height = 22
+
+    # Fila 2: headers
+    for i, header in enumerate(HWCRARCA_HEADERS, start=1):
+        c = ws.cell(row=2, column=i, value=header)
+        c.font = Font(bold=True, size=10)
+        c.fill = PatternFill("solid", fgColor="D9E1F2")
+        c.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+    ws.row_dimensions[2].height = 30
+
+    # Fila 3+: datos
+    for row_pos, (_, row) in enumerate(df.iterrows(), start=3):
+        for col_pos, arca_col in enumerate(ARCA_COLS_ORDERED):
+            valor_raw = row.get(arca_col, "")
+
+            # Tipo Cambio (col L = índice 11): siempre float
+            if col_pos == 11:
+                valor = formatear_tipo_cambio(valor_raw)
+                c = ws.cell(row=row_pos, column=col_pos + 1, value=valor)
+                c.number_format = "0.00"
+                continue
+
+            # Columnas numéricas (N-AD): convertir string ARCA a float
+            if col_pos in NUMERIC_COL_INDICES:
+                valor = parse_string_float(valor_raw)
+                c = ws.cell(row=row_pos, column=col_pos + 1, value=valor)
+                c.number_format = "#,##0.00"
+                continue
+
+            # Columnas texto: emitir como string, NaN → vacío
+            if pd.isna(valor_raw):
+                valor = ""
+            else:
+                valor = str(valor_raw).strip()
+            ws.cell(row=row_pos, column=col_pos + 1, value=valor)
+
+    # Anchos de columna
+    widths = {
+        "A": 12, "B": 7,  "C": 7,  "D": 11, "E": 11, "F": 18,
+        "G": 9,  "H": 13, "I": 32, "J": 9,  "K": 13, "L": 9,
+        "M": 8,
+    }
+    for letra, ancho in widths.items():
+        ws.column_dimensions[letra].width = ancho
+    # Numéricas: ancho fijo
+    for col_letter in [chr(ord("N") + i) if i < 13 else "A" + chr(ord("A") + i - 13)
+                       for i in range(17)]:
+        ws.column_dimensions[col_letter].width = 14
+
+    # Freeze panes en fila 3 para scroll cómodo
+    ws.freeze_panes = "A3"
+
+    out = io.BytesIO()
+    wb.save(out)
+
+    stats = {
+        "total_filas":            len(df),
+        "filas_consumidor_final": filas_consumidor_final,
+        "filas_b_c":              filas_b_c,
+        "validacion":             validacion,
+    }
+
+    print(f"  -> HWCRARCA generado:")
+    print(f"     - Filas:                {stats['total_filas']}")
+    print(f"     - Tipo B/C:             {filas_b_c}")
+    print(f"     - Consumidor final:     {filas_consumidor_final}")
+    print(f"     - Cuadre OK:            {validacion['valido']}")
+    print(f"     - Filas con advertencia: {validacion['filas_con_advertencia']}")
+
+    return out.getvalue(), stats
