@@ -569,3 +569,54 @@ class MovimientoBillete(Base):
     created_at   = Column(DateTime(timezone=True), server_default=func.now())
 
     pago = relationship("Pago", foreign_keys=[pago_id])
+
+
+# ─── F3-01 (R-15): Conciliación bancaria ─────────────────────────────────────
+
+class BancoEnum(str, enum.Enum):
+    pampa = "pampa"
+    santander = "santander"
+    mercadopago = "mercadopago"
+
+
+class ExtractoBancario(Base):
+    """Cabecera de un extracto bancario importado."""
+    __tablename__ = "extractos_bancarios"
+
+    id                = Column(Integer, primary_key=True, index=True)
+    banco             = Column(String(20), nullable=False, index=True)
+    periodo           = Column(String(7), nullable=False, index=True)  # YYYY-MM
+    archivo_nombre    = Column(String(255), nullable=True)
+    fecha_importacion = Column(DateTime(timezone=True), server_default=func.now())
+    n_movimientos    = Column(Integer, nullable=False, default=0)
+    n_conciliados    = Column(Integer, nullable=False, default=0)
+    n_pendientes     = Column(Integer, nullable=False, default=0)
+
+    movimientos = relationship(
+        "MovimientoBancario",
+        back_populates="extracto",
+        cascade="all, delete-orphan",
+    )
+
+
+class MovimientoBancario(Base):
+    """Cada línea del extracto bancario."""
+    __tablename__ = "movimientos_bancarios"
+
+    id              = Column(Integer, primary_key=True, index=True)
+    extracto_id     = Column(Integer, ForeignKey("extractos_bancarios.id", ondelete="CASCADE"), nullable=False, index=True)
+    banco           = Column(String(20), nullable=False)
+    fecha           = Column(Date, nullable=False, index=True)
+    descripcion     = Column(Text, nullable=False)
+    importe         = Column(Float, nullable=False)
+    tipo            = Column(String(1), nullable=False)  # 'D' = débito, 'C' = crédito
+    saldo           = Column(Float, nullable=True)
+    cuit_detectado  = Column(String(13), nullable=True, index=True)
+    conciliado      = Column(Boolean, nullable=False, default=False, index=True)
+    pago_id         = Column(Integer, ForeignKey("pagos.id", ondelete="SET NULL"), nullable=True)
+    # En el futuro se podrá ligar a egresos / retiros también
+    notas           = Column(Text, nullable=True)
+    created_at      = Column(DateTime(timezone=True), server_default=func.now())
+
+    extracto = relationship("ExtractoBancario", back_populates="movimientos")
+    pago = relationship("Pago", foreign_keys=[pago_id])

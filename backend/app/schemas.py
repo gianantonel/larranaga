@@ -972,3 +972,43 @@ class MovimientoBilleteOut(BaseModel):
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+# ─── F3-01 (R-15): Conciliación bancaria ─────────────────────────────────────
+
+class MovimientoBancarioOut(BaseModel):
+    id: int
+    extracto_id: int
+    banco: str
+    fecha: date
+    descripcion: str
+    importe: float
+    tipo: str
+    saldo: Optional[float] = None
+    cuit_detectado: Optional[str] = None
+    conciliado: bool
+    pago_id: Optional[int] = None
+    notas: Optional[str] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class ExtractoBancarioOut(BaseModel):
+    id: int
+    banco: str
+    periodo: str
+    archivo_nombre: Optional[str] = None
+    fecha_importacion: datetime
+    n_movimientos: int
+    n_conciliados: int
+    n_pendientes: int
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class ImportExtractoStats(BaseModel):
+    extracto: ExtractoBancarioOut
+    n_creditos: int
+    n_debitos: int
+    importe_total_creditos: float
+    importe_total_debitos: float

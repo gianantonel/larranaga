@@ -99,6 +99,9 @@ app.include_router(billetes.router)
 app.include_router(pagos.router)
 app.include_router(imputacion.router)
 
+from .routers import conciliacion  # noqa: E402  (F3-04 R-15)
+app.include_router(conciliacion.router)
+
 
 def _seed_billetes():
     """Inicializa stock de billetes en 0 para las 5 denominaciones (idempotente)."""
