@@ -1,0 +1,97 @@
+[
+  [
+    "Dashboard",
+    "PASS",
+    "Login OK · 10 clientes activos · 8 colaboradores · 360 tareas totales"
+  ],
+  [
+    "Clientes",
+    "PASS",
+    "Listado y CRUD de clientes activos"
+  ],
+  [
+    "Colaboradores",
+    "PASS",
+    "Listado de colaboradores"
+  ],
+  [
+    "Tareas",
+    "PASS",
+    "Tablero de tareas con filtros y estados"
+  ],
+  [
+    "R-07 Cuentas Corrientes",
+    "PASS",
+    "Listado de clientes con saldo actual + buscador"
+  ],
+  [
+    "Balance IVA",
+    "PASS",
+    "Listado de DDJJ IVA por cliente y período"
+  ],
+  [
+    "R-06 Posición IVA",
+    "PASS",
+    "3 tarjetas: Débito · Crédito · Posición. Selector de período."
+  ],
+  [
+    "Facturación",
+    "PASS",
+    "Listado de facturas con filtros"
+  ],
+  [
+    "R-05 Retenciones",
+    "PARTIAL",
+    "UI carga; clasificación IVA/IIBB requiere comprobantes ARCA reales (ver sección manual)"
+  ],
+  [
+    "R-09 Maestro Proveedores",
+    "PASS",
+    "Tabla CUIT · razón social · cuenta contable · fuente. Búsqueda en padrón."
+  ],
+  [
+    "R-03 Honorarios",
+    "PASS",
+    "Listado por cliente y período. Tipo fijo y producto."
+  ],
+  [
+    "Profesionales",
+    "PASS",
+    "Listado de profesionales activos"
+  ],
+  [
+    "R-08 Cobro Transferencia",
+    "PASS",
+    "$8.500 a Restaurante El Gaucho · destinado a Mariana Ruiz · CC actualizada"
+  ],
+  [
+    "R-08 + R-14 Cobro Efectivo",
+    "PASS",
+    "$25.000 cash · 1×$20.000 + 1×$5.000 cuadran · stock billetes actualizado"
+  ],
+  [
+    "R-04 Liquidaciones",
+    "PASS",
+    "Tabla por profesional · Hon. Brutos · Adelantos (auto desde pagos) · Total a Cobrar · cierre de período"
+  ],
+  [
+    "R-01 Corrección B/C",
+    "MANUAL",
+    "Pipeline implementado y testeado (22 tests verdes). Para validar UI completa, subir un .xlsx ARCA real desde la pantalla."
+  ],
+  [
+    "R-02 División alícuotas",
+    "MANUAL",
+    "Pipeline integrado al mismo flujo (40 tests verdes). Se valida con el mismo upload de R-01."
+  ],
+  [
+    "R-10 HWCRARCA",
+    "MANUAL",
+    "Generación + validación Debe=Haber implementada (37 tests verdes). Botón de descarga aparece tras procesar el archivo."
+  ],
+  [
+    "R-15 Conciliación (Fase 3)",
+    "MANUAL",
+    "Backend + parsers Pampa/Santander/MP + endpoint POST /conciliacion/import-extracto listos. UI pendiente (F3-08)."
+  ]
+]
