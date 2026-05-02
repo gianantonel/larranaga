@@ -87,6 +87,7 @@ export const createIvaRecord = (data) => api.post('/iva/', data)
 export const updateIvaRecord = (id, data) => api.put(`/iva/${id}`, data)
 export const fileIva = (id, vep) => api.post(`/iva/${id}/file`, null, { params: { vep_number: vep } })
 export const getIvaSummary = (clientId) => api.get(`/iva/summary/${clientId}`)
+export const getPosicionIva = (periodo) => api.get('/iva/posicion', { params: { periodo } })
 
 // ─── Facturas ─────────────────────────────────────────────────────────────────
 export const getFacturas = (params) => api.get('/facturas/', { params })
@@ -165,3 +166,13 @@ export const getLiquidacionPreview = (profesionalId, periodo) =>
 export const getLiquidacionesPreviewAll = (periodo) =>
   api.get('/profesionales/liquidaciones/preview', { params: { periodo } })
 export const getLiquidaciones = (params) => api.get('/profesionales/liquidaciones', { params })
+// ─── R-10: Generación HWCRARCA ────────────────────────────────────────────────
+export const generarHwcrarca = (limpiezaId) =>
+  api.post(`/herramientas/${limpiezaId}/generar-hwcrarca`, null, { responseType: 'blob' })
+
+// ─── R-09: Maestro de Proveedores / Imputación ────────────────────────────────
+export const resolverImputacion = (cuit) => api.get(`/imputacion/cuit/${cuit}`)
+export const getProveedores = (params) => api.get('/imputacion/proveedores', { params })
+export const createProveedor = (data) => api.post('/imputacion/proveedores', data)
+export const updateProveedor = (id, data) => api.put(`/imputacion/proveedores/${id}`, data)
+export const deleteProveedor = (id) => api.delete(`/imputacion/proveedores/${id}`)

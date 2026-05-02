@@ -1,7 +1,7 @@
 from pydantic import BaseModel, EmailStr, ConfigDict
 from typing import Optional, List
 from datetime import datetime, date
-from .models import UserRole, UserStatus, TaskType, TaskStatus, InvoiceType, TipoHonorario, TipoProfesional
+from .models import UserRole, UserStatus, TaskType, TaskStatus, InvoiceType, TipoHonorario, TipoProfesional, FuenteMaestro
 
 
 # ─── Auth ────────────────────────────────────────────────────────────────────
@@ -584,6 +584,48 @@ class ComprobanteSyncResponse(BaseModel):
     inserted: int
     skipped_duplicates: int
     records: List[ComprobanteRecibidoOut]
+
+
+# ─── R-09: Maestro de Proveedores ────────────────────────────────────────────
+
+class MaestroProveedorCreate(BaseModel):
+    cuit: str
+    razon_social: Optional[str] = None
+    cuenta_contable: Optional[str] = None
+    fuente: FuenteMaestro = FuenteMaestro.manual
+    notas: Optional[str] = None
+
+
+class MaestroProveedorUpdate(BaseModel):
+    razon_social: Optional[str] = None
+    cuenta_contable: Optional[str] = None
+    fuente: Optional[FuenteMaestro] = None
+    activo: Optional[bool] = None
+    notas: Optional[str] = None
+
+
+class MaestroProveedorOut(BaseModel):
+    id: int
+    cuit: str
+    razon_social: Optional[str] = None
+    cuenta_contable: Optional[str] = None
+    fuente: FuenteMaestro
+    activo: bool
+    notas: Optional[str] = None
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
+class ImputacionCuitResponse(BaseModel):
+    """Respuesta del pipeline de resolución de imputación por CUIT."""
+    cuit: str
+    razon_social: Optional[str] = None
+    cuenta_contable: Optional[str] = None
+    fuente: Optional[str] = None   # "cache" | "padron" | "no_encontrado"
+    guardado: bool = False          # True si se guardó en maestro_proveedores
 
 
 # ─── Cruce Retenciones ↔ Comprobantes ────────────────────────────────────────

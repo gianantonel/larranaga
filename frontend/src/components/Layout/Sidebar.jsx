@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react'
 import {
   LayoutDashboard, Users, UserCheck, ClipboardList,
   ReceiptText, BarChart3, Scale, LogOut, ChevronRight, FileSearch, Wrench, Wallet,
-  PiggyBank, Calculator, Briefcase, X, DollarSign, CalendarCheck
+  PiggyBank, Calculator, Briefcase, X, DollarSign, CalendarCheck, BookOpen
 } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import clsx from 'clsx'
@@ -18,8 +18,10 @@ const VISTAS_ITEMS = [
 const ACCIONES_ITEMS = [
   { to: '/cuentas-corrientes', icon: Wallet,      label: 'Cuentas Corrientes', req: 'R-07' },
   { to: '/iva',                icon: BarChart3,    label: 'Balance IVA', req: 'R-05, R-06, R-16' },
+  { to: '/posicion-iva',       icon: Scale,        label: 'Posición IVA', req: 'R-06' },
   { to: '/facturas',           icon: ReceiptText,  label: 'Facturación', req: 'R-03, R-04' },
   { to: '/retenciones',        icon: FileSearch,   label: 'Retenciones', req: 'R-05+' },
+  { to: '/maestro-proveedores', icon: BookOpen,    label: 'Maestro Proveedores', req: 'R-09' },
   { to: '/honorarios',         icon: Calculator,   label: 'Honorarios', req: 'R-03, R-04' },
   { to: '/profesionales',      icon: Briefcase,    label: 'Profesionales', req: 'ADM' },
   { to: '/cobros',             icon: DollarSign,   label: 'Registrar Cobro', req: 'F2-02, F2-04' },

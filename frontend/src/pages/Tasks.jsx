@@ -6,7 +6,7 @@ import { StatusBadge, TypeBadge } from '../components/UI/Badge'
 import PageHeader from '../components/UI/PageHeader'
 import LoadingSpinner from '../components/UI/LoadingSpinner'
 import { formatDate, formatPeriod, taskTypeConfig, taskStatusConfig } from '../utils/helpers'
-import RetencionesPanel from '../components/RetencionesPanel'
+import RetencionesPanel from '../components/UI/RetencionesPanel'
 import BulkUploadModal from '../components/UI/BulkUploadModal'
 
 const TASK_TYPES = Object.entries(taskTypeConfig).map(([v, c]) => ({ value: v, ...c }))
@@ -255,7 +255,7 @@ export default function Tasks() {
                     {collaborators.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                   </select>
                 </div>
-                <div><label className="label">Período (YYYY-MM)</label><input value={form.period} onChange={e => setForm(f=>({...f, period: e.target.value}))} placeholder="2024-06" className="input-field font-mono" /></div>
+                <div><label className="label">Período</label><input type="month" value={form.period} onChange={e => setForm(f=>({...f, period: e.target.value}))} className="input-field font-mono" /></div>
               </div>
               <div><label className="label">Fecha límite</label><input type="date" value={form.due_date} onChange={e => setForm(f=>({...f, due_date: e.target.value}))} className="input-field" /></div>
               <div className="flex gap-3 pt-2">

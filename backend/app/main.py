@@ -8,7 +8,7 @@ from .sync import register_sync_events, sync_now
 from .routers import (
     auth, clients, collaborators, tasks, iva, facturas, dashboard,
     retenciones, comprobantes, herramientas, cuentas_corrientes,
-    honorarios, profesionales_adm, users, bulk, billetes, pagos,
+    honorarios, profesionales_adm, users, bulk, billetes, pagos, imputacion,
 )
 from .mock_data import seed_database, seed_profesionales_y_productos
 
@@ -97,6 +97,7 @@ app.include_router(profesionales_adm.router)
 app.include_router(bulk.router)
 app.include_router(billetes.router)
 app.include_router(pagos.router)
+app.include_router(imputacion.router)
 
 
 def _seed_billetes():

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { getClients } from '../utils/api'
 import PageHeader from '../components/UI/PageHeader'
 import LoadingSpinner from '../components/UI/LoadingSpinner'
-import RetencionesPanel from '../components/RetencionesPanel'
+import RetencionesPanel from '../components/UI/RetencionesPanel'
 
 export default function Retenciones() {
   const [clients, setClients] = useState([])

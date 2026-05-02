@@ -1,10 +1,10 @@
 import { useState, useRef, useEffect } from 'react'
 import {
   Upload, Download, FileSpreadsheet, CheckCircle,
-  AlertTriangle, Loader2, X, History, User
+  AlertTriangle, Loader2, X, History, User, FileDown
 } from 'lucide-react'
 import PageHeader from '../components/UI/PageHeader'
-import api from '../utils/api'
+import api, { generarHwcrarca } from '../utils/api'
 import { formatDate } from '../utils/helpers'
 
 export default function Herramientas() {
@@ -16,6 +16,7 @@ export default function Herramientas() {
   const [errorMsg, setErrorMsg]       = useState('')
   const [historial, setHistorial]     = useState([])
   const [loadingHist, setLoadingHist] = useState(false)
+  const [hwcrarcaState, setHwcrarcaState] = useState({ id: null, loading: false, stats: null, error: null })
   const inputRef = useRef(null)
 
   // Cargar clientes al montar
@@ -98,6 +99,38 @@ export default function Herramientas() {
         a.href = url; a.download = nombre; a.click()
         URL.revokeObjectURL(url)
       })
+  }
+
+  // R-10 — Genera HWCRARCA y descarga; lee stats de los response headers
+  const descargarHwcrarcaFn = async (id, nombreOriginal) => {
+    setHwcrarcaState({ id, loading: true, stats: null, error: null })
+    try {
+      const r = await generarHwcrarca(id)
+      // Stats vienen en headers
+      const stats = {
+        totalFilas:  Number(r.headers['x-total-filas']  ?? 0),
+        filasBC:     Number(r.headers['x-filas-b-c']    ?? 0),
+        filasCF:     Number(r.headers['x-filas-cf']     ?? 0),
+        filasAdv:    Number(r.headers['x-filas-adv']    ?? 0),
+        cuadreOk:    r.headers['x-cuadre-ok'] === 'true',
+      }
+      // Trigger download
+      const stem = nombreOriginal.replace(/\.[^/.]+$/, '')
+      const filename = `HWCRARCA_${stem}.xlsx`
+      const url = URL.createObjectURL(new Blob([r.data]))
+      const a   = document.createElement('a')
+      a.href = url; a.download = filename; a.click()
+      URL.revokeObjectURL(url)
+      setHwcrarcaState({ id, loading: false, stats, error: null })
+    } catch (err) {
+      let msg = 'Error al generar HWCRARCA'
+      if (err.response?.data instanceof Blob) {
+        try { msg = JSON.parse(await err.response.data.text()).detail ?? msg } catch {}
+      } else {
+        msg = err.response?.data?.detail || err.message || msg
+      }
+      setHwcrarcaState({ id, loading: false, stats: null, error: msg })
+    }
   }
 
   const puedeProcessar = archivo && clienteId && estado !== 'procesando'
@@ -229,13 +262,70 @@ export default function Herramientas() {
               <p className="text-xs text-gray-400 mt-0.5">Filas salida</p>
             </div>
           </div>
-          <button
-            onClick={() => descargar(resultado.id, resultado.nombre_corregido)}
-            className="flex items-center justify-center gap-2 w-full py-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-sm transition-colors"
-          >
-            <Download size={18} />
-            Descargar {resultado.nombre_corregido}
-          </button>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <button
+              onClick={() => descargar(resultado.id, resultado.nombre_corregido)}
+              className="flex items-center justify-center gap-2 py-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-sm transition-colors"
+            >
+              <Download size={18} />
+              Excel limpio
+            </button>
+            <button
+              onClick={() => descargarHwcrarcaFn(resultado.id, resultado.nombre_original)}
+              disabled={hwcrarcaState.loading && hwcrarcaState.id === resultado.id}
+              className="flex items-center justify-center gap-2 py-3 rounded-lg bg-violet-600 hover:bg-violet-500 disabled:opacity-50 text-white font-semibold text-sm transition-colors"
+              title="Genera el archivo HWCRARCA listo para importar a Holistor"
+            >
+              {hwcrarcaState.loading && hwcrarcaState.id === resultado.id
+                ? <><Loader2 className="animate-spin" size={18} /> Generando...</>
+                : <><FileDown size={18} /> Generar HWCRARCA</>}
+            </button>
+          </div>
+
+          {/* Stats HWCRARCA después de generar */}
+          {hwcrarcaState.id === resultado.id && hwcrarcaState.stats && (
+            <div className="bg-violet-500/5 border border-violet-500/30 rounded-lg p-3 space-y-2">
+              <p className="text-violet-300 text-sm font-semibold flex items-center gap-2">
+                <CheckCircle size={14} /> HWCRARCA generado y descargado
+              </p>
+              <div className="grid grid-cols-4 gap-2 text-center text-xs">
+                <div className="bg-white/5 rounded py-2">
+                  <p className="font-bold text-white">{hwcrarcaState.stats.totalFilas}</p>
+                  <p className="text-gray-400">Filas</p>
+                </div>
+                <div className="bg-white/5 rounded py-2">
+                  <p className="font-bold text-amber-400">{hwcrarcaState.stats.filasBC}</p>
+                  <p className="text-gray-400">Tipo B/C</p>
+                </div>
+                <div className="bg-white/5 rounded py-2">
+                  <p className="font-bold text-blue-400">{hwcrarcaState.stats.filasCF}</p>
+                  <p className="text-gray-400">Cons. final</p>
+                </div>
+                <div className={`rounded py-2 ${hwcrarcaState.stats.cuadreOk ? 'bg-emerald-500/10' : 'bg-rose-500/10'}`}>
+                  <p className={`font-bold ${hwcrarcaState.stats.cuadreOk ? 'text-emerald-400' : 'text-rose-400'}`}>
+                    {hwcrarcaState.stats.cuadreOk ? '✓' : '✗'}
+                  </p>
+                  <p className="text-gray-400">Cuadre</p>
+                </div>
+              </div>
+              {hwcrarcaState.stats.filasAdv > 0 && (
+                <p className="text-xs text-amber-400/80">
+                  ⚠ {hwcrarcaState.stats.filasAdv} fila{hwcrarcaState.stats.filasAdv !== 1 ? 's' : ''} con advertencia de cuadre (probablemente percepciones no expuestas en ARCA — no bloquea importación).
+                </p>
+              )}
+              <p className="text-xs text-gray-500 leading-relaxed">
+                Próximo paso: abrir el archivo descargado, guardar como <code className="text-violet-300">.prn</code> (Texto delimitado por espacios), e importar en Holistor: <em>Útiles → Importar Datos de otros sistemas → Compras</em>.
+              </p>
+            </div>
+          )}
+
+          {hwcrarcaState.id === resultado.id && hwcrarcaState.error && (
+            <div className="bg-rose-500/10 border border-rose-500/30 rounded-lg p-3 text-sm text-rose-300">
+              <AlertTriangle className="inline mr-1.5" size={14} />
+              {hwcrarcaState.error}
+            </div>
+          )}
+
           <button onClick={quitarArchivo} className="w-full text-gray-500 hover:text-gray-300 text-sm py-1">
             Procesar otro archivo
           </button>
@@ -270,20 +360,34 @@ export default function Herramientas() {
           ) : (
             <div className="divide-y divide-gray-700/50">
               {historial.map(h => (
-                <div key={h.id} className="flex items-center justify-between py-3">
-                  <div className="space-y-0.5">
-                    <p className="text-sm text-white font-medium">{h.nombre_original}</p>
+                <div key={h.id} className="flex items-center justify-between py-3 gap-3">
+                  <div className="space-y-0.5 min-w-0 flex-1">
+                    <p className="text-sm text-white font-medium truncate">{h.nombre_original}</p>
                     <p className="text-xs text-gray-500">
                       {formatDate(h.created_at)} · por {h.user_name} · {h.total_filas} filas · {h.filas_bc_corregidas} B/C corregidas
                     </p>
                   </div>
-                  <button
-                    onClick={() => descargar(h.id, h.nombre_corregido)}
-                    className="flex items-center gap-1.5 text-xs text-violet-400 hover:text-violet-300 transition-colors px-3 py-1.5 border border-violet-500/30 rounded-lg"
-                  >
-                    <Download size={13} />
-                    Descargar
-                  </button>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      onClick={() => descargar(h.id, h.nombre_corregido)}
+                      className="flex items-center gap-1.5 text-xs text-emerald-400 hover:text-emerald-300 transition-colors px-3 py-1.5 border border-emerald-500/30 rounded-lg"
+                      title="Descargar Excel limpio (post R-01/R-02)"
+                    >
+                      <Download size={13} />
+                      Excel
+                    </button>
+                    <button
+                      onClick={() => descargarHwcrarcaFn(h.id, h.nombre_original)}
+                      disabled={hwcrarcaState.loading && hwcrarcaState.id === h.id}
+                      className="flex items-center gap-1.5 text-xs text-violet-400 hover:text-violet-300 transition-colors px-3 py-1.5 border border-violet-500/30 rounded-lg disabled:opacity-50"
+                      title="Generar y descargar HWCRARCA listo para Holistor"
+                    >
+                      {hwcrarcaState.loading && hwcrarcaState.id === h.id
+                        ? <Loader2 className="animate-spin" size={13} />
+                        : <FileDown size={13} />}
+                      HWCRARCA
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>

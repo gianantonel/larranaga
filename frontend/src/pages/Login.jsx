@@ -110,7 +110,7 @@ export default function Login() {
            <div className="mt-6 p-4 bg-[#0f172a] rounded-lg border border-gray-700/40">
              <p className="text-xs text-gray-500 font-medium mb-2">Cuentas de prueba:</p>
              <div className="space-y-1 text-xs text-gray-400">
-               <p>admin1@larranaga.com / admin123</p>
+               <p>rodriguezfederico765@gmail.com / admin123</p>
                <p>mgonzalez@larranaga.com / colab123</p>
              </div>
            </div>
