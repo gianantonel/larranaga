@@ -39,3 +39,11 @@ OneDrive/
 # SQLite WAL/SHM (archivos de transacción en vuelo)
 backend/larranaga.db-shm
 backend/larranaga.db-wal
+
+# Cloudflare Tunnel — token contiene credenciales privadas del túnel
+.env
+cloudflared/credentials.json
+cloudflared/*.json
+
+# Backups locales
+docker-compose.yml.backup

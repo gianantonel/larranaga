@@ -14,10 +14,34 @@ services:
   frontend:
     build: ./frontend
     restart: unless-stopped
+    # Modo "direct": expone al host en :80 (acceso por IP del VPS)
+    # Modo "tunnel": solo accesible internamente; Cloudflare lo accede vía red interna
     ports:
-      - "80:80"  # Puerto público — acceder a la app en http://<IP-VPS>
+      - "80:80"
+    expose:
+      - "80"
     depends_on:
       - backend
+
+  # ── Cloudflare Tunnel ────────────────────────────────────────────────────
+  # Expone el frontend vía túnel cifrado a Cloudflare. Protege contra DDoS
+  # y oculta la IP pública del VPS. Solo levanta con --profile tunnel.
+  #
+  # Requiere CLOUDFLARE_TUNNEL_TOKEN en .env de la raíz del proyecto.
+  #
+  # Comandos típicos:
+  #   docker-compose up -d                          # backend + frontend (sin túnel)
+  #   docker-compose --profile tunnel up -d         # + túnel Cloudflare
+  #   docker-compose --profile tunnel down          # bajar todo incluido el túnel
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run --token ${CLOUDFLARE_TUNNEL_TOKEN}
+    env_file:
+      - ./.env
+    profiles: ["tunnel"]
+    depends_on:
+      - frontend
 
 volumes:
   db_data:
