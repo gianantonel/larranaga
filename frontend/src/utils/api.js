@@ -150,6 +150,22 @@ export const deleteReintegro = (profesionalId, period, reintegroId) =>
 export const cerrarLiquidacion = (profesionalId, period, data) =>
   api.post(`/profesionales/liquidaciones/${profesionalId}/${period}/cerrar`, data)
 
+
+// ─── F2-02: Cobros (endpoint dedicado /pagos/) ────────────────────────────────
+export const registrarCobro = (data) => api.post('/pagos/', data)
+export const getPagosRegistrados = (params) => api.get('/pagos/', { params })
+export const getPagoById = (id) => api.get(`/pagos/${id}`)
+
+// ─── F2-05: Billetes en caja ──────────────────────────────────────────────────
+export const getBilletesStock = () => api.get('/billetes/')
+export const registrarMovimientoBillete = (data) => api.post('/billetes/movimiento', data)
+
+// ─── F2-11: Liquidaciones preview ────────────────────────────────────────────
+export const getLiquidacionPreview = (profesionalId, periodo) =>
+  api.get(`/profesionales/liquidaciones/${profesionalId}/preview`, { params: { periodo } })
+export const getLiquidacionesPreviewAll = (periodo) =>
+  api.get('/profesionales/liquidaciones/preview', { params: { periodo } })
+export const getLiquidaciones = (params) => api.get('/profesionales/liquidaciones', { params })
 // ─── R-10: Generación HWCRARCA ────────────────────────────────────────────────
 export const generarHwcrarca = (limpiezaId) =>
   api.post(`/herramientas/${limpiezaId}/generar-hwcrarca`, null, { responseType: 'blob' })

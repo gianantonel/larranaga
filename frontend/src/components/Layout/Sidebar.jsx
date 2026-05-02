@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react'
 import {
   LayoutDashboard, Users, UserCheck, ClipboardList,
   ReceiptText, BarChart3, Scale, LogOut, ChevronRight, FileSearch, Wrench, Wallet,
-  PiggyBank, Calculator, Briefcase, X, BookOpen
+  PiggyBank, Calculator, Briefcase, X, DollarSign, CalendarCheck, BookOpen
 } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import clsx from 'clsx'
@@ -24,7 +24,8 @@ const ACCIONES_ITEMS = [
   { to: '/maestro-proveedores', icon: BookOpen,    label: 'Maestro Proveedores', req: 'R-09' },
   { to: '/honorarios',         icon: Calculator,   label: 'Honorarios', req: 'R-03, R-04' },
   { to: '/profesionales',      icon: Briefcase,    label: 'Profesionales', req: 'ADM' },
-  { icon: PiggyBank, label: 'Tesorería', req: 'R-08, R-14', disabled: true },
+  { to: '/cobros',             icon: DollarSign,   label: 'Registrar Cobro', req: 'F2-02, F2-04' },
+  { to: '/liquidaciones',      icon: CalendarCheck, label: 'Liquidaciones', req: 'F2-11, F2-12' },
 ]
 
 const OTRAS_ACCIONES_ITEMS = [
@@ -46,7 +47,7 @@ export default function Sidebar({ onClose }) {
   }
 
   return (
-    <aside className="w-64 min-h-screen bg-[#0f172a] border-r border-gray-700/40 flex flex-col">
+    <aside className="w-64 h-full bg-[#0f172a] border-r border-gray-700/40 flex flex-col">
       {/* Logo */}
       <div className="px-6 py-6 border-b border-gray-700/40">
         <div className="flex items-center justify-between">

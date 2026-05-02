@@ -64,14 +64,14 @@ const BulkUpload = ({ entity, uploadEndpoint, templateEndpoint }) => {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-3">
+      <div className="space-y-1">
         <h3 className="text-xl font-semibold text-white">Carga Masiva de {entity}</h3>
         <p className="text-gray-400 text-sm">
           Carga muchos datos a la vez desde una planilla de Excel. Descargá el Template, llenalo con tus datos y Subilo.
         </p>
       </div>
 
-      <div className="flex gap-3">
+      <div className="flex flex-wrap gap-3">
         <button
           onClick={handleDownload}
           disabled={loading}

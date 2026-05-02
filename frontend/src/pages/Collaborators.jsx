@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Plus, UserCheck, Users, X, Upload } from 'lucide-react'
-import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from 'recharts'
+import { PieChart, Pie, Cell, Tooltip } from 'recharts'
 import { getCollaborators, getCollaboratorStats, createCollaborator } from '../utils/api'
 import { useAuth } from '../context/AuthContext'
 import { RoleBadge } from '../components/UI/Badge'
@@ -123,13 +123,11 @@ export default function Collaborators() {
               {/* Mini pie */}
               {pieData.length > 0 && (
                 <div className="flex items-center gap-2">
-                  <ResponsiveContainer width={80} height={80}>
-                    <PieChart>
-                      <Pie data={pieData} dataKey="value" cx="50%" cy="50%" outerRadius={36} innerRadius={18} paddingAngle={2}>
-                        {pieData.map((d, i) => <Cell key={i} fill={d.color} />)}
-                      </Pie>
-                    </PieChart>
-                  </ResponsiveContainer>
+                  <PieChart width={80} height={80}>
+                    <Pie data={pieData} dataKey="value" cx="50%" cy="50%" outerRadius={36} innerRadius={18} paddingAngle={2}>
+                      {pieData.map((d, i) => <Cell key={i} fill={d.color} />)}
+                    </Pie>
+                  </PieChart>
                   <div className="flex-1 space-y-1">
                     {pieData.map(d => (
                       <div key={d.name} className="flex items-center justify-between text-xs">

@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, ConfigDict
 from typing import Optional, List
 from datetime import datetime, date
 from .models import UserRole, UserStatus, TaskType, TaskStatus, InvoiceType, TipoHonorario, TipoProfesional, FuenteMaestro
@@ -802,6 +802,28 @@ class PagoOut(BaseModel):
         from_attributes = True
 
 
+# F2-02: schemas para el endpoint dedicado /pagos/
+class PagoCreateV2(BaseModel):
+    cliente_id: int
+    honorario_id: Optional[int] = None
+    importe: float
+    forma_pago: str                          # "efectivo" | "transferencia"
+    profesional_destino_id: Optional[int] = None
+    fecha: Optional[date] = None             # default: hoy (se aplica en el router)
+    fuente_pago: Optional[str] = None
+    banco_destino: Optional[str] = None
+    notas: Optional[str] = None
+    # Solo cuando forma_pago = "efectivo": {denominacion_str: cantidad}
+    # Ej: {"1000": 3, "5000": 2} → $3.000 + $10.000 = $13.000
+    billetes: Optional[dict[str, int]] = None
+
+
+class PagoImpactoOut(BaseModel):
+    pago: PagoOut
+    movimiento_cc_id: int
+    saldo_cc_actual: float
+
+
 class ReintegroGastoCreate(BaseModel):
     concepto: str
     importe: float
@@ -878,3 +900,75 @@ class CollaboratorStats(BaseModel):
 
 class AssignCollaborator(BaseModel):
     collaborator_id: int
+
+
+# ─── F2-11: Liquidación extendida con preview detallado ──────────────────────
+
+class HonorarioDetalleItem(BaseModel):
+    cliente_id: int
+    cliente_nombre: str
+    honorario_id: int
+    importe: float
+    tipo: str
+
+
+class AdelantoDetalleItem(BaseModel):
+    pago_id: int
+    fecha: date
+    importe: float
+    forma_pago: str
+    fuente_pago: Optional[str] = None
+    cliente_nombre: str
+
+
+class ReintegroDetalleItem(BaseModel):
+    reintegro_id: int
+    concepto: str
+    importe: float
+
+
+class LiquidacionPreviewOut(BaseModel):
+    profesional_id: int
+    profesional_nombre: str
+    periodo: str
+    honorarios_brutos: float
+    adelantos_cobrados: float
+    saldo_anterior: float
+    reintegros_total: float
+    total_a_cobrar: float
+    detalle_honorarios: list[HonorarioDetalleItem]
+    detalle_adelantos: list[AdelantoDetalleItem]
+    detalle_reintegros: list[ReintegroDetalleItem]
+    cerrada: bool
+
+
+# ─── F2-05: Control de billetes ──────────────────────────────────────────────
+
+class BilleteOut(BaseModel):
+    denominacion: int
+    cantidad: int
+    subtotal: float
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class BilletesStockOut(BaseModel):
+    billetes: list[BilleteOut]
+    total_efectivo: float
+
+
+class MovimientoBilleteCreate(BaseModel):
+    denominacion: int
+    delta: int
+    concepto: str
+
+
+class MovimientoBilleteOut(BaseModel):
+    id: int
+    denominacion: int
+    delta: int
+    concepto: str
+    pago_id: Optional[int] = None
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)

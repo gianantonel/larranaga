@@ -8,6 +8,7 @@ import calendar
 from .. import models, schemas
 from ..database import get_db
 from .auth import get_current_user, require_admin
+from ..services import liquidacion as liquidacion_service
 
 router = APIRouter(prefix="/profesionales", tags=["profesionales"])
 
@@ -183,6 +184,38 @@ def delete_pago(id: int, db: Session = Depends(get_db),
         raise HTTPException(404, "Pago no encontrado")
     db.delete(pago)
     db.commit()
+
+
+# ─── Liquidaciones — preview F2-11 ───────────────────────────────────────────
+# IMPORTANTE: estos endpoints deben ir ANTES de /{profesional_id}/{period}
+# para que FastAPI no interprete "preview" como un profesional_id numérico.
+
+@router.get("/liquidaciones/preview", response_model=list[schemas.LiquidacionPreviewOut])
+def get_liquidaciones_preview_all(
+    periodo: str = Query(..., description="YYYY-MM"),
+    db: Session = Depends(get_db),
+    _: models.User = Depends(get_current_user),
+):
+    """Devuelve el preview de liquidación para TODOS los profesionales activos en el período."""
+    profesionales = db.query(models.Profesional).filter(
+        models.Profesional.activo == True
+    ).order_by(models.Profesional.nombre).all()
+
+    return [
+        liquidacion_service.calcular_preview(db, prof.id, periodo)
+        for prof in profesionales
+    ]
+
+
+@router.get("/liquidaciones/{profesional_id}/preview", response_model=schemas.LiquidacionPreviewOut)
+def get_liquidacion_preview(
+    profesional_id: int,
+    periodo: str = Query(..., description="YYYY-MM"),
+    db: Session = Depends(get_db),
+    _: models.User = Depends(get_current_user),
+):
+    """Devuelve el preview de liquidación de un profesional para el período indicado."""
+    return liquidacion_service.calcular_preview(db, profesional_id, periodo)
 
 
 # ─── Liquidaciones ────────────────────────────────────────────────────────────

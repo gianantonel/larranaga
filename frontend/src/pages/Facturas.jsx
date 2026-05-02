@@ -8,7 +8,7 @@ import { getFacturas, getClients, getMonthlyActivity, createFactura } from '../u
 import PageHeader from '../components/UI/PageHeader'
 import LoadingSpinner from '../components/UI/LoadingSpinner'
 import StatCard from '../components/UI/StatCard'
-import { formatCurrency, formatDate, formatPeriod } from '../utils/helpers'
+import { formatCurrency, formatCurrencyCompact, formatDate, formatPeriod } from '../utils/helpers'
 import BulkUploadModal from '../components/UI/BulkUploadModal'
 
 const INVOICE_TYPES = ['A', 'B', 'C', 'M', 'E']
@@ -98,8 +98,8 @@ export default function Facturas() {
       {/* KPIs */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard title="Total facturas" value={facturas.length} icon={ReceiptText} color="violet" />
-        <StatCard title="Monto total" value={formatCurrency(totalMonto)} icon={DollarSign} color="emerald" />
-        <StatCard title="IVA total" value={formatCurrency(totalIVA)} icon={TrendingUp} color="amber" />
+        <StatCard title="Monto total" value={formatCurrencyCompact(totalMonto)} icon={DollarSign} color="emerald" />
+        <StatCard title="IVA total" value={formatCurrencyCompact(totalIVA)} icon={TrendingUp} color="amber" />
         <StatCard title="Fact. A / B" value={`${countA} / ${countB}`} icon={ReceiptText} color="cyan" />
       </div>
 
