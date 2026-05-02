@@ -40,6 +40,11 @@ OneDrive/
 backend/larranaga.db-shm
 backend/larranaga.db-wal
 
+# DB que pueda quedar en root por correr pytest desde lugar equivocado
+/larranaga.db
+/larranaga.db-shm
+/larranaga.db-wal
+
 # Cloudflare Tunnel — token contiene credenciales privadas del túnel
 .env
 cloudflared/credentials.json

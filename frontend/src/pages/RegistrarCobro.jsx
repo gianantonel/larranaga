@@ -49,7 +49,6 @@ export default function RegistrarCobro() {
     }).finally(() => setLoading(false))
   }, [])
 
-  // Cuando cambia el cliente, cargar sus honorarios del mes actual
   useEffect(() => {
     if (!form.cliente_id) { setHonorarios([]); return }
     const periodo = today().slice(0, 7)
@@ -67,7 +66,6 @@ export default function RegistrarCobro() {
       billetes: { ...prev.billetes, [String(denom)]: Math.max(0, parseInt(value) || 0) },
     }))
 
-  // ── Cálculo de totales de billetes ─────────────────────────────────────────
   const totalBilletes = DENOMINACIONES.reduce(
     (acc, d) => acc + d * (form.billetes[String(d)] || 0),
     0
@@ -75,7 +73,6 @@ export default function RegistrarCobro() {
   const importeNum = parseFloat(form.importe) || 0
   const billetesOk = Math.abs(totalBilletes - importeNum) <= 1
 
-  // ── Submit ─────────────────────────────────────────────────────────────────
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError(null)
@@ -115,7 +112,6 @@ export default function RegistrarCobro() {
         saldo: saldo_cc_actual,
         clienteNombre: clientes.find((c) => c.id === pago.client_id)?.name || '',
       })
-      // Reset form
       setForm({
         cliente_id: '',
         honorario_id: '',
@@ -150,36 +146,33 @@ export default function RegistrarCobro() {
         icon={DollarSign}
       />
 
-      {/* Banner de éxito */}
       {success && (
-        <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg flex items-start gap-3">
-          <CheckCircle className="text-green-500 mt-0.5 shrink-0" size={20} />
+        <div className="mb-6 p-4 bg-emerald-500/10 border border-emerald-500/30 rounded-lg flex items-start gap-3">
+          <CheckCircle className="text-emerald-400 mt-0.5 shrink-0" size={20} />
           <div>
-            <p className="font-medium text-green-800">{success.mensaje}</p>
-            <p className="text-sm text-green-700 mt-1">
-              Saldo CC de {success.clienteNombre}: <strong>{formatCurrency(success.saldo)}</strong>
+            <p className="font-medium text-emerald-300">{success.mensaje}</p>
+            <p className="text-sm text-emerald-400/80 mt-1">
+              Saldo CC de {success.clienteNombre}: <strong className="text-emerald-300">{formatCurrency(success.saldo)}</strong>
             </p>
           </div>
         </div>
       )}
 
-      {/* Banner de error */}
       {error && (
-        <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-start gap-3">
-          <AlertTriangle className="text-red-500 mt-0.5 shrink-0" size={20} />
-          <p className="text-red-800">{error}</p>
+        <div className="mb-6 p-4 bg-rose-500/10 border border-rose-500/30 rounded-lg flex items-start gap-3">
+          <AlertTriangle className="text-rose-400 mt-0.5 shrink-0" size={20} />
+          <p className="text-rose-300">{error}</p>
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 space-y-5">
+      <form onSubmit={handleSubmit} className="card space-y-5">
 
-        {/* Cliente */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Cliente *</label>
+          <label className="label">Cliente *</label>
           <select
             value={form.cliente_id}
             onChange={(e) => { set('cliente_id', e.target.value); set('honorario_id', '') }}
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="input-field"
             required
           >
             <option value="">Seleccionar cliente...</option>
@@ -189,10 +182,9 @@ export default function RegistrarCobro() {
           </select>
         </div>
 
-        {/* Honorario */}
         {honorarios.length > 0 && (
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Honorario del mes (opcional)</label>
+            <label className="label">Honorario del mes (opcional)</label>
             <select
               value={form.honorario_id}
               onChange={(e) => {
@@ -200,7 +192,7 @@ export default function RegistrarCobro() {
                 const h = honorarios.find((h) => String(h.id) === e.target.value)
                 if (h) set('importe', String(h.importe))
               }}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="input-field"
             >
               <option value="">Sin honorario asociado</option>
               {honorarios.map((h) => (
@@ -212,10 +204,9 @@ export default function RegistrarCobro() {
           </div>
         )}
 
-        {/* Importe y Fecha */}
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Importe *</label>
+            <label className="label">Importe *</label>
             <input
               type="number"
               min="0"
@@ -223,25 +214,24 @@ export default function RegistrarCobro() {
               value={form.importe}
               onChange={(e) => set('importe', e.target.value)}
               placeholder="0"
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="input-field"
               required
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Fecha *</label>
+            <label className="label">Fecha *</label>
             <input
               type="date"
               value={form.fecha}
               onChange={(e) => set('fecha', e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="input-field"
               required
             />
           </div>
         </div>
 
-        {/* Forma de pago */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Forma de pago *</label>
+          <label className="label">Forma de pago *</label>
           <div className="flex gap-3">
             {[
               { value: 'transferencia', label: 'Transferencia', icon: CreditCard },
@@ -251,10 +241,10 @@ export default function RegistrarCobro() {
                 key={value}
                 type="button"
                 onClick={() => set('forma_pago', value)}
-                className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg border-2 text-sm font-medium transition-colors ${
+                className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg border text-sm font-medium transition-all ${
                   form.forma_pago === value
-                    ? 'border-blue-500 bg-blue-50 text-blue-700'
-                    : 'border-gray-200 text-gray-600 hover:border-gray-300'
+                    ? 'border-violet-500/60 bg-violet-600/20 text-violet-300'
+                    : 'border-gray-700/50 bg-[#0f172a] text-gray-400 hover:border-gray-600'
                 }`}
               >
                 <Icon size={16} />
@@ -264,17 +254,16 @@ export default function RegistrarCobro() {
           </div>
         </div>
 
-        {/* Panel de billetes (solo efectivo) */}
         {form.forma_pago === 'efectivo' && (
-          <div className="border border-amber-200 bg-amber-50 rounded-lg p-4">
-            <p className="text-sm font-medium text-amber-800 mb-3">Detalle de billetes recibidos</p>
+          <div className="border border-amber-500/30 bg-amber-500/5 rounded-lg p-4">
+            <p className="text-sm font-medium text-amber-300 mb-3">Detalle de billetes recibidos</p>
             <div className="space-y-2">
               {DENOMINACIONES.map((denom) => {
                 const stockActual = stockBilletes.find((b) => b.denominacion === denom)?.cantidad ?? 0
                 const qty = form.billetes[String(denom)] || 0
                 return (
                   <div key={denom} className="flex items-center gap-3">
-                    <span className="text-sm text-gray-700 w-24 text-right font-medium">
+                    <span className="text-sm text-gray-300 w-24 text-right font-medium">
                       {formatCurrency(denom)}
                     </span>
                     <input
@@ -282,12 +271,12 @@ export default function RegistrarCobro() {
                       min="0"
                       value={qty}
                       onChange={(e) => setBillete(denom, e.target.value)}
-                      className="w-20 border border-gray-300 rounded-md px-2 py-1 text-sm text-center focus:outline-none focus:ring-2 focus:ring-amber-400"
+                      className="w-20 bg-[#0f172a] border border-gray-600/60 text-gray-100 rounded-md px-2 py-1 text-sm text-center focus:outline-none focus:ring-2 focus:ring-amber-400/40"
                     />
-                    <span className="text-sm text-gray-500 w-28">
+                    <span className="text-sm text-gray-400 w-28">
                       = {formatCurrency(denom * qty)}
                     </span>
-                    <span className="text-xs text-gray-400">
+                    <span className="text-xs text-gray-500">
                       (stock actual: {stockActual})
                     </span>
                   </div>
@@ -295,15 +284,14 @@ export default function RegistrarCobro() {
               })}
             </div>
 
-            {/* Resumen billetes vs importe */}
             <div className={`mt-3 pt-3 border-t flex items-center justify-between text-sm ${
-              importeNum > 0 ? (billetesOk ? 'border-green-300' : 'border-red-300') : 'border-amber-200'
+              importeNum > 0 ? (billetesOk ? 'border-emerald-500/40' : 'border-rose-500/40') : 'border-amber-500/30'
             }`}>
-              <span className="font-medium text-gray-700">Total en billetes:</span>
+              <span className="font-medium text-gray-300">Total en billetes:</span>
               <span className={`font-bold ${
                 importeNum > 0
-                  ? billetesOk ? 'text-green-600' : 'text-red-600'
-                  : 'text-gray-600'
+                  ? billetesOk ? 'text-emerald-400' : 'text-rose-400'
+                  : 'text-gray-300'
               }`}>
                 {formatCurrency(totalBilletes)}
                 {importeNum > 0 && (
@@ -316,13 +304,12 @@ export default function RegistrarCobro() {
           </div>
         )}
 
-        {/* Profesional destinatario */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Profesional destinatario</label>
+          <label className="label">Profesional destinatario</label>
           <select
             value={form.profesional_destino_id}
             onChange={(e) => set('profesional_destino_id', e.target.value)}
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="input-field"
           >
             <option value="">Sin asignar</option>
             {profesionales.map((p) => (
@@ -331,35 +318,32 @@ export default function RegistrarCobro() {
           </select>
         </div>
 
-        {/* Fuente de pago */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Fuente del pago (empresa / persona)</label>
+          <label className="label">Fuente del pago (empresa / persona)</label>
           <input
             type="text"
             value={form.fuente_pago}
             onChange={(e) => set('fuente_pago', e.target.value)}
             placeholder="Ej: Restaurante El Gaucho"
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="input-field"
           />
         </div>
 
-        {/* Notas */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Notas</label>
+          <label className="label">Notas</label>
           <textarea
             value={form.notas}
             onChange={(e) => set('notas', e.target.value)}
             rows={2}
             placeholder="Observaciones opcionales..."
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+            className="input-field resize-none"
           />
         </div>
 
-        {/* Submit */}
         <button
           type="submit"
           disabled={submitting || (form.forma_pago === 'efectivo' && importeNum > 0 && !billetesOk)}
-          className="w-full py-3 bg-blue-600 text-white rounded-lg font-medium text-sm hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          className="btn-primary w-full justify-center disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {submitting ? 'Registrando...' : 'Registrar cobro'}
         </button>
