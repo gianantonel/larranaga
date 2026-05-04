@@ -76,6 +76,28 @@ def fetch_records(table: str, limit: int = 1000) -> List[Dict[str, Any]]:
     return records
 
 
+# Sufijos de columnas que vienen como strings ISO desde InsForge y deben convertirse a datetime
+DATETIME_SUFFIXES = ("_at", "_date")
+DATE_FIELDS = ("date", "due_date", "fecha", "fecha_emision", "fecha_retencion",
+               "fecha_comprobante", "cae_vto")
+
+
+def _parse_datetime(value: str):
+    """Convierte string ISO a datetime. Acepta formatos con/sin TZ."""
+    if not value or not isinstance(value, str):
+        return value
+    from datetime import datetime, date
+    # Quitar 'Z' final si existe
+    s = value.replace("Z", "+00:00")
+    try:
+        return datetime.fromisoformat(s)
+    except ValueError:
+        try:
+            return date.fromisoformat(s[:10])
+        except Exception:
+            return None
+
+
 def _normalize_record(table: str, record: Dict[str, Any]) -> Dict[str, Any]:
     """Convierte tipos de PostgreSQL/JSON a tipos compatibles con SQLite/SQLAlchemy."""
     excluded = EXCLUDED_FIELDS.get(table, [])
@@ -85,11 +107,17 @@ def _normalize_record(table: str, record: Dict[str, Any]) -> Dict[str, Any]:
     for k, v in record.items():
         if k in excluded:
             continue
-        # bools → int
+        # bools → int (SQLite)
         if k in bool_cols and isinstance(v, bool):
             out[k] = 1 if v else 0
         elif isinstance(v, bool):
             out[k] = 1 if v else 0
+        # ISO datetime/date strings → Python datetime/date
+        elif isinstance(v, str) and (
+            k.endswith(DATETIME_SUFFIXES) or k in DATE_FIELDS
+        ):
+            parsed = _parse_datetime(v)
+            out[k] = parsed if parsed is not None else v
         else:
             out[k] = v
     return out
