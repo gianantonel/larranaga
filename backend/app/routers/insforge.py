@@ -9,7 +9,9 @@ import os
 import requests
 from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
+from sqlalchemy.orm import Session
 from .. import models
+from ..database import get_db
 from ..sync.insforge_sync import (
     sync_to_insforge,
     export_database_to_sql,
@@ -17,6 +19,12 @@ from ..sync.insforge_sync import (
     INSFORGE_API_URL,
     INSFORGE_IMPORT_ENDPOINT,
     INSFORGE_API_KEY,
+)
+from ..sync.insforge_pull import (
+    fetch_records,
+    pull_from_insforge,
+    PULLABLE_TABLES,
+    INSFORGE_RECORDS_BASE,
 )
 from ..sync.events import sync_now, _trigger_sync
 from .auth import require_admin, get_current_user
@@ -143,6 +151,51 @@ def trigger_sync_background(
         "message": "Sincronización iniciada en segundo plano. Consultá /insforge/status para ver el resultado.",
         "timestamp": _last_sync["timestamp"],
     }
+
+
+@router.get("/test-read")
+def test_insforge_read(
+    table: str = "clients",
+    current_user: models.User = Depends(require_admin)
+):
+    """
+    Lee directamente registros de InsForge (sin escribir en local).
+    Sirve para verificar que la API key y el endpoint funcionan.
+    """
+    try:
+        records = fetch_records(table, limit=20)
+        return {
+            "endpoint": f"{INSFORGE_RECORDS_BASE}/{table}",
+            "table": table,
+            "count": len(records),
+            "preview": records[:5],
+        }
+    except requests.exceptions.HTTPError as e:
+        raise HTTPException(
+            status_code=502,
+            detail=f"InsForge respondió {e.response.status_code}: {e.response.text[:200]}"
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"{type(e).__name__}: {e}")
+
+
+@router.post("/pull")
+def pull_from_insforge_endpoint(
+    tables: list[str] | None = None,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(require_admin)
+):
+    """
+    Sincroniza desde InsForge → SQLite local (UPSERT por id/cuit).
+
+    Body opcional: {"tables": ["clients", "users"]}.
+    Si no se especifica, sincroniza todas las tablas pullables.
+    """
+    try:
+        stats = pull_from_insforge(db, tables=tables)
+        return stats
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"{type(e).__name__}: {e}")
 
 
 @router.get("/preview-sql")
