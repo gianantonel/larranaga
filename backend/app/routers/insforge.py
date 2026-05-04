@@ -8,6 +8,8 @@ local (SQLite) con InsForge Cloud.
 import os
 import requests
 from datetime import datetime
+from typing import Optional, List
+from pydantic import BaseModel
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from sqlalchemy.orm import Session
 from .. import models
@@ -179,9 +181,13 @@ def test_insforge_read(
         raise HTTPException(status_code=500, detail=f"{type(e).__name__}: {e}")
 
 
+class PullRequest(BaseModel):
+    tables: Optional[List[str]] = None
+
+
 @router.post("/pull")
 def pull_from_insforge_endpoint(
-    tables: list[str] | None = None,
+    body: Optional[PullRequest] = None,
     db: Session = Depends(get_db),
     current_user: models.User = Depends(require_admin)
 ):
@@ -189,8 +195,9 @@ def pull_from_insforge_endpoint(
     Sincroniza desde InsForge → SQLite local (UPSERT por id/cuit).
 
     Body opcional: {"tables": ["clients", "users"]}.
-    Si no se especifica, sincroniza todas las tablas pullables.
+    Si no se especifica o el body es vacío, sincroniza todas las tablas pullables.
     """
+    tables = body.tables if body else None
     try:
         stats = pull_from_insforge(db, tables=tables)
         return stats
