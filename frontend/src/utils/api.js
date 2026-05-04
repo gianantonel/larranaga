@@ -176,3 +176,20 @@ export const getProveedores = (params) => api.get('/imputacion/proveedores', { p
 export const createProveedor = (data) => api.post('/imputacion/proveedores', data)
 export const updateProveedor = (id, data) => api.put(`/imputacion/proveedores/${id}`, data)
 export const deleteProveedor = (id) => api.delete(`/imputacion/proveedores/${id}`)
+
+// ─── R-15: Conciliación bancaria (Fase 3) ────────────────────────────────────
+export const importarExtracto = (formData) =>
+  api.post('/conciliacion/import-extracto', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  })
+export const getExtractos = (params) => api.get('/conciliacion/extractos', { params })
+export const getMovimientosExtracto = (extractoId, params) =>
+  api.get(`/conciliacion/extracto/${extractoId}/movimientos`, { params })
+export const runMatching = (extractoId) =>
+  api.post(`/conciliacion/${extractoId}/run-matching`)
+export const matchManual = (movimientoId, data) =>
+  api.post(`/conciliacion/movimiento/${movimientoId}/match-manual`, data)
+export const desconciliarMovimiento = (movimientoId) =>
+  api.post(`/conciliacion/movimiento/${movimientoId}/desconciliar`)
+export const sugerenciasMovimiento = (movimientoId, topN = 3) =>
+  api.get(`/conciliacion/movimiento/${movimientoId}/sugerencias`, { params: { top_n: topN } })

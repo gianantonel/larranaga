@@ -142,3 +142,115 @@ def listar_movimientos(
     if solo_pendientes:
         q = q.filter(models.MovimientoBancario.conciliado.is_(False))
     return q.order_by(models.MovimientoBancario.fecha).all()
+
+
+# ─── F3-06: POST /conciliacion/{extracto_id}/run-matching ────────────────────
+
+from ..services import conciliacion as matching_service  # noqa: E402
+
+
+@router.post("/{extracto_id}/run-matching", response_model=schemas.MatchingRunOut)
+def run_matching(
+    extracto_id: int,
+    db: Session = Depends(get_db),
+    _: models.User = Depends(get_current_user),
+):
+    """Ejecuta el algoritmo de matching automático sobre el extracto.
+
+    Marca los movimientos matcheados como conciliados y actualiza los contadores.
+    """
+    try:
+        result = matching_service.correr_matching(db, extracto_id)
+    except ValueError as e:
+        raise HTTPException(404, str(e))
+    return result
+
+
+# ─── F3-07: POST /conciliacion/movimiento/{id}/match-manual ──────────────────
+
+@router.post("/movimiento/{movimiento_id}/match-manual", response_model=schemas.MovimientoBancarioOut)
+def match_manual(
+    movimiento_id: int,
+    data: schemas.MatchManualIn,
+    db: Session = Depends(get_db),
+    _: models.User = Depends(get_current_user),
+):
+    """El operador asigna manualmente un movimiento bancario a un pago existente."""
+    mov = db.get(models.MovimientoBancario, movimiento_id)
+    if not mov:
+        raise HTTPException(404, "Movimiento bancario no encontrado")
+
+    pago = db.get(models.Pago, data.pago_id)
+    if not pago:
+        raise HTTPException(404, "Pago no encontrado")
+
+    # Verificar que el pago no esté ya matcheado a otro movimiento
+    otro = db.query(models.MovimientoBancario).filter(
+        models.MovimientoBancario.pago_id == data.pago_id,
+        models.MovimientoBancario.id != movimiento_id,
+        models.MovimientoBancario.conciliado.is_(True),
+    ).first()
+    if otro:
+        raise HTTPException(409, f"Ese pago ya está conciliado con el movimiento {otro.id}")
+
+    mov.pago_id = data.pago_id
+    mov.conciliado = True
+    mov.notas = data.nota or "match manual"
+
+    # Actualizar contadores del extracto
+    extracto = db.get(models.ExtractoBancario, mov.extracto_id)
+    if extracto:
+        extracto.n_conciliados = (
+            db.query(models.MovimientoBancario)
+            .filter_by(extracto_id=mov.extracto_id, conciliado=True)
+            .count()
+        )
+        extracto.n_pendientes = extracto.n_movimientos - extracto.n_conciliados
+
+    db.commit()
+    db.refresh(mov)
+    return mov
+
+
+# ─── GET /conciliacion/movimiento/{id}/sugerencias ───────────────────────────
+
+@router.get("/movimiento/{movimiento_id}/sugerencias", response_model=list[schemas.CandidatoSugerido])
+def sugerencias(
+    movimiento_id: int,
+    top_n: int = Query(3, ge=1, le=10),
+    use_ai: bool = Query(False, description="Si True y ANTHROPIC_API_KEY está seteada, refina con Claude"),
+    db: Session = Depends(get_db),
+    _: models.User = Depends(get_current_user),
+):
+    """Devuelve top N pagos candidatos para conciliar manualmente este movimiento."""
+    mov = db.get(models.MovimientoBancario, movimiento_id)
+    if not mov:
+        raise HTTPException(404, "Movimiento no encontrado")
+    if use_ai:
+        from ..services import conciliacion_ai
+        return conciliacion_ai.sugerir_con_ai(db, movimiento_id, top_n)
+    return matching_service.sugerir_candidatos(db, movimiento_id, top_n)
+
+
+# ─── POST /conciliacion/movimiento/{id}/desconciliar ─────────────────────────
+
+@router.post("/movimiento/{movimiento_id}/desconciliar", response_model=schemas.MovimientoBancarioOut)
+def desconciliar(
+    movimiento_id: int,
+    db: Session = Depends(get_db),
+    _: models.User = Depends(get_current_user),
+):
+    """Revierte una conciliación (libera el pago para volver a matchear)."""
+    mov = db.get(models.MovimientoBancario, movimiento_id)
+    if not mov:
+        raise HTTPException(404, "Movimiento no encontrado")
+    mov.pago_id = None
+    mov.conciliado = False
+    mov.notas = "desconciliado manual"
+    extracto = db.get(models.ExtractoBancario, mov.extracto_id)
+    if extracto:
+        extracto.n_conciliados = max(0, extracto.n_conciliados - 1)
+        extracto.n_pendientes = extracto.n_movimientos - extracto.n_conciliados
+    db.commit()
+    db.refresh(mov)
+    return mov

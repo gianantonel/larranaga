@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react'
 import {
   LayoutDashboard, Users, UserCheck, ClipboardList,
   ReceiptText, BarChart3, Scale, LogOut, ChevronRight, FileSearch, Wrench, Wallet,
-  PiggyBank, Calculator, Briefcase, X, DollarSign, CalendarCheck, BookOpen
+  PiggyBank, Calculator, Briefcase, X, DollarSign, CalendarCheck, BookOpen, Banknote
 } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import clsx from 'clsx'
@@ -26,6 +26,7 @@ const ACCIONES_ITEMS = [
   { to: '/profesionales',      icon: Briefcase,    label: 'Profesionales', req: 'ADM' },
   { to: '/cobros',             icon: DollarSign,   label: 'Registrar Cobro', req: 'F2-02, F2-04' },
   { to: '/liquidaciones',      icon: CalendarCheck, label: 'Liquidaciones', req: 'F2-11, F2-12' },
+  { to: '/conciliacion-bancaria', icon: Banknote,   label: 'Conciliación bancaria', req: 'R-15' },
 ]
 
 const OTRAS_ACCIONES_ITEMS = [

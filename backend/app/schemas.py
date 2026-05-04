@@ -1012,3 +1012,40 @@ class ImportExtractoStats(BaseModel):
     n_debitos: int
     importe_total_creditos: float
     importe_total_debitos: float
+
+
+# ─── F3-05/06/07: Matching conciliación ──────────────────────────────────────
+
+class MatchResultItem(BaseModel):
+    movimiento_bancario_id: int
+    pago_id: int
+    tipo_match: str
+    score: float
+
+
+class MatchingStatsOut(BaseModel):
+    total: int
+    auto: int
+    manual_required: int
+    by_type: dict
+
+
+class MatchingRunOut(BaseModel):
+    extracto_id: int
+    matched: list[MatchResultItem]
+    pending: list[int]
+    stats: MatchingStatsOut
+
+
+class MatchManualIn(BaseModel):
+    pago_id: int
+    nota: Optional[str] = None
+
+
+class CandidatoSugerido(BaseModel):
+    pago_id: int
+    client_id: int
+    client_name: Optional[str] = None
+    importe: float
+    fecha: str
+    score: float

@@ -22,6 +22,7 @@ import RegistrarCobro from './pages/RegistrarCobro'
 import Liquidaciones from './pages/Liquidaciones'
 import PosicionIVA from './pages/PosicionIVA'
 import MaestroProveedores from './pages/MaestroProveedores'
+import ConciliacionBancaria from './pages/ConciliacionBancaria'
 import LoadingSpinner from './components/UI/LoadingSpinner'
 
 function ProtectedRoutes() {
@@ -50,6 +51,7 @@ function ProtectedRoutes() {
         <Route path="liquidaciones" element={<Liquidaciones />} />
         <Route path="posicion-iva" element={<PosicionIVA />} />
         <Route path="maestro-proveedores" element={<MaestroProveedores />} />
+        <Route path="conciliacion-bancaria" element={<ConciliacionBancaria />} />
       </Route>
     </Routes>
   )
