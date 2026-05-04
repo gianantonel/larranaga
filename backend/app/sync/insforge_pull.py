@@ -133,7 +133,9 @@ def upsert_table(db_session, model_cls, records: List[Dict[str, Any]], table_nam
     stats = {"inserted": 0, "updated": 0, "skipped": 0}
 
     # Para clients: usar cuit como key alternativa (es UNIQUE)
+    # Para users: usar email como key alternativa (es UNIQUE)
     use_cuit = (table_name == "clients")
+    use_email = (table_name == "users")
 
     valid_columns = {col.key for col in model_cls.__mapper__.column_attrs}
 
@@ -146,10 +148,12 @@ def upsert_table(db_session, model_cls, records: List[Dict[str, Any]], table_nam
             stats["skipped"] += 1
             continue
 
-        # Buscar existente
+        # Buscar existente — primero por la columna UNIQUE de negocio, luego por id
         existing = None
         if use_cuit and clean.get("cuit"):
             existing = db_session.query(model_cls).filter(model_cls.cuit == clean["cuit"]).first()
+        elif use_email and clean.get("email"):
+            existing = db_session.query(model_cls).filter(model_cls.email == clean["email"]).first()
         if not existing:
             existing = db_session.query(model_cls).filter(model_cls.id == clean["id"]).first()
 
@@ -193,7 +197,7 @@ def pull_from_insforge(db_session, tables: Optional[List[str]] = None) -> Dict[s
         "subtasks": getattr(models, "Subtask", None),
         "iva_records": models.IVARecord,
         "invoices": models.Invoice,
-        "ingresos_brutos": getattr(models, "IngresoBruto", None),
+        "ingresos_brutos": getattr(models, "IngresosBrutos", None),
         "movimientos_cc": getattr(models, "MovimientoCuentaCorriente", None),
         "comprobantes_recibidos": getattr(models, "ComprobanteRecibido", None),
         "retenciones_percepciones": getattr(models, "RetencionPercepcion", None),
