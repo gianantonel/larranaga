@@ -200,15 +200,40 @@ def seed_database():
             "fiscal_condition": "Responsable Inscripto",
             "activity_code": "494000",
         },
+        {
+            "name": "Gianfranco Esteban Antonel",
+            "business_name": "Gianfranco Esteban Antonel",
+            "cuit": "23-34689789-9",
+            "clave_fiscal": None,
+            "address": None,
+            "phone": None,
+            "email": None,
+            "category": "persona_fisica",
+            "fiscal_condition": "monotributo",
+            "activity_code": None,
+        },
+        {
+            "name": "Agropecuaria El Alba S.R.L.",
+            "business_name": "Agropecuaria El Alba S.R.L.",
+            "cuit": "23-31134894-9",
+            "clave_fiscal": None,
+            "address": None,
+            "phone": None,
+            "email": None,
+            "category": "empresa",
+            "fiscal_condition": "responsable_inscripto",
+            "activity_code": None,
+        },
     ]
 
     clients = []
     for cd in clients_data:
+        clave = cd.get("clave_fiscal")
         client = Client(
             name=cd["name"],
             business_name=cd["business_name"],
             cuit=cd["cuit"],
-            clave_fiscal_encrypted=encrypt_credential(cd["clave_fiscal"]),
+            clave_fiscal_encrypted=encrypt_credential(clave) if clave else None,
             address=cd["address"],
             phone=cd["phone"],
             email=cd["email"],
