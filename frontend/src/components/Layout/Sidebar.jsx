@@ -3,7 +3,8 @@ import { useState, useEffect } from 'react'
 import {
   LayoutDashboard, Users, UserCheck, ClipboardList,
   ReceiptText, BarChart3, Scale, LogOut, ChevronRight, FileSearch, Wrench, Wallet,
-  PiggyBank, Calculator, Briefcase, X, DollarSign, CalendarCheck, BookOpen, Banknote
+  PiggyBank, Calculator, Briefcase, X, DollarSign, CalendarCheck, BookOpen, Banknote,
+  ArrowDownToLine, TrendingUp, Percent
 } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import clsx from 'clsx'
@@ -23,8 +24,11 @@ const ACCIONES_ITEMS = [
   { to: '/retenciones',        icon: FileSearch,   label: 'Retenciones', req: 'R-05+' },
   { to: '/maestro-proveedores', icon: BookOpen,    label: 'Maestro Proveedores', req: 'R-09' },
   { to: '/honorarios',         icon: Calculator,   label: 'Honorarios', req: 'R-03, R-04' },
+  { to: '/actualizar-honorarios', icon: Percent,    label: 'Actualizar Honorarios', req: 'R-13' },
   { to: '/profesionales',      icon: Briefcase,    label: 'Profesionales', req: 'ADM' },
   { to: '/cobros',             icon: DollarSign,   label: 'Registrar Cobro', req: 'F2-02, F2-04' },
+  { to: '/retiros',            icon: ArrowDownToLine, label: 'Retiros Socios', req: 'R-12' },
+  { to: '/flujo-fondos',       icon: TrendingUp,    label: 'Flujo de Fondos', req: 'R-11' },
   { to: '/liquidaciones',      icon: CalendarCheck, label: 'Liquidaciones', req: 'F2-11, F2-12' },
   { to: '/conciliacion-bancaria', icon: Banknote,   label: 'Conciliación bancaria', req: 'R-15' },
 ]

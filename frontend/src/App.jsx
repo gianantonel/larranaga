@@ -19,6 +19,9 @@ import CuentasCorrientes from './pages/CuentasCorrientes'
 import Honorarios from './pages/Honorarios'
 import Profesionales from './pages/Profesionales'
 import RegistrarCobro from './pages/RegistrarCobro'
+import RetirosSocios from './pages/RetirosSocios'
+import FlujoDeFondos from './pages/FlujoDeFondos'
+import ActualizarHonorarios from './pages/ActualizarHonorarios'
 import Liquidaciones from './pages/Liquidaciones'
 import PosicionIVA from './pages/PosicionIVA'
 import MaestroProveedores from './pages/MaestroProveedores'
@@ -48,6 +51,9 @@ function ProtectedRoutes() {
         <Route path="honorarios" element={<Honorarios />} />
         <Route path="profesionales" element={<Profesionales />} />
         <Route path="cobros" element={<RegistrarCobro />} />
+        <Route path="retiros" element={<RetirosSocios />} />
+        <Route path="flujo-fondos" element={<FlujoDeFondos />} />
+        <Route path="actualizar-honorarios" element={<ActualizarHonorarios />} />
         <Route path="liquidaciones" element={<Liquidaciones />} />
         <Route path="posicion-iva" element={<PosicionIVA />} />
         <Route path="maestro-proveedores" element={<MaestroProveedores />} />

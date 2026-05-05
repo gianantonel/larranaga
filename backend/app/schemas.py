@@ -1049,3 +1049,150 @@ class CandidatoSugerido(BaseModel):
     importe: float
     fecha: str
     score: float
+
+
+# ─── F3 (R-12): Retiros de socios ────────────────────────────────────────────
+
+class RetiroSocioCreate(BaseModel):
+    profesional_id: int
+    importe: float
+    forma_pago: str                          # "efectivo" | "transferencia"
+    fecha: Optional[date] = None             # default: hoy
+    banco_origen: Optional[str] = None       # solo si transferencia
+    notas: Optional[str] = None
+    # Solo cuando forma_pago = "efectivo": {denominacion_str: cantidad}
+    billetes: Optional[dict[str, int]] = None
+
+
+class RetiroSocioOut(BaseModel):
+    id: int
+    profesional_id: int
+    profesional_nombre: Optional[str] = None
+    fecha: date
+    importe: float
+    forma_pago: str
+    banco_origen: Optional[str] = None
+    conciliado: bool
+    movimiento_tesoreria_id: Optional[int] = None
+    notas: Optional[str] = None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class RetiroImpactoOut(BaseModel):
+    retiro: RetiroSocioOut
+    movimiento_tesoreria_id: int
+    total_retirado_socio_anio: float        # acumulado del socio en el año del retiro
+
+
+# ─── F3 (R-11): Flujo de fondos ──────────────────────────────────────────────
+
+class FlujoFondosRow(BaseModel):
+    cliente_id: int
+    cliente_nombre: str
+    deuda_inicio: float
+    honorario_devengado: float
+    cobrado: float
+    deuda_fin: float
+
+
+class FlujoFondosTotal(BaseModel):
+    deuda_inicio: float
+    honorario_devengado: float
+    cobrado: float
+    deuda_fin: float
+
+
+class FlujoFondosMensualOut(BaseModel):
+    periodo: str
+    rows: List[FlujoFondosRow]
+    total: FlujoFondosTotal
+
+
+class FlujoFondosCelda(BaseModel):
+    devengado: float
+    cobrado: float
+    deuda_fin: float
+
+
+class FlujoFondosAnualRow(BaseModel):
+    cliente_id: int
+    cliente_nombre: str
+    meses: List[FlujoFondosCelda]   # 12 elementos, ene a dic
+    total_devengado: float
+    total_cobrado: float
+    deuda_fin: float                 # = meses[11].deuda_fin (saldo al cierre del año)
+
+
+class FlujoFondosAnualTotal(BaseModel):
+    meses: List[FlujoFondosCelda]
+    total_devengado: float
+    total_cobrado: float
+
+
+class FlujoFondosAnualOut(BaseModel):
+    year: int
+    rows: List[FlujoFondosAnualRow]
+    total: FlujoFondosAnualTotal
+
+
+class ConsistenciaItem(BaseModel):
+    cliente_id: int
+    cliente_nombre: str
+    saldo_cc: float
+    deuda_fin_real: float
+    deuda_fin_calculada: float
+    diferencia: float
+    devengado: float
+    cobrado: float
+
+
+class ConsistenciaOut(BaseModel):
+    periodo: str
+    ok: bool
+    tolerancia: float
+    n_clientes: int
+    n_inconsistencias: int
+    inconsistencias: List[ConsistenciaItem]
+
+
+# ─── F3 (R-13): Actualización cuatrimestral con índice ───────────────────────
+
+class PreviewActualizacionIn(BaseModel):
+    indice_pct: float
+    periodo_aplicacion: str       # YYYY-MM
+    fuente: str                   # "ipc" | "manual" | "negociado"
+    notas: Optional[str] = None
+
+
+class PreviewClienteRow(BaseModel):
+    cliente_id: int
+    cliente_nombre: str
+    tipo_honorario: Optional[str] = None
+    importe_actual: Optional[float] = None
+    importe_propuesto: Optional[float] = None
+    delta_pct: Optional[float] = None
+    aplica_indice: bool = True
+
+
+class PreviewActualizacionOut(BaseModel):
+    indice_id: int                # id del IndiceActualizacion persistido (sin aplicar)
+    indice_pct: float
+    periodo_aplicacion: str
+    fuente: str
+    aplicado: bool
+    rows: List[PreviewClienteRow]
+
+
+class AplicarActualizacionIn(BaseModel):
+    indice_id: int
+    client_ids: List[int]
+
+
+class AplicarActualizacionOut(BaseModel):
+    indice_id: int
+    aplicados: int
+    saltados: int
+    detalle: List[dict]

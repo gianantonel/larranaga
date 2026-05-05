@@ -9,7 +9,7 @@ from .routers import (
     auth, clients, collaborators, tasks, iva, facturas, dashboard,
     retenciones, comprobantes, herramientas, cuentas_corrientes,
     honorarios, profesionales_adm, users, bulk, billetes, pagos, imputacion,
-    insforge,
+    insforge, retiros, flujo_fondos,
 )
 from .mock_data import seed_database, seed_profesionales_y_productos
 
@@ -99,6 +99,8 @@ app.include_router(bulk.router)
 app.include_router(billetes.router)
 app.include_router(pagos.router)
 app.include_router(imputacion.router)
+app.include_router(retiros.router)
+app.include_router(flujo_fondos.router)
 app.include_router(insforge.router)
 
 # Fase 3 — R-15 conciliación bancaria
