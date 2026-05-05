@@ -1,3 +1,4 @@
+
 # Tareas Fase 3 — Gero
 **Estudio Larrañaga · Optimizar · Mayo 2026**
 

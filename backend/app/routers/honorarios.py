@@ -195,7 +195,145 @@ def calcular_periodo(period: str, db: Session = Depends(get_db),
     return result
 
 
-# ─── Actualización cuatrimestral ─────────────────────────────────────────────
+# ─── Actualización cuatrimestral con índice (R-13) ──────────────────────────
+
+def _validar_periodo_aaaa_mm(s: str) -> str:
+    if not s or len(s) != 7 or s[4] != "-":
+        raise HTTPException(400, f"periodo_aplicacion inválido: {s!r} (esperado YYYY-MM)")
+    try:
+        int(s[:4]); int(s[5:7])
+    except ValueError:
+        raise HTTPException(400, f"periodo_aplicacion inválido: {s!r}")
+    return s
+
+
+@router.post("/preview-actualizacion", response_model=schemas.PreviewActualizacionOut)
+def post_preview_actualizacion(
+    data: schemas.PreviewActualizacionIn,
+    db: Session = Depends(get_db),
+    _: models.User = Depends(require_admin),
+):
+    """Crea un IndiceActualizacion (sin aplicar) y devuelve la tabla preview.
+
+    Los importes de los clientes NO se modifican hasta llamar a
+    POST /honorarios/aplicar-actualizacion con el indice_id devuelto.
+    """
+    if data.indice_pct == 0:
+        raise HTTPException(400, "indice_pct no puede ser 0")
+    if data.fuente not in ("ipc", "manual", "negociado"):
+        raise HTTPException(400, f"fuente inválida: {data.fuente!r}")
+    _validar_periodo_aaaa_mm(data.periodo_aplicacion)
+
+    indice = models.IndiceActualizacion(
+        periodo=data.periodo_aplicacion,
+        indice_pct=data.indice_pct,
+        fuente=models.FuenteActualizacion(data.fuente),
+        aplicado=False,
+        notas=data.notas,
+    )
+    db.add(indice)
+    db.flush()
+
+    clientes = db.query(models.Client).filter(
+        models.Client.is_active == True,                    # noqa: E712
+        models.Client.tipo_honorario.isnot(None),
+    ).order_by(models.Client.name).all()
+
+    rows = []
+    for c in clientes:
+        if c.tipo_honorario == models.TipoHonorario.fijo:
+            actual = c.importe_honorario or 0.0
+            propuesto = round(actual * (1 + data.indice_pct / 100), 2)
+            rows.append(schemas.PreviewClienteRow(
+                cliente_id=c.id, cliente_nombre=c.name,
+                tipo_honorario="fijo",
+                importe_actual=actual, importe_propuesto=propuesto,
+                delta_pct=data.indice_pct, aplica_indice=True,
+            ))
+        else:
+            rows.append(schemas.PreviewClienteRow(
+                cliente_id=c.id, cliente_nombre=c.name,
+                tipo_honorario="producto",
+                aplica_indice=False,
+            ))
+
+    db.commit()
+    db.refresh(indice)
+
+    return schemas.PreviewActualizacionOut(
+        indice_id=indice.id,
+        indice_pct=indice.indice_pct,
+        periodo_aplicacion=indice.periodo,
+        fuente=indice.fuente.value,
+        aplicado=indice.aplicado,
+        rows=rows,
+    )
+
+
+@router.post("/aplicar-actualizacion", response_model=schemas.AplicarActualizacionOut)
+def post_aplicar_actualizacion(
+    data: schemas.AplicarActualizacionIn,
+    db: Session = Depends(get_db),
+    _: models.User = Depends(require_admin),
+):
+    """Aplica un IndiceActualizacion a los client_ids confirmados.
+
+    Solo afecta clientes con tipo_honorario=fijo. Persiste cambios en
+    HistorialActualizacionHonorario y marca el índice como aplicado.
+    """
+    indice = db.get(models.IndiceActualizacion, data.indice_id)
+    if not indice:
+        raise HTTPException(404, "IndiceActualizacion no encontrado")
+    if indice.aplicado:
+        raise HTTPException(409, f"El índice {indice.id} ya fue aplicado el {indice.fecha_aplicacion}")
+
+    aplicados = []
+    saltados = []
+
+    for cid in data.client_ids:
+        client = db.get(models.Client, cid)
+        if not client:
+            saltados.append({"client_id": cid, "motivo": "no encontrado"})
+            continue
+        if client.tipo_honorario != models.TipoHonorario.fijo:
+            saltados.append({"client_id": cid, "client_name": client.name,
+                             "motivo": f"tipo_honorario={client.tipo_honorario}"})
+            continue
+
+        anterior = client.importe_honorario or 0.0
+        nuevo = round(anterior * (1 + indice.indice_pct / 100), 2)
+        client.importe_honorario = nuevo
+
+        db.add(models.HistorialActualizacionHonorario(
+            indice_id=indice.id,
+            client_id=cid,
+            importe_anterior=anterior,
+            importe_nuevo=nuevo,
+            fecha=date.today(),
+        ))
+        aplicados.append({
+            "client_id": cid,
+            "client_name": client.name,
+            "importe_anterior": anterior,
+            "importe_nuevo": nuevo,
+        })
+
+    if aplicados:
+        from datetime import datetime
+        indice.aplicado = True
+        indice.fecha_aplicacion = datetime.utcnow()
+
+    db.commit()
+
+    return schemas.AplicarActualizacionOut(
+        indice_id=indice.id,
+        aplicados=len(aplicados),
+        saltados=len(saltados),
+        detalle=aplicados + saltados,
+    )
+
+
+# ─── Actualización cuatrimestral (legacy, sin persistencia de índice) ────────
 
 @router.get("/actualizacion-cuatrimestral/preview",
             response_model=schemas.ActualizacionCuatrimestralPreview)

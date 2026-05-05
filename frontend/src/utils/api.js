@@ -160,6 +160,25 @@ export const getPagoById = (id) => api.get(`/pagos/${id}`)
 export const getBilletesStock = () => api.get('/billetes/')
 export const registrarMovimientoBillete = (data) => api.post('/billetes/movimiento', data)
 
+// ─── F3 (R-12): Retiros de socios ────────────────────────────────────────────
+export const getRetiros = (params) => api.get('/retiros/', { params })
+export const getRetiroById = (id) => api.get(`/retiros/${id}`)
+export const crearRetiro = (data) => api.post('/retiros/', data)
+
+// ─── F3 (R-11): Flujo de fondos ──────────────────────────────────────────────
+export const getFlujoFondosMensual = (periodo, profesionalId) =>
+  api.get('/flujo-fondos/', { params: { periodo, profesional_id: profesionalId || undefined } })
+export const getFlujoFondosAnual = (year, profesionalId) =>
+  api.get('/flujo-fondos/anual', { params: { year, profesional_id: profesionalId || undefined } })
+export const verificarConsistenciaFlujo = (periodo, tolerancia) =>
+  api.get('/flujo-fondos/verificar-consistencia', { params: { periodo, tolerancia } })
+
+// ─── F3 (R-13): Actualización cuatrimestral con índice ────────────────────────
+export const previewActualizacionHonorarios = (data) =>
+  api.post('/honorarios/preview-actualizacion', data)
+export const aplicarActualizacionHonorarios = (data) =>
+  api.post('/honorarios/aplicar-actualizacion', data)
+
 // ─── F2-11: Liquidaciones preview ────────────────────────────────────────────
 export const getLiquidacionPreview = (profesionalId, periodo) =>
   api.get(`/profesionales/liquidaciones/${profesionalId}/preview`, { params: { periodo } })
