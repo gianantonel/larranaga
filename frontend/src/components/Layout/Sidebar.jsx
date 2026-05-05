@@ -15,7 +15,7 @@ const navItems = [
   { to: '/iva',           icon: BarChart3,       label: 'Balance IVA' },
   { to: '/facturas',      icon: ReceiptText,     label: 'Facturación' },
   { to: '/retenciones',   icon: FileSearch,      label: 'Retenciones' },
-  { to: '/herramientas',  icon: Wrench,          label: 'Herramientas IVA' },
+  { to: '/herramientas',  icon: Wrench,          label: 'Adaptador IVA → Holistor' },
 ]
 
 export default function Sidebar({ open = false, onClose = () => {} }) {

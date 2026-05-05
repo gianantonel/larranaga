@@ -105,15 +105,15 @@ export default function Herramientas() {
   return (
     <div className="page max-w-3xl">
       <PageHeader
-        title="Herramientas IVA"
-        subtitle="Procesamiento de archivos — R-01 Limpieza Libro IVA + R-02 División por alícuotas"
+        title="Adaptador Libro IVA Compras"
+        subtitle={'Adapta "Mis Comprobantes Recibidos" de ARCA al formato Holistor — R-01 corrige tipo B/C y Tipo Cambio · R-02 divide comprobantes multi-alícuota'}
       />
 
       {/* ── Formulario ── */}
       <div className="card space-y-4">
         <div className="flex items-center gap-2 mb-1">
           <FileSpreadsheet className="text-violet-400" size={20} />
-          <h2 className="text-white font-semibold">Limpiar Libro IVA Compras</h2>
+          <h2 className="text-white font-semibold">Procesar archivo de ARCA</h2>
         </div>
         <p className="text-sm text-gray-400">
           Seleccioná el cliente, subí el Excel{' '}
