@@ -208,8 +208,8 @@ def seed_database():
             "address": None,
             "phone": None,
             "email": None,
-            "category": "persona_fisica",
-            "fiscal_condition": "monotributo",
+            "category": "Monotributista",
+            "fiscal_condition": "Monotributista Profesional",
             "activity_code": None,
         },
         {
@@ -220,8 +220,8 @@ def seed_database():
             "address": None,
             "phone": None,
             "email": None,
-            "category": "empresa",
-            "fiscal_condition": "responsable_inscripto",
+            "category": "Agropecuario",
+            "fiscal_condition": "Responsable Inscripto",
             "activity_code": None,
         },
     ]
