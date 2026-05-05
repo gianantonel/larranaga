@@ -3,12 +3,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 from .database import engine
 from . import models
-from .sync import register_sync_events, sync_now
+from .sync import register_sync_events
 
 from .routers import (
     auth, clients, collaborators, tasks, iva, facturas, dashboard,
     retenciones, comprobantes, herramientas, cuentas_corrientes,
     honorarios, profesionales_adm, users, bulk, billetes, pagos, imputacion,
+    insforge,
 )
 from .mock_data import seed_database, seed_profesionales_y_productos
 
@@ -98,9 +99,7 @@ app.include_router(bulk.router)
 app.include_router(billetes.router)
 app.include_router(pagos.router)
 app.include_router(imputacion.router)
-
-from .routers import conciliacion  # noqa: E402  (F3-04 R-15)
-app.include_router(conciliacion.router)
+app.include_router(insforge.router)
 
 
 def _seed_billetes():
@@ -139,13 +138,3 @@ def root():
 @app.get("/health")
 def health():
     return {"status": "ok"}
-
-
-@app.post("/admin/sync-insforge")
-def manual_sync_insforge():
-    """Dispara una sincronización manual a InsForge (endpoint admin)."""
-    success = sync_now()
-    return {
-        "status": "success" if success else "failed",
-        "message": "Sincronización completada" if success else "Error durante sincronización (ver logs)"
-    }

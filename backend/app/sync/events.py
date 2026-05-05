@@ -8,11 +8,11 @@ import logging
 import threading
 from sqlalchemy import event
 from sqlalchemy.orm import Session
-from .insforge_sync import sync_to_insforge, export_database_to_sql
+from .insforge_sync import sync_to_insforge, export_database_to_sql, get_db_path
 
 logger = logging.getLogger(__name__)
 
-# Flag para rastrear si hay cambios pendientes
+# Flag para evitar sincronizaciones simultáneas
 _pending_sync = False
 _sync_lock = threading.Lock()
 
@@ -26,71 +26,63 @@ def register_sync_events(engine):
 
     @event.listens_for(engine, "connect")
     def receive_connect(dbapi_conn, connection_record):
-        """Evento al conectarse."""
         logger.debug("Conexión a BD establecida")
 
-    logger.info("Event listeners de sincronización registrados")
+    logger.info("Event listeners de sincronización InsForge registrados")
 
 
 def register_session_sync_events(session: Session):
     """
-    Registra listeners en una sesión para detectar cambios antes del commit.
+    Registra listeners en una sesión para detectar cambios y disparar sync.
 
-    Se debe llamar después de crear una sesión.
+    Se debe llamar en el middleware o dependency de FastAPI si se quiere
+    auto-sincronización por sesión.
     """
 
     @event.listens_for(session, "after_commit")
     def receive_after_commit():
-        """Disparado después de un commit exitoso."""
-        logger.debug("Commit detectado en sesión")
+        logger.debug("Commit detectado — disparando sync InsForge")
         _trigger_sync()
 
     @event.listens_for(session, "after_flush")
     def receive_after_flush(session, flush_context):
-        """Disparado después de flush."""
         if session.new or session.dirty or session.deleted:
-            logger.debug(f"Cambios detectados: new={len(session.new)}, dirty={len(session.dirty)}, deleted={len(session.deleted)}")
+            logger.debug(
+                f"Cambios detectados: "
+                f"new={len(session.new)}, dirty={len(session.dirty)}, deleted={len(session.deleted)}"
+            )
 
 
 def _trigger_sync():
-    """Dispara la sincronización a InsForge de forma asincrónica."""
+    """Dispara la sincronización a InsForge de forma asincrónica (no bloquea)."""
 
     global _pending_sync
 
     with _sync_lock:
         if _pending_sync:
-            logger.debug("Sincronización ya está pendiente, ignorando")
+            logger.debug("Sincronización ya está en curso, ignorando")
             return
-
         _pending_sync = True
 
-    # Ejecutar sincronización en thread separado para no bloquear la aplicación
     thread = threading.Thread(target=_do_sync, daemon=True)
     thread.start()
 
 
 def _do_sync():
-    """Ejecuta la sincronización."""
+    """Ejecuta la sincronización en un thread separado."""
 
     global _pending_sync
 
     try:
         logger.info("Iniciando sincronización automática a InsForge...")
-
-        # Obtener la ruta de la BD (por defecto larranaga.db)
-        import os
-        db_path = os.path.join(os.path.dirname(__file__), '../../..', 'backend', 'larranaga.db')
-
-        # Exportar
+        db_path = get_db_path()
         sql_content = export_database_to_sql(db_path)
-
-        # Sincronizar
         success = sync_to_insforge(sql_content, retry_attempts=3)
 
         if success:
             logger.info("Sincronización automática completada exitosamente")
         else:
-            logger.error("Sincronización automática falló (pero continuó la aplicación)")
+            logger.error("Sincronización automática falló (aplicación continúa normalmente)")
 
     except Exception as e:
         logger.error(f"Error en sincronización automática: {e}", exc_info=True)
@@ -100,23 +92,22 @@ def _do_sync():
             _pending_sync = False
 
 
-def sync_now():
-    """Dispara una sincronización inmediata (sincrónica)."""
+def sync_now() -> bool:
+    """Dispara una sincronización inmediata (sincrónica). Retorna True si fue exitosa."""
 
-    logger.info("Sincronización manual iniciada")
+    logger.info("Sincronización manual InsForge iniciada")
 
     try:
-        import os
-        db_path = os.path.join(os.path.dirname(__file__), '../../..', 'backend', 'larranaga.db')
+        db_path = get_db_path()
         sql_content = export_database_to_sql(db_path)
         success = sync_to_insforge(sql_content, retry_attempts=3)
 
         if success:
-            logger.info("Sincronización manual completada")
-            return True
+            logger.info("Sincronización manual completada exitosamente")
         else:
             logger.error("Sincronización manual falló")
-            return False
+
+        return success
 
     except Exception as e:
         logger.error(f"Error en sincronización manual: {e}", exc_info=True)

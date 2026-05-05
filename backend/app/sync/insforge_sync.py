@@ -18,16 +18,11 @@ INSFORGE_API_KEY = os.getenv('INSFORGE_API_KEY', 'ik_6e043a410661a9bfaed032bf81e
 INSFORGE_API_URL = os.getenv('INSFORGE_API_URL', 'https://vivnx98a.us-east.insforge.app')
 INSFORGE_IMPORT_ENDPOINT = f"{INSFORGE_API_URL}/api/database/advance/import"
 
-DB_PATH = os.path.join(os.path.dirname(__file__), '../../..', 'backend', 'larranaga.db')
-
-# Configurar logging
+# Configurar logging (solo StreamHandler — Docker captura stdout/stderr)
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler(os.path.join(os.path.dirname(__file__), '../../logs/insforge_sync.log')),
-        logging.StreamHandler()
-    ]
+    handlers=[logging.StreamHandler()]
 )
 logger = logging.getLogger(__name__)
 
@@ -45,10 +40,41 @@ BINARY_COLUMNS = {
 }
 
 
-def export_database_to_sql(db_path: str) -> str:
+def get_db_path() -> str:
+    """
+    Deriva la ruta del archivo SQLite desde la variable de entorno DATABASE_URL.
+    Soporta rutas relativas (se resuelven desde el directorio de trabajo actual)
+    y rutas absolutas.
+    """
+    db_url = os.getenv('DATABASE_URL', 'sqlite:///./larranaga.db')
+
+    if not db_url.startswith('sqlite:///'):
+        raise ValueError(
+            f"InsForge sync solo soporta bases de datos SQLite. "
+            f"DATABASE_URL configurada: {db_url[:40]}..."
+        )
+
+    # sqlite:///./larranaga.db  → './larranaga.db'
+    # sqlite:////app/larranaga.db → '/app/larranaga.db'
+    path = db_url[len('sqlite:///'):]
+
+    if not os.path.isabs(path):
+        # Ruta relativa: resolver desde el directorio de trabajo (igual que SQLAlchemy)
+        path = os.path.join(os.getcwd(), path)
+
+    return os.path.normpath(path)
+
+
+def export_database_to_sql(db_path: Optional[str] = None) -> str:
     """Exporta la base de datos SQLite a SQL compatible con PostgreSQL/InsForge."""
 
+    if db_path is None:
+        db_path = get_db_path()
+
     logger.info(f"Exportando base de datos desde {db_path}")
+
+    if not os.path.exists(db_path):
+        raise FileNotFoundError(f"Base de datos no encontrada: {db_path}")
 
     try:
         conn = sqlite3.connect(db_path)
@@ -165,7 +191,7 @@ def sync_to_insforge(sql_content: str, retry_attempts: int = 3) -> bool:
         try:
             # Guardar SQL en archivo temporal
             import tempfile
-            with tempfile.NamedTemporaryFile(mode='w', suffix='.sql', delete=False) as f:
+            with tempfile.NamedTemporaryFile(mode='w', suffix='.sql', delete=False, encoding='utf-8') as f:
                 f.write(sql_content)
                 temp_file = f.name
 
@@ -187,10 +213,13 @@ def sync_to_insforge(sql_content: str, retry_attempts: int = 3) -> bool:
             os.unlink(temp_file)
 
             if response.status_code < 400:
-                result = response.json()
-                logger.info(f"Sincronización exitosa!")
-                logger.info(f"  Tablas: {result.get('tables')}")
-                logger.info(f"  Registros: {result.get('rowsImported')}")
+                try:
+                    result = response.json()
+                    logger.info(f"Sincronización exitosa!")
+                    logger.info(f"  Tablas: {result.get('tables')}")
+                    logger.info(f"  Registros: {result.get('rowsImported')}")
+                except Exception:
+                    logger.info(f"Sincronización exitosa! (sin body JSON)")
                 return True
             else:
                 logger.warning(f"Intento {attempt} falló: {response.status_code} - {response.text[:200]}")
@@ -216,8 +245,11 @@ def main():
     logger.info("=" * 60)
 
     try:
+        db_path = get_db_path()
+        logger.info(f"DB Path: {db_path}")
+
         # Exportar
-        sql_content = export_database_to_sql(DB_PATH)
+        sql_content = export_database_to_sql(db_path)
 
         # Sincronizar
         success = sync_to_insforge(sql_content)
