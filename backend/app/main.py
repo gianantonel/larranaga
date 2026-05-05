@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from .database import engine
 from . import models
-from .sync import register_sync_events
+from .sync import register_sync_events, start_periodic_sync
 
 from .routers import (
     auth, clients, collaborators, tasks, iva, facturas, dashboard,
@@ -48,6 +48,9 @@ app.include_router(insforge.router)
 async def startup_event():
     register_sync_events(engine)
     seed_database()
+    # Auto-sync periódico a InsForge (controlado por env var
+    # INSFORGE_AUTOSYNC_INTERVAL_SECONDS, 0 o sin definir = deshabilitado)
+    start_periodic_sync()
 
 
 @app.get("/")
