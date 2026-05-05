@@ -101,10 +101,11 @@ app.include_router(pagos.router)
 app.include_router(imputacion.router)
 app.include_router(retiros.router)
 app.include_router(flujo_fondos.router)
-
-from .routers import conciliacion  # noqa: E402  (F3-04 R-15)
-app.include_router(conciliacion.router)
 app.include_router(insforge.router)
+
+# Fase 3 — R-15 conciliación bancaria
+from .routers import conciliacion  # noqa: E402
+app.include_router(conciliacion.router)
 
 
 def _seed_billetes():
@@ -143,5 +144,3 @@ def root():
 @app.get("/health")
 def health():
     return {"status": "ok"}
-
-
