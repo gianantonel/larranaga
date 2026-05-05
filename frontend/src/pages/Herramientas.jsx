@@ -211,18 +211,22 @@ export default function Herramientas() {
             <CheckCircle className="text-emerald-400" size={20} />
             <h3 className="text-emerald-400 font-semibold">Archivo procesado correctamente</h3>
           </div>
-          <div className="grid grid-cols-3 gap-3 text-center">
-            <div className="bg-white/5 rounded-lg py-3">
-              <p className="text-2xl font-bold text-white">{resultado.total_filas}</p>
-              <p className="text-xs text-gray-400 mt-0.5">Comprobantes</p>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
+            <div className="bg-white/5 rounded-lg py-3 px-2">
+              <p className="text-2xl font-bold text-white tabular-nums">{resultado.total_filas}</p>
+              <p className="text-xs text-gray-400 mt-0.5">Filas entrada</p>
             </div>
-            <div className="bg-white/5 rounded-lg py-3">
-              <p className="text-2xl font-bold text-emerald-400">{resultado.filas_bc_corregidas}</p>
-              <p className="text-xs text-gray-400 mt-0.5">B/C corregidos</p>
+            <div className="bg-white/5 rounded-lg py-3 px-2">
+              <p className="text-2xl font-bold text-emerald-400 tabular-nums">{resultado.filas_bc_corregidas}</p>
+              <p className="text-xs text-gray-400 mt-0.5">B/C corregidos <span className="text-gray-600">(R-01)</span></p>
             </div>
-            <div className="bg-white/5 rounded-lg py-3">
-              <p className="text-2xl font-bold text-violet-400">{resultado.total_filas - resultado.filas_bc_corregidas}</p>
-              <p className="text-xs text-gray-400 mt-0.5">Sin cambios</p>
+            <div className="bg-white/5 rounded-lg py-3 px-2">
+              <p className="text-2xl font-bold text-amber-400 tabular-nums">{resultado.filas_multi_alicuota ?? 0}</p>
+              <p className="text-xs text-gray-400 mt-0.5">Multi-alícuota <span className="text-gray-600">(R-02)</span></p>
+            </div>
+            <div className="bg-white/5 rounded-lg py-3 px-2">
+              <p className="text-2xl font-bold text-violet-400 tabular-nums">{resultado.filas_salida ?? resultado.total_filas}</p>
+              <p className="text-xs text-gray-400 mt-0.5">Filas salida</p>
             </div>
           </div>
           <button
