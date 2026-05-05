@@ -8,7 +8,7 @@ import { getFacturas, getClients, getMonthlyActivity, createFactura } from '../u
 import PageHeader from '../components/UI/PageHeader'
 import LoadingSpinner from '../components/UI/LoadingSpinner'
 import StatCard from '../components/UI/StatCard'
-import { formatCurrency, formatDate, formatPeriod } from '../utils/helpers'
+import { formatCurrency, formatCurrencyShort, formatDate, formatPeriod } from '../utils/helpers'
 
 const INVOICE_TYPES = ['A', 'B', 'C', 'M', 'E']
 
@@ -74,7 +74,7 @@ export default function Facturas() {
   const countB = facturas.filter(f => f.invoice_type === 'B').length
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="page">
       <PageHeader title="Facturación" subtitle="Comprobantes electrónicos — ARCA">
         <button className="btn-primary" onClick={() => setShowModal(true)}>
           <Plus size={18} /> Nueva factura
@@ -82,10 +82,10 @@ export default function Facturas() {
       </PageHeader>
 
       {/* KPIs */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <StatCard title="Total facturas" value={facturas.length} icon={ReceiptText} color="violet" />
-        <StatCard title="Monto total" value={formatCurrency(totalMonto)} icon={DollarSign} color="emerald" />
-        <StatCard title="IVA total" value={formatCurrency(totalIVA)} icon={TrendingUp} color="amber" />
+        <StatCard title="Monto total" value={formatCurrency(totalMonto)} valueShort={formatCurrencyShort(totalMonto)} icon={DollarSign} color="emerald" />
+        <StatCard title="IVA total" value={formatCurrency(totalIVA)} valueShort={formatCurrencyShort(totalIVA)} icon={TrendingUp} color="amber" />
         <StatCard title="Fact. A / B" value={`${countA} / ${countB}`} icon={ReceiptText} color="cyan" />
       </div>
 
@@ -106,12 +106,12 @@ export default function Facturas() {
       </div>
 
       {/* Filters */}
-      <div className="flex flex-wrap gap-3">
-        <select value={filterClient} onChange={e => setFilterClient(e.target.value)} className="input-field w-auto">
+      <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2 sm:gap-3">
+        <select value={filterClient} onChange={e => setFilterClient(e.target.value)} className="input-field sm:w-auto">
           <option value="">Todos los clientes</option>
           {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
         </select>
-        <select value={filterType} onChange={e => setFilterType(e.target.value)} className="input-field w-auto">
+        <select value={filterType} onChange={e => setFilterType(e.target.value)} className="input-field sm:w-auto">
           <option value="">Todos los tipos</option>
           {INVOICE_TYPES.map(t => <option key={t} value={t}>Factura {t}</option>)}
         </select>
@@ -119,6 +119,7 @@ export default function Facturas() {
 
       {/* Table */}
       <div className="card p-0 overflow-hidden">
+        <div className="overflow-x-auto">
         <table className="w-full">
           <thead>
             <tr className="border-b border-gray-700/60 bg-[#0f172a]/60">
@@ -161,6 +162,7 @@ export default function Facturas() {
             )}
           </tbody>
         </table>
+        </div>
         {facturas.length >= 500 && (
           <div className="px-4 py-3 text-sm text-gray-500 border-t border-gray-700/40">
             Mostrando {facturas.length} facturas. Usar filtros para refinar resultados.
@@ -170,11 +172,11 @@ export default function Facturas() {
 
       {/* Create modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 px-4">
-          <div className="bg-[#111827] border border-gray-700 rounded-2xl p-6 w-full max-w-xl shadow-2xl">
-            <h2 className="text-xl font-bold text-white mb-5">Emitir comprobante</h2>
+        <div className="modal-backdrop" onClick={() => setShowModal(false)}>
+          <div className="modal-panel p-4 sm:p-6" onClick={e => e.stopPropagation()}>
+            <h2 className="text-lg sm:text-xl font-bold text-white mb-4 sm:mb-5">Emitir comprobante</h2>
             <form onSubmit={handleCreate} className="space-y-4">
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
                 <div>
                   <label className="label">Cliente *</label>
                   <select value={form.client_id} onChange={e => setForm(f=>({...f, client_id: e.target.value}))} className="input-field" required>
@@ -190,7 +192,7 @@ export default function Facturas() {
                 </div>
                 <div><label className="label">Fecha *</label><input type="date" value={form.date} onChange={e => setForm(f=>({...f, date: e.target.value}))} className="input-field" required /></div>
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                 <div><label className="label">CUIT Receptor</label><input value={form.receptor_cuit} onChange={e => setForm(f=>({...f, receptor_cuit: e.target.value}))} placeholder="XX-XXXXXXXX-X" className="input-field font-mono" /></div>
                 <div><label className="label">Nombre Receptor</label><input value={form.receptor_name} onChange={e => setForm(f=>({...f, receptor_name: e.target.value}))} className="input-field" /></div>
               </div>
@@ -200,7 +202,7 @@ export default function Facturas() {
                   <option>Productos</option><option>Servicios</option><option>Productos y Servicios</option>
                 </select>
               </div>
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
                 <div>
                   <label className="label">Neto gravado *</label>
                   <input type="number" step="0.01" value={form.neto_gravado} onChange={e => handleNetoChange(e.target.value)} className="input-field font-mono" required />
@@ -214,9 +216,9 @@ export default function Facturas() {
                   <input type="number" step="0.01" value={form.total} onChange={e => setForm(f=>({...f, total: e.target.value}))} className="input-field font-mono font-bold" />
                 </div>
               </div>
-              <div className="flex gap-3 pt-2">
-                <button type="button" onClick={() => setShowModal(false)} className="btn-secondary flex-1 justify-center">Cancelar</button>
-                <button type="submit" disabled={saving} className="btn-primary flex-1 justify-center">{saving ? 'Emitiendo...' : 'Emitir factura'}</button>
+              <div className="flex flex-col sm:flex-row gap-3 pt-2">
+                <button type="button" onClick={() => setShowModal(false)} className="btn-secondary flex-1">Cancelar</button>
+                <button type="submit" disabled={saving} className="btn-primary flex-1">{saving ? 'Emitiendo...' : 'Emitir factura'}</button>
               </div>
             </form>
           </div>

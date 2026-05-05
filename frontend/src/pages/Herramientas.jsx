@@ -103,7 +103,7 @@ export default function Herramientas() {
   const puedeProcessar = archivo && clienteId && estado !== 'procesando'
 
   return (
-    <div className="p-6 space-y-6 max-w-3xl">
+    <div className="page max-w-3xl">
       <PageHeader
         title="Herramientas IVA"
         subtitle="Procesamiento de archivos — R-01 Limpieza Libro IVA Compras"
@@ -154,7 +154,7 @@ export default function Herramientas() {
           onDrop={onDrop}
           onClick={abrirSelector}
           className={`
-            border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-colors
+            border-2 border-dashed rounded-xl p-5 sm:p-8 text-center cursor-pointer transition-colors
             ${archivo
               ? 'border-violet-500/60 bg-violet-500/5'
               : 'border-gray-600 hover:border-violet-500/50 hover:bg-violet-500/5'

@@ -49,10 +49,10 @@ export default function Clients() {
   }
 
   if (loading) return <LoadingSpinner text="Cargando clientes..." />
-  if (error) return <div className="p-6 text-rose-400">{error}</div>
+  if (error) return <div className="p-4 sm:p-6 text-rose-400">{error}</div>
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="page">
       <PageHeader title="Clientes" subtitle={`${clients.length} clientes registrados`}>
         {isAdmin && (
           <button className="btn-primary" onClick={() => setShowModal(true)}>
@@ -62,7 +62,7 @@ export default function Clients() {
       </PageHeader>
 
       {/* Search */}
-      <div className="relative max-w-sm">
+      <div className="relative w-full sm:max-w-sm">
         <Search size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-500" />
         <input
           value={search}
@@ -145,19 +145,19 @@ export default function Clients() {
 
       {/* Create modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 px-4">
-          <div className="bg-[#111827] border border-gray-700 rounded-2xl p-6 w-full max-w-xl shadow-2xl">
-            <h2 className="text-xl font-bold text-white mb-5">Nuevo cliente</h2>
+        <div className="modal-backdrop" onClick={() => setShowModal(false)}>
+          <div className="modal-panel p-4 sm:p-6" onClick={e => e.stopPropagation()}>
+            <h2 className="text-lg sm:text-xl font-bold text-white mb-4 sm:mb-5">Nuevo cliente</h2>
             <form onSubmit={handleCreate} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                 <div><label className="label">Nombre *</label><input value={form.name} onChange={e => setForm(f=>({...f, name: e.target.value}))} className="input-field" required /></div>
                 <div><label className="label">Razón social</label><input value={form.business_name} onChange={e => setForm(f=>({...f, business_name: e.target.value}))} className="input-field" /></div>
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                 <div><label className="label">CUIT</label><input value={form.cuit} onChange={e => setForm(f=>({...f, cuit: e.target.value}))} placeholder="XX-XXXXXXXX-X" className="input-field font-mono" /></div>
                 <div><label className="label">Clave Fiscal</label><input type="password" value={form.clave_fiscal} onChange={e => setForm(f=>({...f, clave_fiscal: e.target.value}))} className="input-field" /></div>
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                 <div>
                   <label className="label">Condición fiscal</label>
                   <select value={form.fiscal_condition} onChange={e => setForm(f=>({...f, fiscal_condition: e.target.value}))} className="input-field">
@@ -170,13 +170,13 @@ export default function Clients() {
                 <div><label className="label">Categoría</label><input value={form.category} onChange={e => setForm(f=>({...f, category: e.target.value}))} className="input-field" /></div>
               </div>
               <div><label className="label">Dirección</label><input value={form.address} onChange={e => setForm(f=>({...f, address: e.target.value}))} className="input-field" /></div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                 <div><label className="label">Teléfono</label><input value={form.phone} onChange={e => setForm(f=>({...f, phone: e.target.value}))} className="input-field" /></div>
                 <div><label className="label">Email</label><input type="email" value={form.email} onChange={e => setForm(f=>({...f, email: e.target.value}))} className="input-field" /></div>
               </div>
-              <div className="flex gap-3 pt-2">
-                <button type="button" onClick={() => setShowModal(false)} className="btn-secondary flex-1 justify-center">Cancelar</button>
-                <button type="submit" disabled={saving} className="btn-primary flex-1 justify-center">
+              <div className="flex flex-col sm:flex-row gap-3 pt-2">
+                <button type="button" onClick={() => setShowModal(false)} className="btn-secondary flex-1">Cancelar</button>
+                <button type="submit" disabled={saving} className="btn-primary flex-1">
                   {saving ? 'Guardando...' : 'Crear cliente'}
                 </button>
               </div>

@@ -81,7 +81,7 @@ export default function Tasks() {
   if (loading) return <LoadingSpinner text="Cargando tareas..." />
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="page">
       <PageHeader title="Tareas" subtitle={`${tasks.length} tareas`}>
         <button className="btn-primary" onClick={() => setShowCreateModal(true)}>
           <Plus size={18} /> Nueva tarea
@@ -89,22 +89,22 @@ export default function Tasks() {
       </PageHeader>
 
       {/* Filters */}
-      <div className="flex flex-wrap gap-3">
-        <select value={filters.client_id} onChange={e => setFilters(f => ({ ...f, client_id: e.target.value }))} className="input-field w-auto">
+      <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2 sm:gap-3">
+        <select value={filters.client_id} onChange={e => setFilters(f => ({ ...f, client_id: e.target.value }))} className="input-field sm:w-auto">
           <option value="">Todos los clientes</option>
           {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
         </select>
         {isAdmin && (
-          <select value={filters.collaborator_id} onChange={e => setFilters(f => ({ ...f, collaborator_id: e.target.value }))} className="input-field w-auto">
+          <select value={filters.collaborator_id} onChange={e => setFilters(f => ({ ...f, collaborator_id: e.target.value }))} className="input-field sm:w-auto">
             <option value="">Todos los colaboradores</option>
             {collaborators.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
         )}
-        <select value={filters.status} onChange={e => setFilters(f => ({ ...f, status: e.target.value }))} className="input-field w-auto">
+        <select value={filters.status} onChange={e => setFilters(f => ({ ...f, status: e.target.value }))} className="input-field sm:w-auto">
           <option value="">Todos los estados</option>
           {TASK_STATUSES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
         </select>
-        <select value={filters.type} onChange={e => setFilters(f => ({ ...f, type: e.target.value }))} className="input-field w-auto">
+        <select value={filters.type} onChange={e => setFilters(f => ({ ...f, type: e.target.value }))} className="input-field sm:w-auto">
           <option value="">Todos los tipos</option>
           {TASK_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
         </select>
@@ -208,13 +208,13 @@ export default function Tasks() {
 
       {/* Create task modal */}
       {showCreateModal && (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 px-4">
-          <div className="bg-[#111827] border border-gray-700 rounded-2xl p-6 w-full max-w-lg shadow-2xl">
-            <h2 className="text-xl font-bold text-white mb-5">Nueva tarea</h2>
+        <div className="modal-backdrop" onClick={() => setShowCreateModal(false)}>
+          <div className="modal-panel p-4 sm:p-6 sm:max-w-lg" onClick={e => e.stopPropagation()}>
+            <h2 className="text-lg sm:text-xl font-bold text-white mb-4 sm:mb-5">Nueva tarea</h2>
             <form onSubmit={handleCreate} className="space-y-4">
               <div><label className="label">Título *</label><input value={form.title} onChange={e => setForm(f=>({...f, title: e.target.value}))} className="input-field" required /></div>
               <div><label className="label">Descripción</label><textarea value={form.description} onChange={e => setForm(f=>({...f, description: e.target.value}))} className="input-field min-h-[80px] resize-none" /></div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                 <div>
                   <label className="label">Tipo *</label>
                   <select value={form.task_type} onChange={e => setForm(f=>({...f, task_type: e.target.value}))} className="input-field">
@@ -229,7 +229,7 @@ export default function Tasks() {
                   </select>
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                 <div>
                   <label className="label">Colaborador</label>
                   <select value={form.collaborator_id} onChange={e => setForm(f=>({...f, collaborator_id: e.target.value}))} className="input-field">
@@ -240,9 +240,9 @@ export default function Tasks() {
                 <div><label className="label">Período (YYYY-MM)</label><input value={form.period} onChange={e => setForm(f=>({...f, period: e.target.value}))} placeholder="2024-06" className="input-field font-mono" /></div>
               </div>
               <div><label className="label">Fecha límite</label><input type="date" value={form.due_date} onChange={e => setForm(f=>({...f, due_date: e.target.value}))} className="input-field" /></div>
-              <div className="flex gap-3 pt-2">
-                <button type="button" onClick={() => setShowCreateModal(false)} className="btn-secondary flex-1 justify-center">Cancelar</button>
-                <button type="submit" disabled={saving} className="btn-primary flex-1 justify-center">{saving ? 'Guardando...' : 'Crear tarea'}</button>
+              <div className="flex flex-col sm:flex-row gap-3 pt-2">
+                <button type="button" onClick={() => setShowCreateModal(false)} className="btn-secondary flex-1">Cancelar</button>
+                <button type="submit" disabled={saving} className="btn-primary flex-1">{saving ? 'Guardando...' : 'Crear tarea'}</button>
               </div>
             </form>
           </div>

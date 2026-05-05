@@ -45,7 +45,7 @@ export default function Collaborators() {
   if (loading) return <LoadingSpinner text="Cargando colaboradores..." />
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="page">
       <PageHeader title="Colaboradores" subtitle={`${collaborators.length} colaboradores activos`}>
         {isAdmin && (
           <button className="btn-primary" onClick={() => setShowModal(true)}>
@@ -55,7 +55,7 @@ export default function Collaborators() {
       </PageHeader>
 
       {/* Cards grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-5">
         {stats.map(collab => {
           const pieData = [
             { name: 'Terminadas', value: collab.completed,   color: STATUS_COLORS.terminada },
@@ -141,9 +141,9 @@ export default function Collaborators() {
 
       {/* Create modal */}
       {showModal && isAdmin && (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 px-4">
-          <div className="bg-[#111827] border border-gray-700 rounded-2xl p-6 w-full max-w-md shadow-2xl">
-            <h2 className="text-xl font-bold text-white mb-5">Nuevo colaborador</h2>
+        <div className="modal-backdrop" onClick={() => setShowModal(false)}>
+          <div className="modal-panel p-4 sm:p-6 sm:max-w-md" onClick={e => e.stopPropagation()}>
+            <h2 className="text-lg sm:text-xl font-bold text-white mb-4 sm:mb-5">Nuevo colaborador</h2>
             <form onSubmit={handleCreate} className="space-y-4">
               <div><label className="label">Nombre completo</label><input value={form.name} onChange={e => setForm(f=>({...f, name: e.target.value}))} className="input-field" required /></div>
               <div><label className="label">Email</label><input type="email" value={form.email} onChange={e => setForm(f=>({...f, email: e.target.value}))} className="input-field" required /></div>
@@ -157,9 +157,9 @@ export default function Collaborators() {
                   <option value="admin3">Administrador 3</option>
                 </select>
               </div>
-              <div className="flex gap-3 pt-2">
-                <button type="button" onClick={() => setShowModal(false)} className="btn-secondary flex-1 justify-center">Cancelar</button>
-                <button type="submit" disabled={saving} className="btn-primary flex-1 justify-center">
+              <div className="flex flex-col sm:flex-row gap-3 pt-2">
+                <button type="button" onClick={() => setShowModal(false)} className="btn-secondary flex-1">Cancelar</button>
+                <button type="submit" disabled={saving} className="btn-primary flex-1">
                   {saving ? 'Guardando...' : 'Crear'}
                 </button>
               </div>

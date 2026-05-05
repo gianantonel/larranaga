@@ -9,7 +9,7 @@ import { FiledBadge } from '../components/UI/Badge'
 import PageHeader from '../components/UI/PageHeader'
 import LoadingSpinner from '../components/UI/LoadingSpinner'
 import StatCard from '../components/UI/StatCard'
-import { formatCurrency, formatPeriod, formatDate } from '../utils/helpers'
+import { formatCurrency, formatCurrencyShort, formatPeriod, formatDate } from '../utils/helpers'
 
 export default function IVA() {
   const [records, setRecords] = useState([])
@@ -66,18 +66,18 @@ export default function IVA() {
     .map(([period, d]) => ({ period, 'Débito Fiscal': d.debito, 'Crédito Fiscal': d.credito, Saldo: d.saldo }))
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="page">
       <PageHeader
         title="Balance IVA"
         subtitle="Gestión de declaraciones juradas de IVA — ARCA"
       />
 
       {/* KPIs */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <StatCard title="Pendientes de presentar" value={pending.length} icon={AlertTriangle} color="rose" />
         <StatCard title="Presentados" value={filed.length} icon={CheckCircle} color="emerald" />
-        <StatCard title="Saldo total a pagar" value={formatCurrency(totalSaldo)} icon={TrendingUp} color="amber" />
-        <StatCard title="Total débito fiscal" value={formatCurrency(totalDebito)} icon={BarChart3} color="violet" />
+        <StatCard title="Saldo total a pagar" value={formatCurrency(totalSaldo)} valueShort={formatCurrencyShort(totalSaldo)} icon={TrendingUp} color="amber" />
+        <StatCard title="Total débito fiscal" value={formatCurrency(totalDebito)} valueShort={formatCurrencyShort(totalDebito)} icon={BarChart3} color="violet" />
       </div>
 
       {/* Chart */}
@@ -98,21 +98,22 @@ export default function IVA() {
       </div>
 
       {/* Filters */}
-      <div className="flex flex-wrap gap-3">
-        <select value={filterClient} onChange={e => setFilterClient(e.target.value)} className="input-field w-auto">
+      <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2 sm:gap-3">
+        <select value={filterClient} onChange={e => setFilterClient(e.target.value)} className="input-field sm:w-auto">
           <option value="">Todos los clientes</option>
           {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
         </select>
-        <select value={filterFiled} onChange={e => setFilterFiled(e.target.value)} className="input-field w-auto">
+        <select value={filterFiled} onChange={e => setFilterFiled(e.target.value)} className="input-field sm:w-auto">
           <option value="">Todos</option>
           <option value="false">Pendientes</option>
           <option value="true">Presentados</option>
         </select>
-        <input value={filterPeriod} onChange={e => setFilterPeriod(e.target.value)} placeholder="Período YYYY-MM" className="input-field w-40 font-mono" />
+        <input value={filterPeriod} onChange={e => setFilterPeriod(e.target.value)} placeholder="Período YYYY-MM" className="input-field sm:w-40 font-mono col-span-2 sm:col-span-1" />
       </div>
 
       {/* Table */}
       <div className="card p-0 overflow-hidden">
+        <div className="overflow-x-auto">
         <table className="w-full">
           <thead>
             <tr className="border-b border-gray-700/60 bg-[#0f172a]/60">
@@ -170,6 +171,7 @@ export default function IVA() {
             )}
           </tbody>
         </table>
+        </div>
       </div>
     </div>
   )

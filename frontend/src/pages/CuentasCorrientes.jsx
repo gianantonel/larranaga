@@ -77,10 +77,10 @@ export default function CuentasCorrientes() {
   )
 
   return (
-    <div className="space-y-6">
+    <div className="page">
       <header className="flex justify-between items-center">
-        <div>
-          <h1 className="text-2xl font-bold text-white flex items-center gap-2">
+        <div className="min-w-0">
+          <h1 className="text-xl sm:text-2xl font-bold text-white flex items-center gap-2">
             <Wallet className="text-violet-500" />
             Cuentas Corrientes
           </h1>
@@ -90,7 +90,7 @@ export default function CuentasCorrientes() {
         </div>
       </header>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
         {/* Left Column: Client List */}
         <div className="bg-[#1e293b] rounded-xl border border-gray-700/50 flex flex-col h-[calc(100vh-12rem)]">
           <div className="p-4 border-b border-gray-700/50">

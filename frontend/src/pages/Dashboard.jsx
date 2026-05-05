@@ -79,21 +79,21 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="page">
       <PageHeader
         title="Dashboard"
         subtitle="Resumen general del estudio Larrañaga"
       />
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <StatCard title="Clientes activos" value={stats.active_clients} subtitle={`${stats.total_clients} total`} icon={Users} color="cyan" />
         <StatCard title="Colaboradores" value={stats.total_collaborators} icon={UserCheck} color="violet" />
         <StatCard title="Tareas este mes" value={stats.tasks_this_month} icon={Activity} color="indigo" />
         <StatCard title="Tareas totales" value={stats.total_tasks} icon={ClipboardList} color="amber" />
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <StatCard title="Terminadas" value={stats.completed_tasks} icon={CheckCircle} color="emerald" />
         <StatCard title="En curso" value={stats.in_progress_tasks} icon={Clock} color="cyan" />
         <StatCard title="Pendientes" value={stats.pending_tasks} icon={AlertCircle} color="amber" />
@@ -101,7 +101,7 @@ export default function Dashboard() {
       </div>
 
       {/* IVA summary */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
         <StatCard
           title="DDJJ IVA pendientes"
           value={stats.iva_pendientes}
@@ -119,7 +119,7 @@ export default function Dashboard() {
       </div>
 
       {/* Charts row 1 */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
         {/* Monthly billing */}
         <div className="card">
           <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
@@ -159,7 +159,7 @@ export default function Dashboard() {
       </div>
 
       {/* Charts row 2 */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
         {/* Collaborator tasks stacked bar */}
         <div className="card">
           <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">

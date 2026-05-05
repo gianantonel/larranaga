@@ -1,6 +1,6 @@
 import clsx from 'clsx'
 
-export default function StatCard({ title, value, subtitle, icon: Icon, color = 'violet', trend }) {
+export default function StatCard({ title, value, valueShort, subtitle, icon: Icon, color = 'violet', trend }) {
   const colorMap = {
     violet:  { bg: 'bg-violet-500/15', text: 'text-violet-400', border: 'border-violet-500/20' },
     cyan:    { bg: 'bg-sky-500/15',    text: 'text-sky-400',    border: 'border-sky-500/20' },
@@ -13,15 +13,22 @@ export default function StatCard({ title, value, subtitle, icon: Icon, color = '
 
   return (
     <div className={clsx('stat-card', 'border', c.border)}>
-      <div className="flex items-start justify-between">
-        <div>
-          <p className="text-sm font-medium text-gray-400">{title}</p>
-          <p className={clsx('text-3xl font-bold mt-1', c.text)}>{value}</p>
-          {subtitle && <p className="text-sm text-gray-500 mt-1">{subtitle}</p>}
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0 flex-1">
+          <p className="text-xs sm:text-sm font-medium text-gray-400 truncate">{title}</p>
+          <p className={clsx('text-xl sm:text-2xl lg:text-3xl font-bold mt-1 break-words tabular-nums leading-tight', c.text)}>
+            {valueShort != null ? (
+              <>
+                <span className="xl:hidden">{valueShort}</span>
+                <span className="hidden xl:inline">{value}</span>
+              </>
+            ) : value}
+          </p>
+          {subtitle && <p className="text-xs sm:text-sm text-gray-500 mt-1 truncate">{subtitle}</p>}
         </div>
         {Icon && (
-          <div className={clsx('p-3 rounded-xl', c.bg)}>
-            <Icon size={22} className={c.text} />
+          <div className={clsx('p-2 sm:p-3 rounded-xl shrink-0', c.bg)}>
+            <Icon size={20} className={c.text} />
           </div>
         )}
       </div>
