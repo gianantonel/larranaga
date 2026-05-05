@@ -30,12 +30,21 @@ from .. import models
 from ..database import get_db
 from .auth import get_current_user
 
-# ── Importar módulo R-01 ────────────────────────────────────────────────────
-# parents[3] = raíz del repo larranaga (larranaga-accounting-agent vive ahí dentro)
-_ROOT  = Path(__file__).resolve().parents[3]
-_AGENT = _ROOT / "larranaga-accounting-agent"
-if str(_AGENT) not in sys.path:
-    sys.path.insert(0, str(_AGENT))
+# ── Importar módulo R-01 + R-02 ────────────────────────────────────────────
+# Busca el agent en dos ubicaciones (dev local + producción Docker):
+#   1) Dev local: <repo_root>/larranaga-accounting-agent  (parents[3] del archivo)
+#   2) Producción: backend/larranaga-accounting-agent     (parents[2] = /app)
+# El segundo path corresponde al vendor incluido en backend/, que entra al
+# Docker image cuando el build context es backend/ (default de EasyPanel).
+_HERE     = Path(__file__).resolve()
+_CANDIDATES = [
+    _HERE.parents[3] / "larranaga-accounting-agent",  # dev local
+    _HERE.parents[2] / "larranaga-accounting-agent",  # docker / vendor
+]
+for _AGENT in _CANDIDATES:
+    if _AGENT.is_dir() and str(_AGENT) not in sys.path:
+        sys.path.insert(0, str(_AGENT))
+        break
 
 try:
     from src.transformaciones.limpieza_inicial import limpiar_comprobantes_desde_bytes
