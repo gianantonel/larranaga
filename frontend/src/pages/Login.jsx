@@ -29,58 +29,51 @@ export default function Login() {
   }
 
   return (
-    <div className="min-h-screen flex relative overflow-hidden">
+    <div className="min-h-screen flex relative">
       <div className="absolute top-6 right-6 z-10">
         <ThemeToggle />
       </div>
 
-      <div className="absolute inset-0 pointer-events-none">
-        <div
-          className="absolute top-1/2 left-1/2 w-[800px] h-[800px] -translate-x-1/2 -translate-y-1/2 rounded-full blur-3xl opacity-[0.07]"
-          style={{ background: 'radial-gradient(circle, var(--brand) 0%, transparent 70%)' }}
-        />
-      </div>
-
-      {/* Columna izquierda: brand + slogan (oculta en mobile) */}
-      <div className="hidden lg:flex flex-1 items-center justify-center p-12 relative">
-        <div className="max-w-md space-y-8 relative z-[1]">
+      {/* Columna izquierda: hero (oculta en mobile) */}
+      <div className="hidden lg:flex flex-1 items-center justify-center p-16">
+        <div className="max-w-md space-y-10">
           <Logo size="xl" />
-          <div className="space-y-4 pt-6">
-            <h1 className="hero-title">
-              Asesoramiento<br/>
-              <span style={{ color: 'var(--brand)' }}>integral</span>.
+
+          <div className="space-y-5">
+            <p className="hero-eyebrow">Larrañaga & Asociados</p>
+            <h1 className="hero-title text-5xl xl:text-6xl">
+              Asesoramiento<br />integral.
             </h1>
             <p className="hero-sub max-w-sm">
               Estudio contable y legal con un equipo de profesionales
               especializados al servicio de tu empresa.
             </p>
           </div>
-          <div className="pt-6 flex items-center gap-2 text-sm" style={{ color: 'var(--text-subtle)' }}>
-            <span className="w-8 h-px" style={{ background: 'var(--border)' }} />
-            <span className="tracking-widest text-[11px] uppercase">Larrañaga & Asociados</span>
-          </div>
         </div>
       </div>
 
       {/* Columna derecha: form */}
-      <div className="flex-1 flex items-center justify-center p-6 sm:p-12 relative z-[1]">
+      <div
+        className="flex-1 flex items-center justify-center p-6 sm:p-12 lg:p-16"
+        style={{ background: 'var(--surface)' }}
+      >
         <div className="w-full max-w-sm space-y-8">
-          <div className="lg:hidden flex justify-center mb-4">
+          <div className="lg:hidden flex justify-center mb-2">
             <Logo size="md" />
           </div>
 
           <div className="space-y-2">
-            <h2 className="text-3xl font-bold tracking-tight" style={{ color: 'var(--text)' }}>
-              Iniciar sesión
+            <p className="hero-eyebrow">Iniciar sesión</p>
+            <h2 className="text-3xl font-bold tracking-apple-2" style={{ color: 'var(--text)' }}>
+              Bienvenido
             </h2>
-            <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
+            <p className="text-sm font-light" style={{ color: 'var(--text-subtle)' }}>
               Accedé a la plataforma con tus credenciales.
             </p>
           </div>
 
           {error && (
-            <div className="rounded-2xl px-4 py-3 text-sm"
-              style={{ background: 'rgba(220, 38, 38, 0.08)', color: 'var(--brand)' }}>
+            <div className="rounded-2xl px-4 py-3 text-sm chip-danger w-full justify-start">
               {error}
             </div>
           )}
@@ -89,7 +82,8 @@ export default function Login() {
             <div>
               <label className="label">Correo electrónico</label>
               <div className="relative">
-                <Mail size={16} className="absolute left-4 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-subtle)' }} />
+                <Mail size={15} strokeWidth={1.75} className="absolute left-4 top-1/2 -translate-y-1/2"
+                  style={{ color: 'var(--text-faint)' }} />
                 <input
                   type="email"
                   value={email}
@@ -105,7 +99,8 @@ export default function Login() {
             <div>
               <label className="label">Contraseña</label>
               <div className="relative">
-                <Lock size={16} className="absolute left-4 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-subtle)' }} />
+                <Lock size={15} strokeWidth={1.75} className="absolute left-4 top-1/2 -translate-y-1/2"
+                  style={{ color: 'var(--text-faint)' }} />
                 <input
                   type={showPass ? 'text' : 'password'}
                   value={password}
@@ -117,11 +112,11 @@ export default function Login() {
                 <button
                   type="button"
                   onClick={() => setShowPass(p => !p)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/5"
-                  style={{ color: 'var(--text-subtle)' }}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 rounded-full"
+                  style={{ color: 'var(--text-faint)' }}
                   aria-label={showPass ? 'Ocultar' : 'Mostrar'}
                 >
-                  {showPass ? <EyeOff size={16} /> : <Eye size={16} />}
+                  {showPass ? <EyeOff size={15} /> : <Eye size={15} />}
                 </button>
               </div>
             </div>
@@ -129,25 +124,34 @@ export default function Login() {
             <button type="submit" disabled={loading} className="btn-primary btn-lg w-full">
               {loading ? (
                 <>
-                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  <div className="w-4 h-4 border-2 border-current/30 border-t-current rounded-full animate-spin" />
                   <span>Ingresando…</span>
                 </>
               ) : (
                 <>
                   <span>Ingresar</span>
-                  <ArrowRight size={16} />
+                  <ArrowRight size={15} />
                 </>
               )}
             </button>
           </form>
 
-          <div className="rounded-2xl px-4 py-3 text-xs space-y-1"
-            style={{ background: 'var(--surface-2)', color: 'var(--text-muted)' }}>
-            <p className="font-semibold uppercase tracking-wider text-[10px]" style={{ color: 'var(--text-subtle)' }}>
+          <div
+            className="rounded-2xl px-4 py-3.5 text-xs space-y-1.5"
+            style={{ background: 'var(--surface-2)' }}
+          >
+            <p className="text-[10px] font-semibold uppercase tracking-[0.18em]"
+               style={{ color: 'var(--text-faint)' }}>
               Cuentas de prueba
             </p>
-            <p><span className="font-mono">admin1@larranaga.com</span> · admin123</p>
-            <p><span className="font-mono">mgonzalez@larranaga.com</span> · colab123</p>
+            <p style={{ color: 'var(--text-subtle)' }}>
+              <span className="font-mono" style={{ color: 'var(--text)' }}>admin1@larranaga.com</span>
+              {' · '}admin123
+            </p>
+            <p style={{ color: 'var(--text-subtle)' }}>
+              <span className="font-mono" style={{ color: 'var(--text)' }}>mgonzalez@larranaga.com</span>
+              {' · '}colab123
+            </p>
           </div>
         </div>
       </div>

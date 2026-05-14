@@ -99,8 +99,8 @@ export default function Facturas() {
             <YAxis tickFormatter={v => `$${(v/1000000).toFixed(1)}M`} tick={{ fontSize: 11, fill: '#9ca3af' }} />
             <Tooltip formatter={(v, n) => [n === 'Monto' ? formatCurrency(v) : v, n]} contentStyle={{ background: '#1f2937', border: '1px solid #374151', borderRadius: 8, color: '#f3f4f6' }} labelFormatter={formatPeriod} />
             <Legend formatter={v => <span style={{ color: '#d1d5db', fontSize: 12 }}>{v}</span>} />
-            <Bar dataKey="monto_facturas" name="Monto" fill="#9D1626" radius={[3,3,0,0]} />
-            <Bar dataKey="facturas" name="Cantidad" fill="#0EA5E9" radius={[3,3,0,0]} />
+            <Bar dataKey="monto_facturas" name="Monto" fill="var(--text)" radius={[4,4,0,0]} />
+            <Bar dataKey="facturas" name="Cantidad" fill="#94A3B8" radius={[4,4,0,0]} />
           </BarChart>
         </ResponsiveContainer>
       </div>

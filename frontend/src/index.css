@@ -1,152 +1,220 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,300..800;1,14..32,300..800&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* ─── Theme tokens via CSS variables ──────────────────────────────────────── */
+/* ────────────────────────────────────────────────────────────────────────
+   Larrañaga & Asociados — Apple-minimalist, monochrome, professional.
+   Inspirado en Ciudad. Brand red solo para logo + acentos puntuales.
+   ──────────────────────────────────────────────────────────────────────── */
+
 :root {
   color-scheme: light;
-  --bg:         #FAFAFA;
+  --bg:         #F7F7F7;
   --surface:    #FFFFFF;
-  --surface-2:  #F5F5F5;
-  --border:     #EAEAEA;
-  --text:       #0C0C0C;
-  --text-muted: #525252;
+  --surface-2: #F0F0F0;
+  --border:     #E5E5E5;
+  --text:       #0A0A0A;
+  --text-muted: #555555;
   --text-subtle:#737373;
+  --text-faint: #9A9A9A;
   --brand:      #9D1626;
-  --brand-hover:#7D1220;
-  --brand-soft: #FBE5E7;
+  --brand-soft: rgba(157, 22, 38, 0.08);
 }
 
 html.dark {
   color-scheme: dark;
   --bg:         #0A0A0A;
-  --surface:    #171717;
-  --surface-2:  #1F1F1F;
-  --border:     #262626;
-  --text:       #FAFAFA;
-  --text-muted: #A1A1AA;
-  --text-subtle:#71717A;
+  --surface:    #141414;
+  --surface-2:  #1E1E1E;
+  --border:     #2A2A2A;
+  --text:       #F5F5F5;
+  --text-muted: #C8C8C8;
+  --text-subtle:#9A9A9A;
+  --text-faint: #555555;
   --brand:      #DC2626;
-  --brand-hover:#EF4444;
   --brand-soft: rgba(220, 38, 38, 0.12);
 }
 
-@layer base {
-  * { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; box-sizing: border-box; }
-  html, body, #root { height: 100%; }
-  html { font-size: 16px; }
-  body {
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', sans-serif;
-    background: var(--bg);
-    color: var(--text);
-    font-feature-settings: "ss01", "cv11";
-    transition: background-color 200ms ease, color 200ms ease;
-  }
-  h1, h2, h3, h4 { letter-spacing: -0.03em; font-weight: 700; }
-  h5, h6 { letter-spacing: -0.02em; font-weight: 600; }
+* { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; box-sizing: border-box; }
+html, body, #root { height: 100%; }
+html { scroll-behavior: smooth; font-size: 16px; }
 
-  ::-webkit-scrollbar { width: 10px; height: 10px; }
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Helvetica Neue', 'Segoe UI', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  font-feature-settings: "ss01", "cv11";
+  font-weight: 400;
+  transition: background-color 300ms ease, color 300ms ease;
+}
+
+@layer base {
+  h1, h2, h3, h4 { letter-spacing: -0.03em; }
+  h1 { font-weight: 700; letter-spacing: -0.04em; }
+  h2 { font-weight: 700; }
+  h3 { font-weight: 600; }
+
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
   ::-webkit-scrollbar-track { background: transparent; }
-  ::-webkit-scrollbar-thumb {
-    background: var(--border);
-    border-radius: 10px;
-    border: 2px solid transparent;
-    background-clip: padding-box;
-  }
-  ::-webkit-scrollbar-thumb:hover { background: var(--text-subtle); background-clip: padding-box; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 6px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--text-faint); }
 }
 
 @layer components {
+  /* ────────────────────────────────────────────── Surfaces & Cards */
   .surface { background: var(--surface); color: var(--text); }
-  .surface-2 { background: var(--surface-2); }
 
   .card {
     background: var(--surface);
     border: 1px solid var(--border);
     border-radius: 1.5rem;
     padding: 1.5rem;
-    transition: border-color 200ms ease, box-shadow 200ms ease, transform 200ms ease;
+    transition: box-shadow 300ms ease, transform 300ms ease;
   }
-  .card-hover { @apply hover:shadow-soft; }
+  .card-flat {
+    background: var(--surface);
+    border-radius: 1.5rem;
+    padding: 1.5rem;
+  }
+  .card-hover {
+    transition: all 500ms ease-out;
+  }
+  .card-hover:hover {
+    box-shadow: 0 1px 3px rgb(0 0 0 / 0.05), 0 12px 40px -12px rgb(0 0 0 / 0.12);
+    transform: translateY(-2px);
+  }
 
+  /* ────────────────────────────────────────────── Buttons (Apple pill) */
   .btn {
-    @apply inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-full font-medium text-[14px]
-           tracking-tight transition-all duration-200 ease-out select-none whitespace-nowrap;
+    @apply inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-full
+           font-medium text-[13px] tracking-tight select-none whitespace-nowrap
+           transition-all duration-200 ease-out cursor-pointer;
   }
   .btn-lg { @apply px-7 py-3.5 text-[15px]; }
-  .btn-sm { @apply px-4 py-2 text-[13px]; }
+  .btn-sm { @apply px-4 py-2 text-[12px]; }
 
+  /* primary = oscuro (no rojo) — Apple style */
   .btn-primary {
-    background: var(--brand);
-    color: #ffffff;
-    @apply btn hover:opacity-90 active:scale-[0.97] shadow-sm;
+    background: var(--text);
+    color: var(--bg);
+    @apply btn active:scale-[0.97];
   }
-  .btn-primary:hover { background: var(--brand-hover); }
+  .btn-primary:hover { opacity: 0.88; }
 
   .btn-secondary {
     background: var(--surface-2);
     color: var(--text);
-    border: 1px solid var(--border);
-    @apply btn hover:opacity-90 active:scale-[0.97];
+    @apply btn active:scale-[0.97];
   }
+  .btn-secondary:hover { background: var(--border); }
 
   .btn-ghost {
     background: transparent;
     color: var(--text);
-    @apply btn hover:bg-black/5 dark:hover:bg-white/5 active:scale-[0.97];
+    @apply btn active:scale-[0.97];
   }
+  .btn-ghost:hover { background: var(--surface-2); }
 
   .btn-danger {
-    background: rgba(157, 22, 38, 0.10);
-    color: var(--brand);
+    background: rgba(239, 68, 68, 0.10);
+    color: #DC2626;
     @apply btn;
   }
-  .btn-danger:hover { background: rgba(157, 22, 38, 0.18); }
+  .btn-danger:hover { background: rgba(239, 68, 68, 0.18); }
+  html.dark .btn-danger { color: #F87171; }
 
+  /* ────────────────────────────────────────────── Inputs */
   .input {
     background: var(--surface-2);
     color: var(--text);
     border: 1px solid transparent;
-    @apply w-full rounded-2xl px-4 py-3 text-sm transition-all duration-200
-           focus:outline-none;
+    @apply w-full rounded-2xl px-4 py-3 text-sm transition-all duration-200 focus:outline-none;
   }
-  .input::placeholder { color: var(--text-subtle); opacity: 0.7; }
+  .input::placeholder { color: var(--text-faint); }
   .input:focus {
     background: var(--surface);
-    border-color: var(--brand);
-    box-shadow: 0 0 0 4px rgb(157 22 38 / 0.08);
+    border-color: var(--text);
+    box-shadow: 0 0 0 4px rgb(10 10 10 / 0.05);
   }
+  html.dark .input:focus { box-shadow: 0 0 0 4px rgb(255 255 255 / 0.05); }
+
+  .select { @apply input appearance-none cursor-pointer; }
 
   .label {
-    color: var(--text-muted);
-    @apply text-[12px] font-medium uppercase tracking-wider mb-1.5 block;
-  }
-
-  .nav-link {
-    color: var(--text-muted);
-    @apply flex items-center gap-3 px-4 py-2.5 rounded-2xl text-[14px] font-medium
-           transition-all duration-200 ease-out;
-  }
-  .nav-link:hover { background: var(--surface-2); color: var(--text); }
-  .nav-link-active {
-    background: var(--brand-soft);
-    color: var(--brand);
-    @apply flex items-center gap-3 px-4 py-2.5 rounded-2xl text-[14px] font-semibold;
-  }
-  .nav-section {
     color: var(--text-subtle);
-    @apply text-[11px] font-semibold uppercase tracking-widest px-4 mb-2 mt-4;
+    @apply block text-[11px] font-medium mb-1.5 tracking-wide uppercase;
   }
 
-  .table-header {
-    color: var(--text-muted);
-    @apply text-[11px] font-semibold uppercase tracking-wider px-4 py-3 text-left whitespace-nowrap;
+  /* ────────────────────────────────────────────── Sidebar / Nav */
+  .nav-section {
+    color: var(--text-faint);
+    @apply text-[10px] uppercase tracking-[0.18em] px-3 mt-7 mb-2 font-semibold;
   }
-  .table-cell {
+  .nav-link {
+    color: var(--text-subtle);
+    @apply flex items-center gap-3 px-3 py-2 rounded-xl text-[13px] font-medium tracking-tight
+           transition-all duration-200;
+  }
+  .nav-link:hover {
     color: var(--text);
-    @apply px-4 py-3.5 text-sm;
+    background: var(--surface-2);
+  }
+  .nav-link-active {
+    background: var(--text);
+    color: var(--bg);
+    @apply flex items-center gap-3 px-3 py-2 rounded-xl text-[13px] font-semibold tracking-tight;
+  }
+
+  /* ────────────────────────────────────────────── Chips / Badges */
+  .chip {
+    @apply inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium tracking-tight;
+  }
+  .chip-dark   { background: var(--text); color: var(--bg); }
+  .chip-muted  { background: var(--surface-2); color: var(--text-subtle); }
+  .chip-success{ background: rgba(16,185,129,0.10); color: #059669; }
+  .chip-warn   { background: rgba(245,158,11,0.10); color: #B45309; }
+  .chip-danger { background: rgba(239,68,68,0.10);  color: #DC2626; }
+  .chip-brand  { background: var(--brand-soft); color: var(--brand); }
+  html.dark .chip-success { color: #34D399; }
+  html.dark .chip-warn    { color: #FBBF24; }
+  html.dark .chip-danger  { color: #F87171; }
+
+  /* alias para retro-compat */
+  .badge        { @apply chip; }
+  .badge-green  { @apply chip-success; }
+  .badge-yellow { @apply chip-warn; }
+  .badge-red    { @apply chip-danger; }
+  .badge-blue,
+  .badge-purple,
+  .badge-orange { @apply chip-muted; }
+  .badge-gray   { @apply chip-muted; }
+
+  /* ────────────────────────────────────────────── Stat / KPI */
+  .stat-card {
+    @apply card flex flex-col gap-2 card-hover;
+  }
+  .stat-label {
+    color: var(--text-subtle);
+    @apply text-[11px] uppercase tracking-[0.14em] font-medium;
+  }
+  .stat-value {
+    color: var(--text);
+    @apply font-display font-semibold tabular-nums;
+    letter-spacing: -0.03em;
+  }
+
+  /* ────────────────────────────────────────────── Tables */
+  .table-header,
+  .th {
+    color: var(--text-subtle);
+    @apply text-[11px] uppercase tracking-[0.12em] font-semibold py-3 px-4 text-left whitespace-nowrap;
+  }
+  .table-cell,
+  .td {
+    color: var(--text);
+    @apply py-3.5 px-4 text-[13px];
   }
   .table-row {
     border-bottom: 1px solid var(--border);
@@ -154,90 +222,121 @@ html.dark {
   }
   .table-row:hover { background: var(--surface-2); }
 
-  .badge {
-    @apply inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-medium tracking-tight;
+  /* ────────────────────────────────────────────── Hero */
+  .hero-eyebrow {
+    color: var(--text-subtle);
+    @apply text-[11px] uppercase tracking-[0.22em] font-semibold mb-4;
   }
-  .badge-brand   { background: var(--brand-soft); color: var(--brand); }
-  .badge-success { background: rgba(16,185,129,0.10); color: #047857; }
-  .badge-warning { background: rgba(245,158,11,0.10); color: #B45309; }
-  .badge-danger  { background: rgba(220,38,38,0.10);  color: #B91C1C; }
-  .badge-muted   { background: var(--surface-2); color: var(--text-muted); }
-  html.dark .badge-success { color: #34D399; }
-  html.dark .badge-warning { color: #FBBF24; }
-  html.dark .badge-danger  { color: #F87171; }
+  .hero-title   { @apply font-display font-bold leading-[1.02]; letter-spacing: -0.04em; }
+  .hero-sub {
+    color: var(--text-subtle);
+    @apply text-lg leading-relaxed font-light;
+  }
 
-  .page { @apply p-4 sm:p-6 lg:p-8 space-y-6; }
-  .stat-card { @apply card flex flex-col gap-2 hover:shadow-soft; }
+  /* ────────────────────────────────────────────── Page wrapper */
+  .page { @apply p-4 sm:p-6 lg:p-10 space-y-8; }
 
+  /* ────────────────────────────────────────────── Modal */
   .modal-backdrop {
-    @apply fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-0 sm:p-4;
+    @apply fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4;
+    background: rgba(0, 0, 0, 0.3);
+    backdrop-filter: blur(8px);
   }
   .modal-panel {
     background: var(--surface);
     border: 1px solid var(--border);
-    @apply w-full sm:max-w-xl rounded-t-3xl sm:rounded-3xl max-h-[92vh] sm:max-h-[85vh] overflow-y-auto shadow-card;
+    @apply w-full sm:max-w-xl rounded-t-3xl sm:rounded-3xl max-h-[92vh] sm:max-h-[85vh] overflow-y-auto;
+    box-shadow: 0 24px 60px -12px rgb(0 0 0 / 0.25);
   }
 
-  .hero-title { @apply text-4xl sm:text-5xl lg:text-6xl font-bold leading-[1.05]; letter-spacing: -0.03em; }
-  .hero-sub { color: var(--text-muted); @apply text-base sm:text-lg leading-relaxed; }
+  /* ────────────────────────────────────────────── Glass nav (sidebar) */
+  .glass {
+    background: rgba(255, 255, 255, 0.78);
+    backdrop-filter: blur(24px) saturate(150%);
+    -webkit-backdrop-filter: blur(24px) saturate(150%);
+  }
+  html.dark .glass {
+    background: rgba(10, 10, 10, 0.85);
+  }
+
+  .divider { border-top: 1px solid var(--border); }
 }
 
-/* Recharts */
+/* ─── Recharts overrides ────────────────────────────────────────────────── */
 .recharts-cartesian-grid-horizontal line,
 .recharts-cartesian-grid-vertical line { stroke: var(--border); }
-.recharts-text { fill: var(--text-muted); }
+.recharts-text { fill: var(--text-subtle); font-size: 11px; }
 .recharts-tooltip-wrapper .recharts-default-tooltip {
   background: var(--surface) !important;
   border: 1px solid var(--border) !important;
   border-radius: 14px !important;
   color: var(--text) !important;
   box-shadow: 0 12px 40px -12px rgb(0 0 0 / 0.18) !important;
+  padding: 12px !important;
+}
+.recharts-tooltip-wrapper .recharts-default-tooltip .recharts-tooltip-label {
+  color: var(--text) !important;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+.recharts-legend-item-text { color: var(--text-subtle) !important; font-size: 12px !important; }
+
+/* Focus ring */
+*:focus-visible {
+  outline: 2px solid var(--text);
+  outline-offset: 2px;
+  border-radius: 6px;
 }
 
+/* iOS auto-zoom fix */
 @media screen and (max-width: 767px) {
   input, select, textarea { font-size: 16px !important; }
 }
 
-/* ─── Bridges para clases hardcoded del legacy frontend ───────────────────────
-   El código original usaba clases dark-only (text-white, bg-[#1f2937], etc.).
-   Estas overrides mapean esas clases al sistema de tokens, así funcionan en
-   ambos modos sin necesidad de modificar cada página. */
+/* ─── Bridges para clases hardcoded del legacy frontend ────────────────────
+   Las páginas usan text-white / bg-[#0f172a] / etc. desde el código viejo.
+   Estas reglas las redirigen al sistema de tokens. */
 @layer utilities {
-  .text-white          { color: var(--text) !important; }
-  .text-gray-100       { color: var(--text) !important; }
-  .text-gray-200       { color: var(--text) !important; }
+  .text-white,
+  .text-gray-100,
+  .text-gray-200,
   .text-gray-300       { color: var(--text) !important; }
   .text-gray-400       { color: var(--text-muted) !important; }
-  .text-gray-500       { color: var(--text-subtle) !important; }
+  .text-gray-500,
   .text-gray-600       { color: var(--text-subtle) !important; }
 
-  /* Backgrounds hardcoded (legacy) → surfaces dinámicos */
   .bg-\[\#0a0f1e\]     { background-color: var(--bg) !important; }
   .bg-\[\#0f172a\]     { background-color: var(--surface) !important; }
   .bg-\[\#111827\]     { background-color: var(--surface) !important; }
   .bg-\[\#1f2937\]     { background-color: var(--surface-2) !important; }
 
-  /* Border legacy */
-  .border-gray-700     { border-color: var(--border) !important; }
-  .border-gray-700\/40 { border-color: var(--border) !important; }
-  .border-gray-700\/50 { border-color: var(--border) !important; }
+  .border-gray-700,
+  .border-gray-700\/40,
+  .border-gray-700\/50,
   .border-gray-700\/60 { border-color: var(--border) !important; }
 
-  /* Violet legacy → brand (rojo Larrañaga) ----------------------------------
-     El frontend antiguo usaba violeta como acento. Lo mapeamos al brand */
-  .text-violet-300, .text-violet-400, .text-violet-500 { color: var(--brand) !important; }
-  .bg-violet-500\/15, .bg-violet-600\/10, .bg-violet-600\/15,
-  .bg-violet-600\/20, .bg-violet-600\/25, .bg-violet-600\/30 { background-color: var(--brand-soft) !important; }
-  .bg-violet-500\/5  { background-color: var(--brand-soft) !important; }
-  .bg-violet-600    { background-color: var(--brand) !important; color: #fff !important; }
-  .bg-violet-700    { background-color: var(--brand-hover) !important; color: #fff !important; }
-  .hover\:bg-violet-700:hover { background-color: var(--brand-hover) !important; }
+  /* Acento violet legacy → ink-700 (neutro), excepto donde es claramente brand */
+  .text-violet-300,
+  .text-violet-400,
+  .text-violet-500     { color: var(--text) !important; }
+  .bg-violet-500\/15,
+  .bg-violet-500\/5,
+  .bg-violet-600\/10,
+  .bg-violet-600\/15,
+  .bg-violet-600\/20,
+  .bg-violet-600\/25,
+  .bg-violet-600\/30   { background-color: var(--surface-2) !important; }
+  .bg-violet-600       { background-color: var(--text) !important; color: var(--bg) !important; }
+  .bg-violet-700,
+  .hover\:bg-violet-700:hover { background-color: var(--text-muted) !important; color: var(--bg) !important; }
   .hover\:bg-violet-600\/20:hover,
-  .hover\:bg-violet-600\/30:hover { background-color: var(--brand-soft) !important; opacity: 0.85; }
-  .border-violet-500\/20, .border-violet-500\/30, .border-violet-500\/50,
-  .border-violet-500\/60 { border-color: var(--brand) !important; opacity: 0.7; }
+  .hover\:bg-violet-600\/30:hover { background-color: var(--surface-2) !important; }
+  .border-violet-500\/20,
+  .border-violet-500\/30,
+  .border-violet-500\/50,
+  .border-violet-500\/60 { border-color: var(--border) !important; }
 
-  /* SVG icons text-violet-X usados como `text-violet-500` en CrucePanel etc. */
-  svg.text-violet-300, svg.text-violet-400, svg.text-violet-500 { color: var(--brand) !important; }
+  svg.text-violet-300,
+  svg.text-violet-400,
+  svg.text-violet-500  { color: var(--text-muted) !important; }
 }
-

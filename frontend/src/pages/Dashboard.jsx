@@ -87,15 +87,15 @@ export default function Dashboard() {
 
       {/* KPI Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-        <StatCard title="Clientes activos" value={stats.active_clients} subtitle={`${stats.total_clients} total`} icon={Users} color="brand" />
-        <StatCard title="Colaboradores" value={stats.total_collaborators} icon={UserCheck} color="neutral" />
-        <StatCard title="Tareas este mes" value={stats.tasks_this_month} icon={Activity} color="info" />
-        <StatCard title="Tareas totales" value={stats.total_tasks} icon={ClipboardList} color="neutral" />
+        <StatCard title="Clientes activos" value={stats.active_clients} subtitle={`${stats.total_clients} total`} icon={Users} />
+        <StatCard title="Colaboradores" value={stats.total_collaborators} icon={UserCheck} />
+        <StatCard title="Tareas este mes" value={stats.tasks_this_month} icon={Activity} />
+        <StatCard title="Tareas totales" value={stats.total_tasks} icon={ClipboardList} />
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <StatCard title="Terminadas" value={stats.completed_tasks} icon={CheckCircle} color="success" />
-        <StatCard title="En curso" value={stats.in_progress_tasks} icon={Clock} color="info" />
+        <StatCard title="En curso" value={stats.in_progress_tasks} icon={Clock} />
         <StatCard title="Pendientes" value={stats.pending_tasks} icon={AlertCircle} color="warning" />
         <StatCard title="Bloqueadas" value={stats.blocked_tasks} icon={AlertCircle} color="danger" />
       </div>
@@ -107,7 +107,7 @@ export default function Dashboard() {
           value={stats.iva_pendientes}
           subtitle="Sin presentar"
           icon={BarChart3}
-          color="brand"
+          color="warning"
         />
         <StatCard
           title="IVA presentados este mes"
@@ -123,7 +123,7 @@ export default function Dashboard() {
         {/* Monthly billing */}
         <div className="card">
           <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-            <TrendingUp size={20} className="text-brand-500 dark:text-brand-dark" />
+            <TrendingUp size={20} className="text-ink-500" />
             Facturación mensual
           </h3>
           <ResponsiveContainer width="100%" height={240}>
@@ -132,7 +132,7 @@ export default function Dashboard() {
               <XAxis dataKey="period" tickFormatter={formatPeriod} tick={{ fontSize: 11, fill: '#9ca3af' }} />
               <YAxis tickFormatter={v => `$${(v/1000000).toFixed(1)}M`} tick={{ fontSize: 11, fill: '#9ca3af' }} />
               <Tooltip content={<CustomTooltip />} />
-              <Line type="monotone" dataKey="monto_facturas" name="Monto facturado" stroke="#9D1626" strokeWidth={2.5} dot={{ r: 3, fill: '#9D1626' }} />
+              <Line type="monotone" dataKey="monto_facturas" name="Monto facturado" stroke="var(--text)" strokeWidth={2} dot={{ r: 3, fill: 'var(--text)' }} />
             </LineChart>
           </ResponsiveContainer>
         </div>
@@ -173,10 +173,10 @@ export default function Dashboard() {
               <YAxis tick={{ fontSize: 11, fill: '#9ca3af' }} />
               <Tooltip contentStyle={{ background: '#1f2937', border: '1px solid #374151', borderRadius: 8, color: '#f3f4f6' }} />
               <Legend formatter={v => <span style={{ color: '#d1d5db', fontSize: 12 }}>{v}</span>} />
-              <Bar dataKey="Terminadas" stackId="a" fill="#10b981" radius={[0,0,0,0]} />
-              <Bar dataKey="En Curso" stackId="a" fill="#0ea5e9" />
-              <Bar dataKey="Pendientes" stackId="a" fill="#f59e0b" />
-              <Bar dataKey="Bloqueadas" stackId="a" fill="#f43f5e" radius={[4,4,0,0]} />
+              <Bar dataKey="Terminadas" stackId="a" fill="#10B981" radius={[0,0,0,0]} />
+              <Bar dataKey="En Curso" stackId="a" fill="#94A3B8" />
+              <Bar dataKey="Pendientes" stackId="a" fill="#F59E0B" />
+              <Bar dataKey="Bloqueadas" stackId="a" fill="#EF4444" radius={[4,4,0,0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -194,9 +194,9 @@ export default function Dashboard() {
               <YAxis tick={{ fontSize: 11, fill: '#9ca3af' }} />
               <Tooltip content={<CustomTooltip />} />
               <Legend formatter={v => <span style={{ color: '#d1d5db', fontSize: 12 }}>{v}</span>} />
-              <Bar dataKey="tareas" name="Tareas" fill="#9D1626" radius={[3,3,0,0]} />
-              <Bar dataKey="facturas" name="Facturas" fill="#0EA5E9" radius={[3,3,0,0]} />
-              <Bar dataKey="iva_presentados" name="IVA pres." fill="#10B981" radius={[3,3,0,0]} />
+              <Bar dataKey="tareas" name="Tareas" fill="var(--text)" radius={[4,4,0,0]} />
+              <Bar dataKey="facturas" name="Facturas" fill="#94A3B8" radius={[4,4,0,0]} />
+              <Bar dataKey="iva_presentados" name="IVA pres." fill="#10B981" radius={[4,4,0,0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -205,7 +205,7 @@ export default function Dashboard() {
       {/* Collaborator detail table */}
       <div className="card">
         <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-          <UserCheck size={20} className="text-brand-500 dark:text-brand-dark" />
+          <UserCheck size={20} className="text-ink-500" />
           Rendimiento de colaboradores
         </h3>
         <div className="overflow-x-auto">
