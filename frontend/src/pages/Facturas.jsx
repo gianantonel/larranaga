@@ -83,10 +83,10 @@ export default function Facturas() {
 
       {/* KPIs */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-        <StatCard title="Total facturas" value={facturas.length} icon={ReceiptText} color="violet" />
-        <StatCard title="Monto total" value={formatCurrency(totalMonto)} valueShort={formatCurrencyShort(totalMonto)} icon={DollarSign} color="emerald" />
-        <StatCard title="IVA total" value={formatCurrency(totalIVA)} valueShort={formatCurrencyShort(totalIVA)} icon={TrendingUp} color="amber" />
-        <StatCard title="Fact. A / B" value={`${countA} / ${countB}`} icon={ReceiptText} color="cyan" />
+        <StatCard title="Total facturas" value={facturas.length} icon={ReceiptText} color="brand" />
+        <StatCard title="Monto total" value={formatCurrency(totalMonto)} valueShort={formatCurrencyShort(totalMonto)} icon={DollarSign} color="success" />
+        <StatCard title="IVA total" value={formatCurrency(totalIVA)} valueShort={formatCurrencyShort(totalIVA)} icon={TrendingUp} color="warning" />
+        <StatCard title="Fact. A / B" value={`${countA} / ${countB}`} icon={ReceiptText} color="info" />
       </div>
 
       {/* Chart */}
@@ -99,8 +99,8 @@ export default function Facturas() {
             <YAxis tickFormatter={v => `$${(v/1000000).toFixed(1)}M`} tick={{ fontSize: 11, fill: '#9ca3af' }} />
             <Tooltip formatter={(v, n) => [n === 'Monto' ? formatCurrency(v) : v, n]} contentStyle={{ background: '#1f2937', border: '1px solid #374151', borderRadius: 8, color: '#f3f4f6' }} labelFormatter={formatPeriod} />
             <Legend formatter={v => <span style={{ color: '#d1d5db', fontSize: 12 }}>{v}</span>} />
-            <Bar dataKey="monto_facturas" name="Monto" fill="#7c3aed" radius={[3,3,0,0]} />
-            <Bar dataKey="facturas" name="Cantidad" fill="#0ea5e9" radius={[3,3,0,0]} />
+            <Bar dataKey="monto_facturas" name="Monto" fill="#9D1626" radius={[3,3,0,0]} />
+            <Bar dataKey="facturas" name="Cantidad" fill="#0EA5E9" radius={[3,3,0,0]} />
           </BarChart>
         </ResponsiveContainer>
       </div>

@@ -74,10 +74,10 @@ export default function IVA() {
 
       {/* KPIs */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-        <StatCard title="Pendientes de presentar" value={pending.length} icon={AlertTriangle} color="rose" />
-        <StatCard title="Presentados" value={filed.length} icon={CheckCircle} color="emerald" />
-        <StatCard title="Saldo total a pagar" value={formatCurrency(totalSaldo)} valueShort={formatCurrencyShort(totalSaldo)} icon={TrendingUp} color="amber" />
-        <StatCard title="Total débito fiscal" value={formatCurrency(totalDebito)} valueShort={formatCurrencyShort(totalDebito)} icon={BarChart3} color="violet" />
+        <StatCard title="Pendientes de presentar" value={pending.length} icon={AlertTriangle} color="danger" />
+        <StatCard title="Presentados" value={filed.length} icon={CheckCircle} color="success" />
+        <StatCard title="Saldo total a pagar" value={formatCurrency(totalSaldo)} valueShort={formatCurrencyShort(totalSaldo)} icon={TrendingUp} color="warning" />
+        <StatCard title="Total débito fiscal" value={formatCurrency(totalDebito)} valueShort={formatCurrencyShort(totalDebito)} icon={BarChart3} color="brand" />
       </div>
 
       {/* Chart */}
@@ -90,9 +90,9 @@ export default function IVA() {
             <YAxis tickFormatter={v => `$${(v/1000000).toFixed(1)}M`} tick={{ fontSize: 11, fill: '#9ca3af' }} />
             <Tooltip formatter={v => formatCurrency(v)} contentStyle={{ background: '#1f2937', border: '1px solid #374151', borderRadius: 8, color: '#f3f4f6' }} labelFormatter={formatPeriod} />
             <Legend formatter={v => <span style={{ color: '#d1d5db', fontSize: 12 }}>{v}</span>} />
-            <Bar dataKey="Débito Fiscal" fill="#f43f5e" radius={[3,3,0,0]} />
-            <Bar dataKey="Crédito Fiscal" fill="#10b981" radius={[3,3,0,0]} />
-            <Bar dataKey="Saldo" fill="#f59e0b" radius={[3,3,0,0]} />
+            <Bar dataKey="Débito Fiscal" fill="#9D1626" radius={[3,3,0,0]} />
+            <Bar dataKey="Crédito Fiscal" fill="#10B981" radius={[3,3,0,0]} />
+            <Bar dataKey="Saldo" fill="#F59E0B" radius={[3,3,0,0]} />
           </BarChart>
         </ResponsiveContainer>
       </div>

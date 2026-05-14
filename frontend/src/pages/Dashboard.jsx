@@ -87,17 +87,17 @@ export default function Dashboard() {
 
       {/* KPI Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-        <StatCard title="Clientes activos" value={stats.active_clients} subtitle={`${stats.total_clients} total`} icon={Users} color="cyan" />
-        <StatCard title="Colaboradores" value={stats.total_collaborators} icon={UserCheck} color="violet" />
-        <StatCard title="Tareas este mes" value={stats.tasks_this_month} icon={Activity} color="indigo" />
-        <StatCard title="Tareas totales" value={stats.total_tasks} icon={ClipboardList} color="amber" />
+        <StatCard title="Clientes activos" value={stats.active_clients} subtitle={`${stats.total_clients} total`} icon={Users} color="brand" />
+        <StatCard title="Colaboradores" value={stats.total_collaborators} icon={UserCheck} color="neutral" />
+        <StatCard title="Tareas este mes" value={stats.tasks_this_month} icon={Activity} color="info" />
+        <StatCard title="Tareas totales" value={stats.total_tasks} icon={ClipboardList} color="neutral" />
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-        <StatCard title="Terminadas" value={stats.completed_tasks} icon={CheckCircle} color="emerald" />
-        <StatCard title="En curso" value={stats.in_progress_tasks} icon={Clock} color="cyan" />
-        <StatCard title="Pendientes" value={stats.pending_tasks} icon={AlertCircle} color="amber" />
-        <StatCard title="Bloqueadas" value={stats.blocked_tasks} icon={AlertCircle} color="rose" />
+        <StatCard title="Terminadas" value={stats.completed_tasks} icon={CheckCircle} color="success" />
+        <StatCard title="En curso" value={stats.in_progress_tasks} icon={Clock} color="info" />
+        <StatCard title="Pendientes" value={stats.pending_tasks} icon={AlertCircle} color="warning" />
+        <StatCard title="Bloqueadas" value={stats.blocked_tasks} icon={AlertCircle} color="danger" />
       </div>
 
       {/* IVA summary */}
@@ -107,14 +107,14 @@ export default function Dashboard() {
           value={stats.iva_pendientes}
           subtitle="Sin presentar"
           icon={BarChart3}
-          color="rose"
+          color="brand"
         />
         <StatCard
           title="IVA presentados este mes"
           value={stats.iva_presentados_mes}
           subtitle="Declaraciones juradas"
           icon={CheckCircle}
-          color="emerald"
+          color="success"
         />
       </div>
 
@@ -123,7 +123,7 @@ export default function Dashboard() {
         {/* Monthly billing */}
         <div className="card">
           <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-            <TrendingUp size={20} className="text-violet-400" />
+            <TrendingUp size={20} className="text-brand-500 dark:text-brand-dark" />
             Facturación mensual
           </h3>
           <ResponsiveContainer width="100%" height={240}>
@@ -132,7 +132,7 @@ export default function Dashboard() {
               <XAxis dataKey="period" tickFormatter={formatPeriod} tick={{ fontSize: 11, fill: '#9ca3af' }} />
               <YAxis tickFormatter={v => `$${(v/1000000).toFixed(1)}M`} tick={{ fontSize: 11, fill: '#9ca3af' }} />
               <Tooltip content={<CustomTooltip />} />
-              <Line type="monotone" dataKey="monto_facturas" name="Monto facturado" stroke="#7c3aed" strokeWidth={2.5} dot={{ r: 3, fill: '#7c3aed' }} />
+              <Line type="monotone" dataKey="monto_facturas" name="Monto facturado" stroke="#9D1626" strokeWidth={2.5} dot={{ r: 3, fill: '#9D1626' }} />
             </LineChart>
           </ResponsiveContainer>
         </div>
@@ -194,9 +194,9 @@ export default function Dashboard() {
               <YAxis tick={{ fontSize: 11, fill: '#9ca3af' }} />
               <Tooltip content={<CustomTooltip />} />
               <Legend formatter={v => <span style={{ color: '#d1d5db', fontSize: 12 }}>{v}</span>} />
-              <Bar dataKey="tareas" name="Tareas" fill="#7c3aed" radius={[3,3,0,0]} />
-              <Bar dataKey="facturas" name="Facturas" fill="#0ea5e9" radius={[3,3,0,0]} />
-              <Bar dataKey="iva_presentados" name="IVA pres." fill="#10b981" radius={[3,3,0,0]} />
+              <Bar dataKey="tareas" name="Tareas" fill="#9D1626" radius={[3,3,0,0]} />
+              <Bar dataKey="facturas" name="Facturas" fill="#0EA5E9" radius={[3,3,0,0]} />
+              <Bar dataKey="iva_presentados" name="IVA pres." fill="#10B981" radius={[3,3,0,0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -205,7 +205,7 @@ export default function Dashboard() {
       {/* Collaborator detail table */}
       <div className="card">
         <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-          <UserCheck size={20} className="text-violet-400" />
+          <UserCheck size={20} className="text-brand-500 dark:text-brand-dark" />
           Rendimiento de colaboradores
         </h3>
         <div className="overflow-x-auto">
