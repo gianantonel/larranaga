@@ -1,22 +1,38 @@
 import clsx from 'clsx'
 
-export default function StatCard({ title, value, valueShort, subtitle, icon: Icon, color = 'violet', trend }) {
-  const colorMap = {
-    violet:  { bg: 'bg-violet-500/15', text: 'text-violet-400', border: 'border-violet-500/20' },
-    cyan:    { bg: 'bg-sky-500/15',    text: 'text-sky-400',    border: 'border-sky-500/20' },
-    emerald: { bg: 'bg-emerald-500/15',text: 'text-emerald-400',border: 'border-emerald-500/20' },
-    amber:   { bg: 'bg-amber-500/15',  text: 'text-amber-400',  border: 'border-amber-500/20' },
-    rose:    { bg: 'bg-rose-500/15',   text: 'text-rose-400',   border: 'border-rose-500/20' },
-    indigo:  { bg: 'bg-indigo-500/15', text: 'text-indigo-400', border: 'border-indigo-500/20' },
-  }
-  const c = colorMap[color] || colorMap.violet
+/**
+ * StatCard — Apple-minimalist
+ *
+ * Diferencia respecto al diseño anterior: paleta neutral en light/dark,
+ * acento solo en el icono. La tipografía hace el trabajo, no el color.
+ */
+export default function StatCard({
+  title, value, valueShort, subtitle, icon: Icon, color = 'brand', trend,
+}) {
+  // Colors usan CSS variables — funcionan en light y dark
+  const iconBg = {
+    brand:   { bg: 'var(--brand-soft)',                color: 'var(--brand)' },
+    success: { bg: 'rgba(16,185,129,0.10)',            color: '#059669' },
+    warning: { bg: 'rgba(245,158,11,0.10)',            color: '#D97706' },
+    danger:  { bg: 'rgba(239,68,68,0.10)',             color: '#DC2626' },
+    info:    { bg: 'rgba(14,165,233,0.10)',            color: '#0284C7' },
+    neutral: { bg: 'var(--surface-2)',                 color: 'var(--text-muted)' },
+  }[color] || { bg: 'var(--brand-soft)', color: 'var(--brand)' }
 
   return (
-    <div className={clsx('stat-card', 'border', c.border)}>
-      <div className="flex items-start justify-between gap-2">
+    <div className="stat-card">
+      <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
-          <p className="text-xs sm:text-sm font-medium text-gray-400 truncate">{title}</p>
-          <p className={clsx('text-xl sm:text-2xl lg:text-3xl font-bold mt-1 break-words tabular-nums leading-tight', c.text)}>
+          <p
+            className="text-xs sm:text-sm font-medium truncate"
+            style={{ color: 'var(--text-muted)' }}
+          >
+            {title}
+          </p>
+          <p
+            className="text-2xl sm:text-3xl font-bold mt-1.5 break-words tabular-nums leading-tight"
+            style={{ color: 'var(--text)', letterSpacing: '-0.02em' }}
+          >
             {valueShort != null ? (
               <>
                 <span className="xl:hidden">{valueShort}</span>
@@ -24,17 +40,27 @@ export default function StatCard({ title, value, valueShort, subtitle, icon: Ico
               </>
             ) : value}
           </p>
-          {subtitle && <p className="text-xs sm:text-sm text-gray-500 mt-1 truncate">{subtitle}</p>}
+          {subtitle && (
+            <p className="text-xs sm:text-sm mt-1 truncate" style={{ color: 'var(--text-subtle)' }}>
+              {subtitle}
+            </p>
+          )}
         </div>
         {Icon && (
-          <div className={clsx('p-2 sm:p-3 rounded-xl shrink-0', c.bg)}>
-            <Icon size={20} className={c.text} />
+          <div
+            className="p-2.5 rounded-2xl shrink-0"
+            style={{ background: iconBg.bg, color: iconBg.color }}
+          >
+            <Icon size={18} />
           </div>
         )}
       </div>
       {trend != null && (
-        <p className={clsx('text-sm font-medium', trend >= 0 ? 'text-emerald-400' : 'text-rose-400')}>
-          {trend >= 0 ? '▲' : '▼'} {Math.abs(trend)}% vs mes anterior
+        <p
+          className="text-xs font-medium mt-2"
+          style={{ color: trend >= 0 ? '#10B981' : '#EF4444' }}
+        >
+          {trend >= 0 ? '↑' : '↓'} {Math.abs(trend)}% vs mes anterior
         </p>
       )}
     </div>

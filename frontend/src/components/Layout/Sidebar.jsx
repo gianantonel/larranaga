@@ -1,86 +1,92 @@
 import { NavLink } from 'react-router-dom'
 import {
   LayoutDashboard, Users, UserCheck, ClipboardList,
-  ReceiptText, BarChart3, Scale, LogOut, FileSearch, Wrench, Wallet, X,
+  ReceiptText, BarChart3, LogOut, FileSearch, Wrench, Wallet, X,
 } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
+import Logo from '../UI/Logo'
+import ThemeToggle from '../UI/ThemeToggle'
 import clsx from 'clsx'
 
-const navItems = [
-  { to: '/dashboard',     icon: LayoutDashboard, label: 'Dashboard' },
+const VISTAS = [
+  { to: '/dashboard',     icon: LayoutDashboard, label: 'Dashboard',     end: true },
   { to: '/clientes',      icon: Users,           label: 'Clientes' },
   { to: '/colaboradores', icon: UserCheck,       label: 'Colaboradores' },
   { to: '/tareas',        icon: ClipboardList,   label: 'Tareas' },
-  { to: '/cuentas-corrientes', icon: Wallet,   label: 'Cuentas Corrientes' },
-  { to: '/iva',           icon: BarChart3,       label: 'Balance IVA' },
-  { to: '/facturas',      icon: ReceiptText,     label: 'Facturación' },
-  { to: '/retenciones',   icon: FileSearch,      label: 'Retenciones' },
-  { to: '/herramientas',  icon: Wrench,          label: 'Adaptador IVA → Holistor' },
+]
+
+const ACCIONES = [
+  { to: '/cuentas-corrientes', icon: Wallet,      label: 'Cuentas Corrientes' },
+  { to: '/iva',                icon: BarChart3,   label: 'Balance IVA' },
+  { to: '/facturas',           icon: ReceiptText, label: 'Facturación' },
+  { to: '/retenciones',        icon: FileSearch,  label: 'Retenciones' },
+  { to: '/herramientas',       icon: Wrench,      label: 'Adaptador IVA' },
 ]
 
 export default function Sidebar({ open = false, onClose = () => {} }) {
-  const { user, logout, isAdmin } = useAuth()
+  const { user, logout } = useAuth()
 
   return (
     <aside
       className={clsx(
-        'fixed inset-y-0 left-0 z-40 w-72 max-w-[85vw] bg-[#0f172a] border-r border-gray-700/40 flex flex-col',
+        'fixed inset-y-0 left-0 z-40 w-72 max-w-[85vw] flex flex-col',
         'transform transition-transform duration-300 ease-out',
         open ? 'translate-x-0' : '-translate-x-full',
         'lg:static lg:translate-x-0 lg:w-64 lg:max-w-none lg:z-auto'
       )}
+      style={{ background: 'var(--surface)', borderRight: '1px solid var(--border)' }}
     >
-      {/* Logo + close (mobile) */}
-      <div className="px-6 py-5 border-b border-gray-700/40 flex items-center justify-between">
-        <div className="flex items-center gap-3 min-w-0">
-          <div className="w-10 h-10 rounded-xl bg-violet-600 flex items-center justify-center shrink-0">
-            <Scale size={20} className="text-white" />
-          </div>
-          <div className="min-w-0">
-            <h1 className="text-lg font-bold text-white leading-tight truncate">Larrañaga</h1>
-            <p className="text-xs text-gray-400 truncate">Estudio Contable y Legal</p>
-          </div>
-        </div>
+      <div className="px-6 py-5 flex items-center justify-between" style={{ borderBottom: '1px solid var(--border)' }}>
+        <Logo size="md" />
         <button
           onClick={onClose}
-          className="lg:hidden p-1.5 rounded-lg hover:bg-white/5 text-gray-400 hover:text-white transition-colors"
+          className="lg:hidden p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/5"
+          style={{ color: 'var(--text-muted)' }}
           aria-label="Cerrar menú"
         >
-          <X size={20} />
+          <X size={18} />
         </button>
       </div>
 
-      {/* Nav */}
-      <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
-        {navItems.map(({ to, icon: Icon, label }) => (
-          <NavLink
-            key={to}
-            to={to}
-            end={to === '/dashboard'}
-            onClick={onClose}
-            className={({ isActive }) =>
-              clsx(isActive ? 'nav-link-active' : 'nav-link', 'w-full')
-            }
-          >
-            <Icon size={20} />
-            <span className="truncate">{label}</span>
-          </NavLink>
-        ))}
+      <nav className="flex-1 px-3 py-4 overflow-y-auto">
+        <p className="nav-section">Vistas</p>
+        <div className="space-y-1">
+          {VISTAS.map(({ to, icon: Icon, label, end }) => (
+            <NavLink key={to} to={to} end={end} onClick={onClose}
+              className={({ isActive }) => clsx(isActive ? 'nav-link-active' : 'nav-link')}>
+              <Icon size={18} className="shrink-0" />
+              <span className="truncate">{label}</span>
+            </NavLink>
+          ))}
+        </div>
+
+        <p className="nav-section">Acciones</p>
+        <div className="space-y-1">
+          {ACCIONES.map(({ to, icon: Icon, label }) => (
+            <NavLink key={to} to={to} onClick={onClose}
+              className={({ isActive }) => clsx(isActive ? 'nav-link-active' : 'nav-link')}>
+              <Icon size={18} className="shrink-0" />
+              <span className="truncate">{label}</span>
+            </NavLink>
+          ))}
+        </div>
       </nav>
 
-      {/* User */}
-      <div className="px-3 pb-4 border-t border-gray-700/40 pt-4">
-        <div className="flex items-center gap-3 px-3 py-2 rounded-xl bg-white/3">
-          <div className="w-9 h-9 rounded-full bg-violet-600/30 border border-violet-500/30 flex items-center justify-center text-sm font-bold text-violet-300 shrink-0">
+      <div className="px-3 py-4" style={{ borderTop: '1px solid var(--border)' }}>
+        <div className="flex items-center gap-3 px-3 py-2 rounded-2xl" style={{ background: 'var(--surface-2)' }}>
+          <div className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold shrink-0"
+            style={{ background: 'var(--brand-soft)', color: 'var(--brand)' }}>
             {user?.avatar_initials || user?.name?.slice(0, 2).toUpperCase()}
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold text-white truncate">{user?.name}</p>
-            <p className="text-xs text-gray-400 truncate">{user?.email}</p>
+            <p className="text-sm font-semibold truncate" style={{ color: 'var(--text)' }}>{user?.name}</p>
+            <p className="text-xs truncate" style={{ color: 'var(--text-muted)' }}>{user?.email}</p>
           </div>
+          <ThemeToggle />
           <button
             onClick={logout}
-            className="text-gray-500 hover:text-rose-400 transition-colors p-1 shrink-0"
+            className="p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/5 shrink-0"
+            style={{ color: 'var(--text-muted)' }}
             title="Cerrar sesión"
           >
             <LogOut size={16} />
