@@ -10,12 +10,32 @@ DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./larranaga.db")
 
 _is_sqlite = "sqlite" in DATABASE_URL
 
-engine = create_engine(
-    DATABASE_URL,
-    connect_args={"check_same_thread": False} if _is_sqlite else {},
-    # For SQLite: enable connection pool pre-ping and a small pool
-    pool_pre_ping=True,
-)
+# Postgres en cloud (InsForge / Supabase / RDS) cierra conexiones idle por SSL
+# timeout. pool_recycle fuerza re-conexión cada 5 min ANTES de que el server las
+# mate; keepalives mantiene el socket vivo cuando hay tráfico bajo; pool_pre_ping
+# valida la conexión antes de cada checkout (descarta zombies).
+if _is_sqlite:
+    _engine_kwargs = {
+        "connect_args": {"check_same_thread": False},
+        "pool_pre_ping": True,
+    }
+else:
+    _engine_kwargs = {
+        "pool_pre_ping": True,
+        "pool_recycle": 300,
+        "pool_size": 5,
+        "max_overflow": 10,
+        "connect_args": {
+            "sslmode": "require",
+            "keepalives": 1,
+            "keepalives_idle": 30,
+            "keepalives_interval": 10,
+            "keepalives_count": 5,
+            "connect_timeout": 10,
+        },
+    }
+
+engine = create_engine(DATABASE_URL, **_engine_kwargs)
 
 if _is_sqlite:
     @event.listens_for(engine, "connect")
