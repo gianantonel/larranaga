@@ -2,8 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import { Download, Loader2, RefreshCw, Trash2 } from 'lucide-react'
 import {
   syncRetenciones, getRetencionSyncJob, getRetenciones, deleteRetencion,
-} from '../utils/api'
-import { formatCurrency, formatDate } from '../utils/helpers'
+} from '../../utils/api'
+import { formatCurrency, formatDate } from '../../utils/helpers'
 import CrucePanel from './CrucePanel'
 
 const POLL_INTERVAL_MS = 3000

@@ -12,7 +12,7 @@ import {
 import { useAuth } from '../context/AuthContext'
 import { StatusBadge, TypeBadge, FiledBadge } from '../components/UI/Badge'
 import LoadingSpinner from '../components/UI/LoadingSpinner'
-import RetencionesPanel from '../components/RetencionesPanel'
+import RetencionesPanel from '../components/UI/RetencionesPanel'
 import { formatCurrency, formatDate, formatPeriod } from '../utils/helpers'
 
 export default function ClientDetail() {

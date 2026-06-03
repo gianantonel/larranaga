@@ -73,10 +73,10 @@ export const taskTypeConfig = {
 }
 
 export const roleConfig = {
-  admin1:       { label: 'Administrador 1', className: 'badge-purple' },
-  admin2:       { label: 'Administrador 2', className: 'badge-purple' },
-  admin3:       { label: 'Administrador 3', className: 'badge-purple' },
-  collaborator: { label: 'Colaborador',     className: 'badge-blue' },
+  super_admin:  { label: 'Super Admin',   className: 'badge-purple' },
+  admin:        { label: 'Administrador', className: 'badge-purple' },
+  colaborador:  { label: 'Colaborador',   className: 'badge-blue' },
+  invitado:     { label: 'Invitado',      className: 'badge-gray' },
 }
 
 export const CHART_COLORS = [
