@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './context/AuthContext'
+import { ThemeProvider } from './context/ThemeContext'
 import Layout from './components/Layout/Layout'
 import Login from './pages/Login'
 import Register from './pages/Register'
@@ -30,7 +31,7 @@ import LoadingSpinner from './components/UI/LoadingSpinner'
 
 function ProtectedRoutes() {
   const { user, loading } = useAuth()
-  if (loading) return <div className="min-h-screen flex items-center justify-center bg-[#0a0f1e]"><LoadingSpinner /></div>
+  if (loading) return <div className="min-h-screen flex items-center justify-center surface"><LoadingSpinner /></div>
   if (!user) return <Navigate to="/login" replace />
   return (
     <Routes>
@@ -65,19 +66,18 @@ function ProtectedRoutes() {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-        <Routes>
-           {/* Public routes */}
-           {/* <Route path="/" element={<Landing />} /> */}{/* LANDING OCULTA — descomentar para rehabilitar */}
-           <Route path="/" element={<Navigate to="/login" replace />} />
-           <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
-           <Route path="/register" element={<Register />} />
-           {/* Protected app routes */}
-           <Route path="/*" element={<ProtectedRoutes />} />
-        </Routes>
-      </BrowserRouter>
-    </AuthProvider>
+    <ThemeProvider>
+      <AuthProvider>
+        <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+          <Routes>
+            <Route path="/" element={<Navigate to="/login" replace />} />
+            <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
+            <Route path="/register" element={<Register />} />
+            <Route path="/*" element={<ProtectedRoutes />} />
+          </Routes>
+        </BrowserRouter>
+      </AuthProvider>
+    </ThemeProvider>
   )
 }
 

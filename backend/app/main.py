@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 from .database import engine
 from . import models
-from .sync import register_sync_events
+from .sync import register_sync_events, start_periodic_sync
 
 from .routers import (
     auth, clients, collaborators, tasks, iva, facturas, dashboard,
@@ -129,6 +129,9 @@ async def startup_event():
     seed_database()
     seed_profesionales_y_productos()
     _seed_billetes()
+    # Auto-sync periódico a InsForge (controlado por env var
+    # INSFORGE_AUTOSYNC_INTERVAL_SECONDS, 0 o sin definir = deshabilitado)
+    start_periodic_sync()
 
 
 @app.get("/")

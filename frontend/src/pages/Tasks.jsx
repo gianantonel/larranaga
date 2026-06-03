@@ -1,13 +1,12 @@
 import { useEffect, useState } from 'react'
-import { Plus, Filter, ChevronDown, ChevronRight, MessageSquare, X, Upload } from 'lucide-react'
+import { Plus, Filter, ChevronDown, ChevronRight, MessageSquare } from 'lucide-react'
 import { getTasks, getClients, getCollaborators, createTask, updateTask, createSubtask, updateSubtask } from '../utils/api'
 import { useAuth } from '../context/AuthContext'
 import { StatusBadge, TypeBadge } from '../components/UI/Badge'
 import PageHeader from '../components/UI/PageHeader'
 import LoadingSpinner from '../components/UI/LoadingSpinner'
 import { formatDate, formatPeriod, taskTypeConfig, taskStatusConfig } from '../utils/helpers'
-import RetencionesPanel from '../components/UI/RetencionesPanel'
-import BulkUploadModal from '../components/UI/BulkUploadModal'
+import RetencionesPanel from '../components/RetencionesPanel'
 
 const TASK_TYPES = Object.entries(taskTypeConfig).map(([v, c]) => ({ value: v, ...c }))
 const TASK_STATUSES = Object.entries(taskStatusConfig).map(([v, c]) => ({ value: v, ...c }))
@@ -21,7 +20,6 @@ export default function Tasks() {
   const [expanded, setExpanded] = useState({})
   const [filters, setFilters] = useState({ client_id: '', collaborator_id: '', status: '', type: '' })
   const [showCreateModal, setShowCreateModal] = useState(false)
-  const [showBulkModal, setShowBulkModal] = useState(false)
   const [form, setForm] = useState({ title: '', description: '', task_type: 'ddjj_iva', client_id: '', collaborator_id: '', period: '', due_date: '' })
   const [saving, setSaving] = useState(false)
   const [subtaskInputs, setSubtaskInputs] = useState({})
@@ -80,45 +78,33 @@ export default function Tasks() {
     finally { setSaving(false) }
   }
 
-  useEffect(() => {
-    if (!showCreateModal) return
-    const handleEsc = e => { if (e.key === 'Escape') setShowCreateModal(false) }
-    window.addEventListener('keydown', handleEsc)
-    return () => window.removeEventListener('keydown', handleEsc)
-  }, [showCreateModal])
-
   if (loading) return <LoadingSpinner text="Cargando tareas..." />
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="page">
       <PageHeader title="Tareas" subtitle={`${tasks.length} tareas`}>
-        <div className="flex gap-2">
-          <button className="btn-secondary" onClick={() => setShowBulkModal(true)}>
-            <Upload size={18} /> Importar
-          </button>
-          <button className="btn-primary" onClick={() => setShowCreateModal(true)}>
-            <Plus size={18} /> Nueva tarea
-          </button>
-        </div>
+        <button className="btn-primary" onClick={() => setShowCreateModal(true)}>
+          <Plus size={18} /> Nueva tarea
+        </button>
       </PageHeader>
 
       {/* Filters */}
-      <div className="flex flex-wrap gap-3">
-        <select value={filters.client_id} onChange={e => setFilters(f => ({ ...f, client_id: e.target.value }))} className="input-field w-auto">
+      <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2 sm:gap-3">
+        <select value={filters.client_id} onChange={e => setFilters(f => ({ ...f, client_id: e.target.value }))} className="input-field sm:w-auto">
           <option value="">Todos los clientes</option>
           {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
         </select>
         {isAdmin && (
-          <select value={filters.collaborator_id} onChange={e => setFilters(f => ({ ...f, collaborator_id: e.target.value }))} className="input-field w-auto">
+          <select value={filters.collaborator_id} onChange={e => setFilters(f => ({ ...f, collaborator_id: e.target.value }))} className="input-field sm:w-auto">
             <option value="">Todos los colaboradores</option>
             {collaborators.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
         )}
-        <select value={filters.status} onChange={e => setFilters(f => ({ ...f, status: e.target.value }))} className="input-field w-auto">
+        <select value={filters.status} onChange={e => setFilters(f => ({ ...f, status: e.target.value }))} className="input-field sm:w-auto">
           <option value="">Todos los estados</option>
           {TASK_STATUSES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
         </select>
-        <select value={filters.type} onChange={e => setFilters(f => ({ ...f, type: e.target.value }))} className="input-field w-auto">
+        <select value={filters.type} onChange={e => setFilters(f => ({ ...f, type: e.target.value }))} className="input-field sm:w-auto">
           <option value="">Todos los tipos</option>
           {TASK_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
         </select>
@@ -129,37 +115,36 @@ export default function Tasks() {
         {tasks.map(task => (
           <div key={task.id} className="card">
             {/* Task header */}
-            <div className="flex flex-col sm:flex-row sm:items-start gap-3 justify-between">
-              <div className="flex items-start gap-3 flex-1 min-w-0">
-                <button
-                  onClick={() => setExpanded(e => ({ ...e, [task.id]: !e[task.id] }))}
-                  className="mt-0.5 text-gray-500 hover:text-gray-300 transition-colors shrink-0"
-                >
-                  {expanded[task.id] ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
-                </button>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-start gap-2 flex-wrap">
-                    <p className="text-base font-semibold text-white break-words">{task.title}</p>
-                    <TypeBadge type={task.task_type} />
-                    <StatusBadge status={task.status} />
-                  </div>
-                  <div className="flex items-center gap-2 sm:gap-4 mt-1.5 text-sm text-gray-500 flex-wrap">
-                    <span className="font-medium text-gray-400">{task.client_name}</span>
-                    {task.collaborator_name && <span>• {task.collaborator_name}</span>}
-                    {task.period && <span>• {formatPeriod(task.period)}</span>}
-                    {task.due_date && <span>• Vence: {formatDate(task.due_date)}</span>}
-                    {task.subtasks?.length > 0 && (
-                      <span>• {task.subtasks.filter(s => s.status === 'terminada').length}/{task.subtasks.length} subtareas</span>
-                    )}
-                  </div>
-                  {task.blocker_comment && (
-                    <div className="mt-2 flex items-start gap-2 p-2.5 bg-rose-500/10 rounded-lg border border-rose-500/20">
-                      <MessageSquare size={14} className="text-rose-400 mt-0.5 shrink-0" />
-                      <p className="text-sm text-rose-300">{task.blocker_comment}</p>
-                    </div>
+            <div className="flex items-start gap-3">
+              <button
+                onClick={() => setExpanded(e => ({ ...e, [task.id]: !e[task.id] }))}
+                className="mt-0.5 text-gray-500 hover:text-gray-300 transition-colors"
+              >
+                {expanded[task.id] ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
+              </button>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-start gap-3 flex-wrap">
+                  <p className="text-base font-semibold text-white flex-1">{task.title}</p>
+                  <TypeBadge type={task.task_type} />
+                  <StatusBadge status={task.status} />
+                </div>
+                <div className="flex items-center gap-4 mt-1.5 text-sm text-gray-500 flex-wrap">
+                  <span className="font-medium text-gray-400">{task.client_name}</span>
+                  {task.collaborator_name && <span>• {task.collaborator_name}</span>}
+                  {task.period && <span>• {formatPeriod(task.period)}</span>}
+                  {task.due_date && <span>• Vence: {formatDate(task.due_date)}</span>}
+                  {task.subtasks?.length > 0 && (
+                    <span>• {task.subtasks.filter(s => s.status === 'terminada').length}/{task.subtasks.length} subtareas</span>
                   )}
                 </div>
+                {task.blocker_comment && (
+                  <div className="mt-2 flex items-start gap-2 p-2.5 bg-rose-500/10 rounded-lg border border-rose-500/20">
+                    <MessageSquare size={14} className="text-rose-400 mt-0.5 shrink-0" />
+                    <p className="text-sm text-rose-300">{task.blocker_comment}</p>
+                  </div>
+                )}
               </div>
+              {/* Status changer */}
               <select
                 value={task.status}
                 onChange={e => {
@@ -167,7 +152,7 @@ export default function Tasks() {
                   const comment = newStatus === 'bloqueada' ? prompt('Describir el bloqueo (opcional):') : undefined
                   handleStatusChange(task.id, newStatus, comment)
                 }}
-                className="text-sm bg-[#1f2937] border border-gray-600/50 text-gray-300 rounded-lg px-2 py-1.5 shrink-0 focus:outline-none w-full sm:w-auto mt-2 sm:mt-0"
+                className="text-sm bg-[#1f2937] border border-gray-600/50 text-gray-300 rounded-lg px-2 py-1.5 shrink-0 focus:outline-none"
               >
                 {TASK_STATUSES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
               </select>
@@ -224,15 +209,12 @@ export default function Tasks() {
       {/* Create task modal */}
       {showCreateModal && (
         <div className="modal-backdrop" onClick={() => setShowCreateModal(false)}>
-          <div className="modal-panel max-w-lg p-6" onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <h2 className="text-xl font-bold text-white">Nueva tarea</h2>
-              <button type="button" onClick={() => setShowCreateModal(false)} className="btn-icon"><X size={18} /></button>
-            </div>
+          <div className="modal-panel p-4 sm:p-6 sm:max-w-lg" onClick={e => e.stopPropagation()}>
+            <h2 className="text-lg sm:text-xl font-bold text-white mb-4 sm:mb-5">Nueva tarea</h2>
             <form onSubmit={handleCreate} className="space-y-4">
               <div><label className="label">Título *</label><input value={form.title} onChange={e => setForm(f=>({...f, title: e.target.value}))} className="input-field" required /></div>
               <div><label className="label">Descripción</label><textarea value={form.description} onChange={e => setForm(f=>({...f, description: e.target.value}))} className="input-field min-h-[80px] resize-none" /></div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                 <div>
                   <label className="label">Tipo *</label>
                   <select value={form.task_type} onChange={e => setForm(f=>({...f, task_type: e.target.value}))} className="input-field">
@@ -247,7 +229,7 @@ export default function Tasks() {
                   </select>
                 </div>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                 <div>
                   <label className="label">Colaborador</label>
                   <select value={form.collaborator_id} onChange={e => setForm(f=>({...f, collaborator_id: e.target.value}))} className="input-field">
@@ -255,23 +237,17 @@ export default function Tasks() {
                     {collaborators.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                   </select>
                 </div>
-                <div><label className="label">Período</label><input type="month" value={form.period} onChange={e => setForm(f=>({...f, period: e.target.value}))} className="input-field font-mono" /></div>
+                <div><label className="label">Período (YYYY-MM)</label><input value={form.period} onChange={e => setForm(f=>({...f, period: e.target.value}))} placeholder="2024-06" className="input-field font-mono" /></div>
               </div>
               <div><label className="label">Fecha límite</label><input type="date" value={form.due_date} onChange={e => setForm(f=>({...f, due_date: e.target.value}))} className="input-field" /></div>
-              <div className="flex gap-3 pt-2">
-                <button type="button" onClick={() => setShowCreateModal(false)} className="btn-secondary flex-1 justify-center">Cancelar</button>
-                <button type="submit" disabled={saving} className="btn-primary flex-1 justify-center">{saving ? 'Guardando...' : 'Crear tarea'}</button>
+              <div className="flex flex-col sm:flex-row gap-3 pt-2">
+                <button type="button" onClick={() => setShowCreateModal(false)} className="btn-secondary flex-1">Cancelar</button>
+                <button type="submit" disabled={saving} className="btn-primary flex-1">{saving ? 'Guardando...' : 'Crear tarea'}</button>
               </div>
             </form>
           </div>
         </div>
       )}
-
-      <BulkUploadModal
-        open={showBulkModal}
-        onClose={() => { setShowBulkModal(false); load() }}
-        entity="tasks"
-      />
     </div>
   )
 }

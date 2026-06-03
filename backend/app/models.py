@@ -367,6 +367,37 @@ class ActionLog(Base):
     task = relationship("Task", back_populates="action_logs")
 
 
+class RetencionSyncJob(Base):
+    """Job asíncrono de sync de Mis Retenciones (ARCA scraping vía AFIP SDK).
+
+    El scraping tarda 1–3 min, supera el timeout de Cloudflare (~100s). El endpoint
+    POST /retenciones/sync crea esta fila con status='pending', encola un
+    BackgroundTask y retorna el job_id inmediatamente. El frontend pollea
+    GET /retenciones/sync/{job_id} hasta que status pase a 'done' o 'error'.
+    """
+    __tablename__ = "retencion_sync_jobs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    client_id = Column(Integer, ForeignKey("clients.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    period = Column(String(7), nullable=False)              # YYYY-MM
+    impuesto_retenido = Column(Integer)
+    descripcion_impuesto = Column(String(50))
+    incluir_percepciones = Column(Boolean, default=True)
+    incluir_retenciones = Column(Boolean, default=True)
+    status = Column(String(20), nullable=False, default="pending", index=True)
+    # pending | running | done | error
+    sdk_job_id = Column(String(64))
+    total_records = Column(Integer)
+    inserted = Column(Integer)
+    skipped_duplicates = Column(Integer)
+    summary_by_holistor = Column(Text)                       # JSON string
+    error = Column(Text)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    started_at = Column(DateTime(timezone=True))
+    completed_at = Column(DateTime(timezone=True))
+
+
 class MovimientoCuentaCorriente(Base):
     __tablename__ = "movimientos_cc"
 

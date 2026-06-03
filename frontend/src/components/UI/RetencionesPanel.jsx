@@ -1,8 +1,13 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Download, Loader2, RefreshCw, Trash2 } from 'lucide-react'
-import { syncRetenciones, getRetenciones, deleteRetencion } from '../../utils/api'
-import { formatCurrency, formatDate } from '../../utils/helpers'
+import {
+  syncRetenciones, getRetencionSyncJob, getRetenciones, deleteRetencion,
+} from '../utils/api'
+import { formatCurrency, formatDate } from '../utils/helpers'
 import CrucePanel from './CrucePanel'
+
+const POLL_INTERVAL_MS = 3000
+const POLL_TIMEOUT_MS = 10 * 60 * 1000  // 10 min — el scraping AFIP rara vez supera 3 min
 
 const IMPUESTOS = [
   { value: 217, label: 'IVA (217)', descripcion: 'IVA' },
@@ -23,10 +28,12 @@ export default function RetencionesPanel({ clientId, defaultPeriod = '' }) {
   const [impuesto, setImpuesto] = useState(217)
   const [loading, setLoading] = useState(false)
   const [syncing, setSyncing] = useState(false)
+  const [syncStage, setSyncStage] = useState('')  // mensaje p/usuario durante el polling
   const [records, setRecords] = useState([])
   const [summary, setSummary] = useState(null)
   const [error, setError] = useState('')
   const [lastSync, setLastSync] = useState(null)
+  const pollAbortRef = useRef(false)
 
   const loadExisting = () => {
     if (!clientId) return
@@ -41,14 +48,39 @@ export default function RetencionesPanel({ clientId, defaultPeriod = '' }) {
 
   useEffect(() => { loadExisting() }, [clientId, period])
 
+  const pollJob = async (jobId) => {
+    const startedAt = Date.now()
+    pollAbortRef.current = false
+    while (!pollAbortRef.current) {
+      if (Date.now() - startedAt > POLL_TIMEOUT_MS) {
+        throw new Error('Timeout: el scraping tardó más de 10 minutos. Probá de nuevo.')
+      }
+      await new Promise(r => setTimeout(r, POLL_INTERVAL_MS))
+      let job
+      try {
+        const res = await getRetencionSyncJob(jobId)
+        job = res.data
+      } catch (e) {
+        // tolerar 1-2 errores transitorios de red — seguir poleando
+        continue
+      }
+      if (job.status === 'pending') { setSyncStage('En cola…'); continue }
+      if (job.status === 'running') { setSyncStage('Consultando ARCA (puede tardar 1–3 min)…'); continue }
+      if (job.status === 'done')    return job
+      if (job.status === 'error')   throw new Error(job.error || 'Error en el scraping')
+    }
+    throw new Error('Polling cancelado')
+  }
+
   const handleSync = async () => {
     setError('')
     if (!clientId) { setError('Cliente requerido'); return }
     if (!/^\d{4}-\d{2}$/.test(period)) { setError('Período inválido (YYYY-MM)'); return }
     const imp = IMPUESTOS.find(i => i.value === Number(impuesto))
     setSyncing(true)
+    setSyncStage('Encolando job…')
     try {
-      const res = await syncRetenciones({
+      const enqueue = await syncRetenciones({
         client_id: Number(clientId),
         period,
         impuesto_retenido: Number(impuesto),
@@ -56,15 +88,25 @@ export default function RetencionesPanel({ clientId, defaultPeriod = '' }) {
         incluir_percepciones: true,
         incluir_retenciones: true,
       })
-      setLastSync(res.data)
-      setSummary(res.data.summary_by_holistor || {})
-      setRecords(res.data.records || [])
+      const jobId = enqueue.data.job_id
+      const done = await pollJob(jobId)
+      setLastSync({
+        total_records: done.total_records || 0,
+        inserted: done.inserted || 0,
+        skipped_duplicates: done.skipped_duplicates || 0,
+      })
+      setSummary(done.summary_by_holistor || {})
+      // Refrescamos la lista (el job ya persistió los registros)
+      loadExisting()
     } catch (e) {
       setError(e.response?.data?.detail || e.message || 'Error al consultar ARCA')
     } finally {
       setSyncing(false)
+      setSyncStage('')
     }
   }
+
+  useEffect(() => () => { pollAbortRef.current = true }, [])
 
   const handleDelete = async (id) => {
     if (!confirm('¿Eliminar este registro?')) return
@@ -109,7 +151,7 @@ export default function RetencionesPanel({ clientId, defaultPeriod = '' }) {
               className="btn-primary w-full flex items-center justify-center gap-2"
             >
               {syncing ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}
-              {syncing ? 'Consultando…' : 'Consultar ARCA'}
+              {syncing ? (syncStage || 'Consultando…') : 'Consultar ARCA'}
             </button>
           </div>
         </div>

@@ -287,10 +287,13 @@ def seed_database():
         (320000, 180000),   # Panadería
         (4500000, 3200000), # Constructora
         (6800000, 4500000), # Logística
+        (250000, 80000),    # Gianfranco Antonel (monotributista)
+        (1500000, 700000),  # Agropecuaria El Alba
     ]
 
     for i, client in enumerate(clients):
-        vg_base, cg_base = iva_base[i]
+        # Si hay más clientes que entries en iva_base, repetimos un default
+        vg_base, cg_base = iva_base[i] if i < len(iva_base) else (500000, 200000)
         saldo_anterior = 0
         for m in range(12, 0, -1):
             period_date = date.today().replace(day=1) - timedelta(days=30 * m)

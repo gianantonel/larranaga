@@ -1,13 +1,12 @@
 import { useEffect, useState } from 'react'
-import { Plus, UserCheck, Users, X, Upload } from 'lucide-react'
-import { PieChart, Pie, Cell, Tooltip } from 'recharts'
+import { Plus, UserCheck, Users } from 'lucide-react'
+import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from 'recharts'
 import { getCollaborators, getCollaboratorStats, createCollaborator } from '../utils/api'
 import { useAuth } from '../context/AuthContext'
 import { RoleBadge } from '../components/UI/Badge'
 import PageHeader from '../components/UI/PageHeader'
 import LoadingSpinner from '../components/UI/LoadingSpinner'
 import { CHART_COLORS } from '../utils/helpers'
-import BulkUploadModal from '../components/UI/BulkUploadModal'
 
 const STATUS_COLORS = { terminada: '#10b981', en_curso: '#0ea5e9', pendiente: '#f59e0b', bloqueada: '#f43f5e' }
 
@@ -17,7 +16,6 @@ export default function Collaborators() {
   const [stats, setStats] = useState([])
   const [loading, setLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
-  const [showBulkModal, setShowBulkModal] = useState(false)
   const [form, setForm] = useState({ name: '', email: '', password: '', role: 'collaborator' })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
@@ -44,32 +42,20 @@ export default function Collaborators() {
     finally { setSaving(false) }
   }
 
-  useEffect(() => {
-    if (!showModal) return
-    const handleEsc = e => { if (e.key === 'Escape') setShowModal(false) }
-    window.addEventListener('keydown', handleEsc)
-    return () => window.removeEventListener('keydown', handleEsc)
-  }, [showModal])
-
   if (loading) return <LoadingSpinner text="Cargando colaboradores..." />
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="page">
       <PageHeader title="Colaboradores" subtitle={`${collaborators.length} colaboradores activos`}>
         {isAdmin && (
-          <div className="flex gap-2">
-            <button className="btn-secondary" onClick={() => setShowBulkModal(true)}>
-              <Upload size={18} /> Importar
-            </button>
-            <button className="btn-primary" onClick={() => setShowModal(true)}>
-              <Plus size={18} /> Nuevo colaborador
-            </button>
-          </div>
+          <button className="btn-primary" onClick={() => setShowModal(true)}>
+            <Plus size={18} /> Nuevo colaborador
+          </button>
         )}
       </PageHeader>
 
       {/* Cards grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-5">
         {stats.map(collab => {
           const pieData = [
             { name: 'Terminadas', value: collab.completed,   color: STATUS_COLORS.terminada },
@@ -123,11 +109,13 @@ export default function Collaborators() {
               {/* Mini pie */}
               {pieData.length > 0 && (
                 <div className="flex items-center gap-2">
-                  <PieChart width={80} height={80}>
-                    <Pie data={pieData} dataKey="value" cx="50%" cy="50%" outerRadius={36} innerRadius={18} paddingAngle={2}>
-                      {pieData.map((d, i) => <Cell key={i} fill={d.color} />)}
-                    </Pie>
-                  </PieChart>
+                  <ResponsiveContainer width={80} height={80}>
+                    <PieChart>
+                      <Pie data={pieData} dataKey="value" cx="50%" cy="50%" outerRadius={36} innerRadius={18} paddingAngle={2}>
+                        {pieData.map((d, i) => <Cell key={i} fill={d.color} />)}
+                      </Pie>
+                    </PieChart>
+                  </ResponsiveContainer>
                   <div className="flex-1 space-y-1">
                     {pieData.map(d => (
                       <div key={d.name} className="flex items-center justify-between text-xs">
@@ -154,11 +142,8 @@ export default function Collaborators() {
       {/* Create modal */}
       {showModal && isAdmin && (
         <div className="modal-backdrop" onClick={() => setShowModal(false)}>
-          <div className="modal-panel max-w-md p-6" onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <h2 className="text-xl font-bold text-white">Nuevo colaborador</h2>
-              <button type="button" onClick={() => setShowModal(false)} className="btn-icon"><X size={18} /></button>
-            </div>
+          <div className="modal-panel p-4 sm:p-6 sm:max-w-md" onClick={e => e.stopPropagation()}>
+            <h2 className="text-lg sm:text-xl font-bold text-white mb-4 sm:mb-5">Nuevo colaborador</h2>
             <form onSubmit={handleCreate} className="space-y-4">
               <div><label className="label">Nombre completo</label><input value={form.name} onChange={e => setForm(f=>({...f, name: e.target.value}))} className="input-field" required /></div>
               <div><label className="label">Email</label><input type="email" value={form.email} onChange={e => setForm(f=>({...f, email: e.target.value}))} className="input-field" required /></div>
@@ -172,9 +157,9 @@ export default function Collaborators() {
                   <option value="admin3">Administrador 3</option>
                 </select>
               </div>
-              <div className="flex gap-3 pt-2">
-                <button type="button" onClick={() => setShowModal(false)} className="btn-secondary flex-1 justify-center">Cancelar</button>
-                <button type="submit" disabled={saving} className="btn-primary flex-1 justify-center">
+              <div className="flex flex-col sm:flex-row gap-3 pt-2">
+                <button type="button" onClick={() => setShowModal(false)} className="btn-secondary flex-1">Cancelar</button>
+                <button type="submit" disabled={saving} className="btn-primary flex-1">
                   {saving ? 'Guardando...' : 'Crear'}
                 </button>
               </div>
@@ -182,12 +167,6 @@ export default function Collaborators() {
           </div>
         </div>
       )}
-
-      <BulkUploadModal
-        open={showBulkModal}
-        onClose={() => { setShowBulkModal(false); load() }}
-        entity="collaborators"
-      />
     </div>
   )
 }

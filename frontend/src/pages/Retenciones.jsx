@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { getClients } from '../utils/api'
 import PageHeader from '../components/UI/PageHeader'
 import LoadingSpinner from '../components/UI/LoadingSpinner'
-import RetencionesPanel from '../components/UI/RetencionesPanel'
+import RetencionesPanel from '../components/RetencionesPanel'
 
 export default function Retenciones() {
   const [clients, setClients] = useState([])
@@ -24,7 +24,7 @@ export default function Retenciones() {
   const selectedClient = clients.find(c => String(c.id) === String(clientId))
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="page">
       <PageHeader
         title="Retenciones y Percepciones"
         subtitle="Consulta Mis Retenciones de ARCA por cliente y período (scraping con clave fiscal)"

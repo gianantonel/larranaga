@@ -1,207 +1,119 @@
-import { NavLink, useLocation } from 'react-router-dom'
-import { useState, useEffect } from 'react'
+import { NavLink } from 'react-router-dom'
 import {
   LayoutDashboard, Users, UserCheck, ClipboardList,
-  ReceiptText, BarChart3, Scale, LogOut, ChevronRight, FileSearch, Wrench, Wallet,
-  PiggyBank, Calculator, Briefcase, X, DollarSign, CalendarCheck, BookOpen, Banknote,
-  ArrowDownToLine, TrendingUp, Percent
+  ReceiptText, BarChart3, LogOut, FileSearch, Wrench, Wallet, X,
+  Scale, PiggyBank, Calculator, Briefcase, DollarSign, CalendarCheck,
+  BookOpen, Banknote, ArrowDownToLine, TrendingUp, Percent,
 } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
+import Logo from '../UI/Logo'
+import ThemeToggle from '../UI/ThemeToggle'
 import clsx from 'clsx'
 
-const VISTAS_ITEMS = [
-  { to: '/dashboard',     icon: LayoutDashboard, label: 'Dashboard' },
+const VISTAS = [
+  { to: '/dashboard',     icon: LayoutDashboard, label: 'Dashboard',     end: true },
   { to: '/clientes',      icon: Users,           label: 'Clientes' },
   { to: '/colaboradores', icon: UserCheck,       label: 'Colaboradores' },
   { to: '/tareas',        icon: ClipboardList,   label: 'Tareas' },
 ]
 
-const ACCIONES_ITEMS = [
-  { to: '/cuentas-corrientes', icon: Wallet,      label: 'Cuentas Corrientes', req: 'R-07' },
-  { to: '/iva',                icon: BarChart3,    label: 'Balance IVA', req: 'R-05, R-06, R-16' },
-  { to: '/posicion-iva',       icon: Scale,        label: 'Posición IVA', req: 'R-06' },
-  { to: '/facturas',           icon: ReceiptText,  label: 'Facturación', req: 'R-03, R-04' },
-  { to: '/retenciones',        icon: FileSearch,   label: 'Retenciones', req: 'R-05+' },
-  { to: '/maestro-proveedores', icon: BookOpen,    label: 'Maestro Proveedores', req: 'R-09' },
-  { to: '/honorarios',         icon: Calculator,   label: 'Honorarios', req: 'R-03, R-04' },
-  { to: '/actualizar-honorarios', icon: Percent,    label: 'Actualizar Honorarios', req: 'R-13' },
-  { to: '/profesionales',      icon: Briefcase,    label: 'Profesionales', req: 'ADM' },
-  { to: '/cobros',             icon: DollarSign,   label: 'Registrar Cobro', req: 'F2-02, F2-04' },
-  { to: '/retiros',            icon: ArrowDownToLine, label: 'Retiros Socios', req: 'R-12' },
-  { to: '/flujo-fondos',       icon: TrendingUp,    label: 'Flujo de Fondos', req: 'R-11' },
-  { to: '/liquidaciones',      icon: CalendarCheck, label: 'Liquidaciones', req: 'F2-11, F2-12' },
-  { to: '/conciliacion-bancaria', icon: Banknote,   label: 'Conciliación bancaria', req: 'R-15' },
+const ACCIONES = [
+  { to: '/cuentas-corrientes',     icon: Wallet,          label: 'Cuentas Corrientes',   req: 'R-07' },
+  { to: '/iva',                    icon: BarChart3,       label: 'Balance IVA',          req: 'R-05, R-06, R-16' },
+  { to: '/posicion-iva',           icon: Scale,           label: 'Posición IVA',         req: 'R-06' },
+  { to: '/facturas',               icon: ReceiptText,     label: 'Facturación',          req: 'R-03, R-04' },
+  { to: '/retenciones',            icon: FileSearch,      label: 'Retenciones',          req: 'R-05' },
+  { to: '/maestro-proveedores',    icon: BookOpen,        label: 'Maestro Proveedores',  req: 'R-09' },
+  { to: '/honorarios',             icon: Calculator,      label: 'Honorarios',           req: 'R-03, R-04' },
+  { to: '/actualizar-honorarios',  icon: Percent,         label: 'Actualizar Honorarios',req: 'R-13' },
+  { to: '/profesionales',          icon: Briefcase,       label: 'Profesionales' },
+  { to: '/cobros',                 icon: DollarSign,      label: 'Registrar Cobro',      req: 'F2' },
+  { to: '/retiros',                icon: ArrowDownToLine, label: 'Retiros Socios',       req: 'R-12' },
+  { to: '/flujo-fondos',           icon: TrendingUp,      label: 'Flujo de Fondos',      req: 'R-11' },
+  { to: '/liquidaciones',          icon: CalendarCheck,   label: 'Liquidaciones',        req: 'F2' },
+  { to: '/conciliacion-bancaria',  icon: Banknote,        label: 'Conciliación bancaria',req: 'R-15' },
+  { to: '/herramientas',           icon: Wrench,          label: 'Adaptador IVA',        req: 'R-01, R-02' },
 ]
 
-const OTRAS_ACCIONES_ITEMS = [
-  { to: '/herramientas', icon: Wrench, label: 'Corrección B/C Holistor Columna L', req: 'R-01, R-02' },
-]
-
-export default function Sidebar({ onClose }) {
+export default function Sidebar({ open = false, onClose = () => {} }) {
   const { user, logout } = useAuth()
-  const [openGroups, setOpenGroups] = useState({ vistas: true, acciones: true, otras: true })
-  const location = useLocation()
-
-  // Close sidebar on navigation (mobile)
-  useEffect(() => {
-    if (onClose) onClose()
-  }, [location.pathname])
-
-  const toggleGroup = (key) => {
-    setOpenGroups(prev => ({ ...prev, [key]: !prev[key] }))
-  }
 
   return (
-    <aside className="w-64 h-full bg-[#0f172a] border-r border-gray-700/40 flex flex-col">
-      {/* Logo */}
-      <div className="px-6 py-6 border-b border-gray-700/40">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-violet-600 flex items-center justify-center">
-              <Scale size={20} className="text-white" />
-            </div>
-            <div>
-              <h1 className="text-lg font-bold text-white leading-tight">Larrañaga</h1>
-              <p className="text-xs text-gray-400">Estudio Contable y Legal</p>
-            </div>
-          </div>
-          {/* Close button — mobile only */}
-          {onClose && (
-            <button
-              onClick={onClose}
-              className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 transition-colors lg:hidden"
-              aria-label="Cerrar menú"
-            >
-              <X size={20} />
-            </button>
-          )}
-        </div>
+    <aside
+      className={clsx(
+        'fixed inset-y-0 left-0 z-40 w-72 max-w-[85vw] flex flex-col',
+        'transform transition-transform duration-300 ease-out',
+        open ? 'translate-x-0' : '-translate-x-full',
+        'lg:static lg:translate-x-0 lg:w-64 lg:max-w-none lg:z-auto'
+      )}
+      style={{ background: 'var(--surface)', borderRight: '1px solid var(--border)' }}
+    >
+      {/* Logo + close */}
+      <div className="px-6 py-7 flex items-center justify-between">
+        <Logo size="md" />
+        <button
+          onClick={onClose}
+          className="lg:hidden p-1.5 rounded-full"
+          style={{ color: 'var(--text-subtle)' }}
+          aria-label="Cerrar menú"
+        >
+          <X size={18} strokeWidth={1.75} />
+        </button>
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 px-3 py-4 space-y-4 overflow-y-auto">
-
-        {/* VISTAS Group */}
-        <div>
-          <button
-            onClick={() => toggleGroup('vistas')}
-            className="nav-group-header w-full gap-2"
-          >
-            <span>Vistas</span>
-            <ChevronRight
-              size={14}
-              className={clsx('transition-transform duration-200', openGroups.vistas && 'rotate-90')}
-            />
-          </button>
-          {openGroups.vistas && (
-            <div className="space-y-1 mt-2">
-              {VISTAS_ITEMS.map(({ to, icon: Icon, label }) => (
-                <NavLink
-                  key={to}
-                  to={to}
-                  end={to === '/dashboard'}
-                  className={({ isActive }) =>
-                    clsx(isActive ? 'nav-link-child-active' : 'nav-link-child', 'w-full')
-                  }
-                >
-                  <Icon size={18} />
-                  <span>{label}</span>
-                </NavLink>
-              ))}
-            </div>
-          )}
+      <nav className="flex-1 px-3 pb-4 overflow-y-auto">
+        <p className="nav-section">Vistas</p>
+        <div className="space-y-0.5">
+          {VISTAS.map(({ to, icon: Icon, label, end }) => (
+            <NavLink key={to} to={to} end={end} onClick={onClose}
+              className={({ isActive }) => clsx(isActive ? 'nav-link-active' : 'nav-link')}>
+              <Icon size={16} strokeWidth={1.75} className="shrink-0" />
+              <span className="truncate">{label}</span>
+            </NavLink>
+          ))}
         </div>
 
-        {/* ACCIONES Group */}
-        <div>
-          <button
-            onClick={() => toggleGroup('acciones')}
-            className="nav-group-header w-full gap-2"
-          >
-            <span>Acciones</span>
-            <ChevronRight
-              size={14}
-              className={clsx('transition-transform duration-200', openGroups.acciones && 'rotate-90')}
-            />
-          </button>
-          {openGroups.acciones && (
-            <div className="space-y-1 mt-2">
-              {ACCIONES_ITEMS.map((item, idx) => (
-                <div key={item.label || idx}>
-                  {item.disabled ? (
-                    // Disabled item
-                    <span className="nav-link-child opacity-40 cursor-not-allowed pointer-events-none select-none">
-                      <item.icon size={18} />
-                      <span className="flex-1">{item.label}</span>
-                      <span className="badge-gray text-xs px-1.5 py-0.5">Próx.</span>
-                    </span>
-                  ) : (
-                    // Active navlink
-                    <NavLink
-                      to={item.to}
-                      end={item.to === '/dashboard'}
-                      className={({ isActive }) =>
-                        clsx(isActive ? 'nav-link-child-active' : 'nav-link-child', 'w-full')
-                      }
-                    >
-                      <item.icon size={18} />
-                      <span>{item.label}</span>
-                    </NavLink>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
+        <p className="nav-section">Acciones</p>
+        <div className="space-y-0.5">
+          {ACCIONES.map(({ to, icon: Icon, label }) => (
+            <NavLink key={to} to={to} onClick={onClose}
+              className={({ isActive }) => clsx(isActive ? 'nav-link-active' : 'nav-link')}>
+              <Icon size={16} strokeWidth={1.75} className="shrink-0" />
+              <span className="truncate">{label}</span>
+            </NavLink>
+          ))}
         </div>
-
-        {/* OTRAS ACCIONES Group */}
-        <div>
-          <button
-            onClick={() => toggleGroup('otras')}
-            className="nav-group-header w-full gap-2"
-          >
-            <span>Otras Acciones</span>
-            <ChevronRight
-              size={14}
-              className={clsx('transition-transform duration-200', openGroups.otras && 'rotate-90')}
-            />
-          </button>
-          {openGroups.otras && (
-            <div className="space-y-1 mt-2">
-              {OTRAS_ACCIONES_ITEMS.map((item, idx) => (
-                <NavLink
-                  key={item.to || idx}
-                  to={item.to}
-                  className={({ isActive }) =>
-                    clsx(isActive ? 'nav-link-child-active' : 'nav-link-child', 'w-full')
-                  }
-                >
-                  <item.icon size={18} />
-                  <span>{item.label}</span>
-                </NavLink>
-              ))}
-            </div>
-          )}
-        </div>
-
       </nav>
 
-      {/* User */}
-      <div className="px-3 pb-4 border-t border-gray-700/40 pt-4">
-        <div className="flex items-center gap-3 px-3 py-2 rounded-xl bg-white/[0.04] border border-white/[0.06]">
-          <div className="w-9 h-9 rounded-full bg-violet-600/30 border border-violet-500/30 flex items-center justify-center text-sm font-bold text-violet-300">
+      {/* User card */}
+      <div className="px-3 py-4 divider">
+        <div
+          className="flex items-center gap-3 px-3 py-2.5 rounded-2xl"
+          style={{ background: 'var(--surface-2)' }}
+        >
+          <div
+            className="w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-semibold shrink-0"
+            style={{ background: 'var(--text)', color: 'var(--bg)' }}
+          >
             {user?.avatar_initials || user?.name?.slice(0, 2).toUpperCase()}
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold text-white truncate">{user?.name}</p>
-            <p className="text-xs text-gray-400 truncate">{user?.email}</p>
+            <p className="text-[12px] font-semibold truncate" style={{ color: 'var(--text)' }}>
+              {user?.name}
+            </p>
+            <p className="text-[10px] truncate" style={{ color: 'var(--text-subtle)' }}>
+              {user?.email}
+            </p>
           </div>
+          <ThemeToggle />
           <button
             onClick={logout}
-            className="text-gray-500 hover:text-rose-400 transition-colors p-1"
+            className="p-1.5 rounded-full shrink-0"
+            style={{ color: 'var(--text-subtle)' }}
             title="Cerrar sesión"
           >
-            <LogOut size={16} />
+            <LogOut size={14} strokeWidth={1.75} />
           </button>
         </div>
       </div>

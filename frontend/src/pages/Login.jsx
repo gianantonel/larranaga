@@ -1,7 +1,9 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Scale, Eye, EyeOff, Lock, Mail } from 'lucide-react'
+import { Eye, EyeOff, Lock, Mail, ArrowRight } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
+import Logo from '../components/UI/Logo'
+import ThemeToggle from '../components/UI/ThemeToggle'
 
 export default function Login() {
   const [email, setEmail] = useState('')
@@ -27,45 +29,69 @@ export default function Login() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0a0f1e] flex items-center justify-center px-4">
-      {/* Background glow */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-96 h-96 bg-violet-600/10 rounded-full blur-3xl" />
-        <div className="absolute bottom-1/4 left-1/3 w-64 h-64 bg-sky-600/8 rounded-full blur-3xl" />
+    <div className="min-h-screen flex relative">
+      <div className="absolute top-6 right-6 z-10">
+        <ThemeToggle />
       </div>
 
-      <div className="w-full max-w-md relative">
-        {/* Logo */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-violet-600 mb-4 shadow-xl shadow-violet-900/50">
-            <Scale size={30} className="text-white" />
-          </div>
-          <h1 className="text-3xl font-bold text-white">Larrañaga</h1>
-          <p className="text-gray-400 mt-1 text-base">Estudio Contable y Legal</p>
-        </div>
+      {/* Columna izquierda: hero (oculta en mobile) */}
+      <div className="hidden lg:flex flex-1 items-center justify-center p-16">
+        <div className="max-w-md space-y-10">
+          <Logo size="xl" />
 
-        {/* Card */}
-        <div className="card border-gray-700/60">
-          <h2 className="text-xl font-semibold text-white mb-6">Iniciar sesión</h2>
+          <div className="space-y-5">
+            <p className="hero-eyebrow">Larrañaga & Asociados</p>
+            <h1 className="hero-title text-5xl xl:text-6xl">
+              Asesoramiento<br />integral.
+            </h1>
+            <p className="hero-sub max-w-sm">
+              Estudio contable y legal con un equipo de profesionales
+              especializados al servicio de tu empresa.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Columna derecha: form */}
+      <div
+        className="flex-1 flex items-center justify-center p-6 sm:p-12 lg:p-16"
+        style={{ background: 'var(--surface)' }}
+      >
+        <div className="w-full max-w-sm space-y-8">
+          <div className="lg:hidden flex justify-center mb-2">
+            <Logo size="md" />
+          </div>
+
+          <div className="space-y-2">
+            <p className="hero-eyebrow">Iniciar sesión</p>
+            <h2 className="text-3xl font-bold tracking-apple-2" style={{ color: 'var(--text)' }}>
+              Bienvenido
+            </h2>
+            <p className="text-sm font-light" style={{ color: 'var(--text-subtle)' }}>
+              Accedé a la plataforma con tus credenciales.
+            </p>
+          </div>
 
           {error && (
-            <div className="bg-rose-500/15 border border-rose-500/30 rounded-lg px-4 py-3 mb-5 text-rose-400 text-base">
+            <div className="rounded-2xl px-4 py-3 text-sm chip-danger w-full justify-start">
               {error}
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-5">
             <div>
               <label className="label">Correo electrónico</label>
               <div className="relative">
-                <Mail size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-500" />
+                <Mail size={15} strokeWidth={1.75} className="absolute left-4 top-1/2 -translate-y-1/2"
+                  style={{ color: 'var(--text-faint)' }} />
                 <input
                   type="email"
                   value={email}
                   onChange={e => setEmail(e.target.value)}
                   placeholder="usuario@larranaga.com"
-                  className="input-field pl-11"
+                  className="input pl-11"
                   required
+                  autoFocus
                 />
               </div>
             </div>
@@ -73,57 +99,60 @@ export default function Login() {
             <div>
               <label className="label">Contraseña</label>
               <div className="relative">
-                <Lock size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-500" />
+                <Lock size={15} strokeWidth={1.75} className="absolute left-4 top-1/2 -translate-y-1/2"
+                  style={{ color: 'var(--text-faint)' }} />
                 <input
                   type={showPass ? 'text' : 'password'}
                   value={password}
                   onChange={e => setPassword(e.target.value)}
                   placeholder="••••••••"
-                  className="input-field pl-11 pr-12"
+                  className="input pl-11 pr-11"
                   required
                 />
                 <button
                   type="button"
                   onClick={() => setShowPass(p => !p)}
-                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 rounded-full"
+                  style={{ color: 'var(--text-faint)' }}
+                  aria-label={showPass ? 'Ocultar' : 'Mostrar'}
                 >
-                  {showPass ? <EyeOff size={18} /> : <Eye size={18} />}
+                  {showPass ? <EyeOff size={15} /> : <Eye size={15} />}
                 </button>
               </div>
             </div>
 
-            <button
-              type="submit"
-              disabled={loading}
-              className="btn-primary w-full justify-center mt-6 py-3 text-lg"
-            >
+            <button type="submit" disabled={loading} className="btn-primary btn-lg w-full">
               {loading ? (
                 <>
-                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  Ingresando...
+                  <div className="w-4 h-4 border-2 border-current/30 border-t-current rounded-full animate-spin" />
+                  <span>Ingresando…</span>
                 </>
-              ) : 'Ingresar'}
+              ) : (
+                <>
+                  <span>Ingresar</span>
+                  <ArrowRight size={15} />
+                </>
+              )}
             </button>
           </form>
 
-           {/* Hint */}
-           <div className="mt-6 p-4 bg-[#0f172a] rounded-lg border border-gray-700/40">
-             <p className="text-xs text-gray-500 font-medium mb-2">Cuentas de prueba:</p>
-             <div className="space-y-1 text-xs text-gray-400">
-               <p>rodriguezfederico765@gmail.com / admin123</p>
-               <p>mgonzalez@larranaga.com / colab123</p>
-             </div>
-           </div>
-
-           {/* Register link */}
-           <div className="mt-4 text-center">
-             <p className="text-xs text-gray-400">
-               ¿No tenés una cuenta?{' '}
-               <a href="/register" className="text-blue-400 hover:text-blue-300 underline">
-                 Registrate acá
-               </a>
-             </p>
-           </div>
+          <div
+            className="rounded-2xl px-4 py-3.5 text-xs space-y-1.5"
+            style={{ background: 'var(--surface-2)' }}
+          >
+            <p className="text-[10px] font-semibold uppercase tracking-[0.18em]"
+               style={{ color: 'var(--text-faint)' }}>
+              Cuentas de prueba
+            </p>
+            <p style={{ color: 'var(--text-subtle)' }}>
+              <span className="font-mono" style={{ color: 'var(--text)' }}>admin1@larranaga.com</span>
+              {' · '}admin123
+            </p>
+            <p style={{ color: 'var(--text-subtle)' }}>
+              <span className="font-mono" style={{ color: 'var(--text)' }}>mgonzalez@larranaga.com</span>
+              {' · '}colab123
+            </p>
+          </div>
         </div>
       </div>
     </div>

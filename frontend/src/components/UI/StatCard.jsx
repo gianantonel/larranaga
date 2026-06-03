@@ -1,33 +1,62 @@
-import clsx from 'clsx'
-
-export default function StatCard({ title, value, subtitle, icon: Icon, color = 'violet', trend }) {
-  const colorMap = {
-    violet:  { bg: 'bg-violet-500/15', text: 'text-violet-400', border: 'border-violet-500/20' },
-    cyan:    { bg: 'bg-sky-500/15',    text: 'text-sky-400',    border: 'border-sky-500/20' },
-    emerald: { bg: 'bg-emerald-500/15',text: 'text-emerald-400',border: 'border-emerald-500/20' },
-    amber:   { bg: 'bg-amber-500/15',  text: 'text-amber-400',  border: 'border-amber-500/20' },
-    rose:    { bg: 'bg-rose-500/15',   text: 'text-rose-400',   border: 'border-rose-500/20' },
-    indigo:  { bg: 'bg-indigo-500/15', text: 'text-indigo-400', border: 'border-indigo-500/20' },
+/**
+ * StatCard — Apple-minimalist (Ciudad style)
+ *
+ * Default monochrome: icono en gris neutro, valor en text-color.
+ * Solo usa color cuando aporta info real (status badges via 'color' prop).
+ */
+export default function StatCard({
+  title, value, valueShort, subtitle, icon: Icon, color = 'neutral', trend,
+}) {
+  // Map colors → CSS vars (todos funcionan en light/dark)
+  const palette = {
+    neutral: { bg: 'var(--surface-2)',           color: 'var(--text-muted)' },
+    brand:   { bg: 'var(--brand-soft)',          color: 'var(--brand)' },
+    success: { bg: 'rgba(16,185,129,0.10)',      color: '#059669' },
+    warning: { bg: 'rgba(245,158,11,0.10)',      color: '#B45309' },
+    danger:  { bg: 'rgba(239,68,68,0.10)',       color: '#DC2626' },
+    info:    { bg: 'rgba(14,165,233,0.10)',      color: '#0284C7' },
   }
-  const c = colorMap[color] || colorMap.violet
+  const c = palette[color] || palette.neutral
 
   return (
-    <div className={clsx('stat-card', 'border', c.border)}>
-      <div className="flex items-start justify-between gap-2">
+    <div className="stat-card">
+      <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-medium text-gray-400 whitespace-nowrap">{title}</p>
-          <p className={clsx('text-2xl sm:text-3xl font-bold mt-1', c.text)}>{value}</p>
-          {subtitle && <p className="text-sm text-gray-500 mt-1">{subtitle}</p>}
+          <p className="stat-label truncate">{title}</p>
+          <p
+            className="stat-value text-2xl sm:text-3xl mt-2 break-words leading-tight"
+          >
+            {valueShort != null ? (
+              <>
+                <span className="xl:hidden">{valueShort}</span>
+                <span className="hidden xl:inline">{value}</span>
+              </>
+            ) : value}
+          </p>
+          {subtitle && (
+            <p
+              className="text-xs mt-1.5 truncate"
+              style={{ color: 'var(--text-faint)' }}
+            >
+              {subtitle}
+            </p>
+          )}
         </div>
         {Icon && (
-          <div className={clsx('p-3 rounded-xl', c.bg)}>
-            <Icon size={22} className={c.text} />
+          <div
+            className="p-2.5 rounded-2xl shrink-0"
+            style={{ background: c.bg, color: c.color }}
+          >
+            <Icon size={16} strokeWidth={1.75} />
           </div>
         )}
       </div>
       {trend != null && (
-        <p className={clsx('text-sm font-medium', trend >= 0 ? 'text-emerald-400' : 'text-rose-400')}>
-          {trend >= 0 ? '▲' : '▼'} {Math.abs(trend)}% vs mes anterior
+        <p
+          className="text-[11px] font-medium mt-3 tracking-tight"
+          style={{ color: trend >= 0 ? '#059669' : '#DC2626' }}
+        >
+          {trend >= 0 ? '↑' : '↓'} {Math.abs(trend)}% vs mes anterior
         </p>
       )}
     </div>

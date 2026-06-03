@@ -1,12 +1,11 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus, Search, Eye, UserPlus, UserMinus, Pencil, Building2, Phone, Mail, X, Upload } from 'lucide-react'
-import { getClients, getCollaborators, assignCollaborator, removeCollaboratorFromClient, createClient } from '../utils/api'
+import { Plus, Search, Eye, UserPlus, UserMinus, Pencil, Building2, Phone, Mail } from 'lucide-react'
+import { getClients, getCollaborators, assignCollaborator, removeCollaboratorFromClient, createClient, updateClient } from '../utils/api'
 import { useAuth } from '../context/AuthContext'
 import PageHeader from '../components/UI/PageHeader'
 import LoadingSpinner from '../components/UI/LoadingSpinner'
 import { RoleBadge } from '../components/UI/Badge'
-import BulkUploadModal from '../components/UI/BulkUploadModal'
 
 export default function Clients() {
   const { isAdmin } = useAuth()
@@ -16,10 +15,42 @@ export default function Clients() {
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [showModal, setShowModal] = useState(false)
-  const [showBulkModal, setShowBulkModal] = useState(false)
-  const [form, setForm] = useState({ name: '', business_name: '', cuit: '', clave_fiscal: '', address: '', phone: '', email: '', category: '', fiscal_condition: 'Responsable Inscripto', activity_code: '' })
+  const [editingId, setEditingId] = useState(null)  // null = modo "crear", id = modo "editar"
+  const [form, setForm] = useState({ name: '', business_name: '', cuit: '', clave_fiscal: '', address: '', phone: '', email: '', category: '', fiscal_condition: 'Responsable Inscripto', activity_code: '', notes: '', is_active: true })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
+
+  const emptyForm = { name: '', business_name: '', cuit: '', clave_fiscal: '', address: '', phone: '', email: '', category: '', fiscal_condition: 'Responsable Inscripto', activity_code: '', notes: '', is_active: true }
+
+  const openCreate = () => {
+    setEditingId(null)
+    setForm(emptyForm)
+    setShowModal(true)
+  }
+
+  const openEdit = (client) => {
+    setEditingId(client.id)
+    setForm({
+      name: client.name || '',
+      business_name: client.business_name || '',
+      cuit: client.cuit || '',
+      clave_fiscal: '',  // nunca pre-cargar la clave; vacío = "no cambiar"
+      address: client.address || '',
+      phone: client.phone || '',
+      email: client.email || '',
+      category: client.category || '',
+      fiscal_condition: client.fiscal_condition || 'Responsable Inscripto',
+      activity_code: client.activity_code || '',
+      notes: client.notes || '',
+      is_active: client.is_active ?? true,
+    })
+    setShowModal(true)
+  }
+
+  const closeModal = () => {
+    setShowModal(false)
+    setEditingId(null)
+  }
 
   const load = () => {
     setError(null)
@@ -37,46 +68,40 @@ export default function Clients() {
     c.category?.toLowerCase().includes(search.toLowerCase())
   )
 
-  const handleCreate = async (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
     setSaving(true)
     try {
-      await createClient(form)
-      setShowModal(false)
-      setForm({ name: '', business_name: '', cuit: '', clave_fiscal: '', address: '', phone: '', email: '', category: '', fiscal_condition: 'Responsable Inscripto', activity_code: '' })
+      if (editingId) {
+        // Modo edit: omitir clave_fiscal si quedó vacía (no querer pisar)
+        const payload = { ...form }
+        if (!payload.clave_fiscal) delete payload.clave_fiscal
+        await updateClient(editingId, payload)
+      } else {
+        await createClient(form)
+      }
+      closeModal()
       load()
     } catch (err) {
-      alert(err.response?.data?.detail || 'Error al crear cliente')
+      alert(err.response?.data?.detail || `Error al ${editingId ? 'actualizar' : 'crear'} cliente`)
     } finally { setSaving(false) }
   }
 
-  useEffect(() => {
-    if (!showModal) return
-    const handleEsc = e => { if (e.key === 'Escape') setShowModal(false) }
-    window.addEventListener('keydown', handleEsc)
-    return () => window.removeEventListener('keydown', handleEsc)
-  }, [showModal])
-
   if (loading) return <LoadingSpinner text="Cargando clientes..." />
-  if (error) return <div className="p-6 text-rose-400">{error}</div>
+  if (error) return <div className="p-4 sm:p-6 text-rose-400">{error}</div>
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="page">
       <PageHeader title="Clientes" subtitle={`${clients.length} clientes registrados`}>
         {isAdmin && (
-          <div className="flex gap-2">
-            <button className="btn-secondary" onClick={() => setShowBulkModal(true)}>
-              <Upload size={18} /> Importar
-            </button>
-            <button className="btn-primary" onClick={() => setShowModal(true)}>
-              <Plus size={18} /> Nuevo cliente
-            </button>
-          </div>
+          <button className="btn-primary" onClick={openCreate}>
+            <Plus size={18} /> Nuevo cliente
+          </button>
         )}
       </PageHeader>
 
       {/* Search */}
-      <div className="relative max-w-sm">
+      <div className="relative w-full sm:max-w-sm">
         <Search size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-500" />
         <input
           value={search}
@@ -92,32 +117,32 @@ export default function Clients() {
           <table className="w-full">
             <thead>
               <tr className="border-b border-gray-700/60 bg-[#0f172a]/60">
-                <th className="table-header whitespace-nowrap">Cliente</th>
-                <th className="table-header whitespace-nowrap">CUIT</th>
-                <th className="table-header whitespace-nowrap">Categoría</th>
-                <th className="table-header whitespace-nowrap">Condición fiscal</th>
-                <th className="table-header whitespace-nowrap">Colaboradores</th>
-                <th className="table-header text-center whitespace-nowrap">Tareas</th>
-                <th className="table-header text-center whitespace-nowrap">Estado</th>
-                <th className="table-header text-center whitespace-nowrap">Acciones</th>
+                <th className="table-header">Cliente</th>
+                <th className="table-header">CUIT</th>
+                <th className="table-header">Categoría</th>
+                <th className="table-header">Condición fiscal</th>
+                <th className="table-header">Colaboradores</th>
+                <th className="table-header text-center">Tareas</th>
+                <th className="table-header text-center">Estado</th>
+                <th className="table-header text-center">Acciones</th>
               </tr>
             </thead>
             <tbody>
               {filtered.map(client => (
                 <tr key={client.id} className="table-row">
-                  <td className="table-cell whitespace-nowrap">
+                  <td className="table-cell">
                     <div>
                       <p className="font-semibold text-white">{client.name}</p>
                       {client.business_name && <p className="text-sm text-gray-500">{client.business_name}</p>}
                     </div>
                   </td>
-                  <td className="table-cell font-mono text-gray-300 whitespace-nowrap">{client.cuit || '—'}</td>
+                  <td className="table-cell font-mono text-gray-300">{client.cuit || '—'}</td>
                   <td className="table-cell">
                     {client.category
-                      ? <span className="badge-blue whitespace-nowrap">{client.category}</span>
-                      : <span className="text-gray-600 whitespace-nowrap">—</span>}
+                      ? <span className="badge-blue">{client.category}</span>
+                      : <span className="text-gray-600">—</span>}
                   </td>
-                  <td className="table-cell text-sm text-gray-300 whitespace-nowrap">{client.fiscal_condition || '—'}</td>
+                  <td className="table-cell text-sm text-gray-300">{client.fiscal_condition || '—'}</td>
                   <td className="table-cell">
                     <div className="flex flex-wrap gap-1">
                       {client.collaborators.length === 0
@@ -140,12 +165,23 @@ export default function Clients() {
                     </span>
                   </td>
                   <td className="table-cell text-center">
-                    <button
-                      onClick={() => navigate(`/clientes/${client.id}`)}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-violet-600/15 hover:bg-violet-600/30 text-violet-400 text-sm font-medium border border-violet-500/20 transition-colors"
-                    >
-                      <Eye size={15} /> Ver
-                    </button>
+                    <div className="inline-flex items-center gap-2">
+                      <button
+                        onClick={() => navigate(`/clientes/${client.id}`)}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-violet-600/15 hover:bg-violet-600/30 text-violet-400 text-sm font-medium border border-violet-500/20 transition-colors"
+                      >
+                        <Eye size={15} /> Ver
+                      </button>
+                      {isAdmin && (
+                        <button
+                          onClick={() => openEdit(client)}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-sky-600/15 hover:bg-sky-600/30 text-sky-400 text-sm font-medium border border-sky-500/20 transition-colors"
+                          title="Editar"
+                        >
+                          <Pencil size={15} /> Editar
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -157,24 +193,29 @@ export default function Clients() {
         </div>
       </div>
 
-      {/* Create modal */}
+      {/* Create / Edit modal */}
       {showModal && (
-        <div className="modal-backdrop" onClick={() => setShowModal(false)}>
-          <div className="modal-panel max-w-xl p-6" onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <h2 className="text-xl font-bold text-white">Nuevo cliente</h2>
-              <button type="button" onClick={() => setShowModal(false)} className="btn-icon"><X size={18} /></button>
-            </div>
-            <form onSubmit={handleCreate} className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="modal-backdrop" onClick={closeModal}>
+          <div className="modal-panel p-4 sm:p-6" onClick={e => e.stopPropagation()}>
+            <h2 className="text-lg sm:text-xl font-bold text-white mb-4 sm:mb-5">
+              {editingId ? 'Editar cliente' : 'Nuevo cliente'}
+            </h2>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                 <div><label className="label">Nombre *</label><input value={form.name} onChange={e => setForm(f=>({...f, name: e.target.value}))} className="input-field" required /></div>
                 <div><label className="label">Razón social</label><input value={form.business_name} onChange={e => setForm(f=>({...f, business_name: e.target.value}))} className="input-field" /></div>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                 <div><label className="label">CUIT</label><input value={form.cuit} onChange={e => setForm(f=>({...f, cuit: e.target.value}))} placeholder="XX-XXXXXXXX-X" className="input-field font-mono" /></div>
-                <div><label className="label">Clave Fiscal</label><input type="password" value={form.clave_fiscal} onChange={e => setForm(f=>({...f, clave_fiscal: e.target.value}))} className="input-field" /></div>
+                <div>
+                  <label className="label">
+                    Clave Fiscal
+                    {editingId && <span className="text-xs text-gray-500 ml-2">(dejar vacío para no cambiar)</span>}
+                  </label>
+                  <input type="password" value={form.clave_fiscal} onChange={e => setForm(f=>({...f, clave_fiscal: e.target.value}))} placeholder={editingId ? '••••••••' : ''} className="input-field" />
+                </div>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                 <div>
                   <label className="label">Condición fiscal</label>
                   <select value={form.fiscal_condition} onChange={e => setForm(f=>({...f, fiscal_condition: e.target.value}))} className="input-field">
@@ -187,26 +228,27 @@ export default function Clients() {
                 <div><label className="label">Categoría</label><input value={form.category} onChange={e => setForm(f=>({...f, category: e.target.value}))} className="input-field" /></div>
               </div>
               <div><label className="label">Dirección</label><input value={form.address} onChange={e => setForm(f=>({...f, address: e.target.value}))} className="input-field" /></div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                 <div><label className="label">Teléfono</label><input value={form.phone} onChange={e => setForm(f=>({...f, phone: e.target.value}))} className="input-field" /></div>
                 <div><label className="label">Email</label><input type="email" value={form.email} onChange={e => setForm(f=>({...f, email: e.target.value}))} className="input-field" /></div>
               </div>
-              <div className="flex gap-3 pt-2">
-                <button type="button" onClick={() => setShowModal(false)} className="btn-secondary flex-1 justify-center">Cancelar</button>
-                <button type="submit" disabled={saving} className="btn-primary flex-1 justify-center">
-                  {saving ? 'Guardando...' : 'Crear cliente'}
+              <div><label className="label">Notas</label><textarea value={form.notes} onChange={e => setForm(f=>({...f, notes: e.target.value}))} className="input-field min-h-[80px]" /></div>
+              {editingId && (
+                <label className="flex items-center gap-2 text-sm text-gray-300 cursor-pointer select-none">
+                  <input type="checkbox" checked={form.is_active} onChange={e => setForm(f=>({...f, is_active: e.target.checked}))} className="accent-violet-500" />
+                  Cliente activo
+                </label>
+              )}
+              <div className="flex flex-col sm:flex-row gap-3 pt-2">
+                <button type="button" onClick={closeModal} className="btn-secondary flex-1">Cancelar</button>
+                <button type="submit" disabled={saving} className="btn-primary flex-1">
+                  {saving ? 'Guardando...' : (editingId ? 'Guardar cambios' : 'Crear cliente')}
                 </button>
               </div>
             </form>
           </div>
         </div>
       )}
-
-      <BulkUploadModal
-        open={showBulkModal}
-        onClose={() => { setShowBulkModal(false); load() }}
-        entity="clients"
-      />
     </div>
   )
 }

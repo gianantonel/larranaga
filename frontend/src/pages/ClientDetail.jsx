@@ -12,7 +12,7 @@ import {
 import { useAuth } from '../context/AuthContext'
 import { StatusBadge, TypeBadge, FiledBadge } from '../components/UI/Badge'
 import LoadingSpinner from '../components/UI/LoadingSpinner'
-import RetencionesPanel from '../components/UI/RetencionesPanel'
+import RetencionesPanel from '../components/RetencionesPanel'
 import { formatCurrency, formatDate, formatPeriod } from '../utils/helpers'
 
 export default function ClientDetail() {
@@ -72,7 +72,7 @@ export default function ClientDetail() {
   }
 
   if (loading) return <LoadingSpinner text="Cargando cliente..." />
-  if (!client) return <div className="p-6 text-gray-400">Cliente no encontrado.</div>
+  if (!client) return <div className="p-4 sm:p-6 text-gray-400">Cliente no encontrado.</div>
 
   // IVA chart data
   const ivaChartData = [...ivaRecords].reverse().map(r => ({
@@ -93,16 +93,16 @@ export default function ClientDetail() {
   const unassignedCollabs = allCollabs.filter(c => !assignedIds.includes(c.id))
 
   return (
-    <div className="p-6 space-y-6">
-      <button onClick={() => navigate('/clientes')} className="flex items-center gap-2 text-gray-400 hover:text-white text-base transition-colors">
+    <div className="page">
+      <button onClick={() => navigate('/clientes')} className="flex items-center gap-2 text-gray-400 hover:text-white text-sm sm:text-base transition-colors">
         <ArrowLeft size={18} /> Volver a clientes
       </button>
 
       {/* Header card */}
       <div className="card">
         <div className="flex items-start justify-between flex-wrap gap-4">
-          <div>
-            <h1 className="text-2xl font-bold text-white">{client.name}</h1>
+          <div className="min-w-0">
+            <h1 className="text-xl sm:text-2xl font-bold text-white">{client.name}</h1>
             {client.business_name && <p className="text-gray-400 mt-0.5">{client.business_name}</p>}
             <div className="flex flex-wrap gap-3 mt-3">
               {client.cuit && <span className="badge-blue font-mono">{client.cuit}</span>}
@@ -192,7 +192,7 @@ export default function ClientDetail() {
 
       {/* Tabs */}
       <div>
-        <div className="flex gap-1 bg-[#0f172a] p-1 rounded-xl mb-4 border border-gray-700/40 overflow-x-auto">
+        <div className="flex gap-1 bg-[#0f172a] p-1 rounded-xl w-full sm:w-fit overflow-x-auto mb-4 border border-gray-700/40">
           {tabs.map(t => (
             <button key={t.id} onClick={() => setActiveTab(t.id)}
               className={`px-3 sm:px-5 py-2 rounded-lg text-sm sm:text-base font-medium whitespace-nowrap transition-all ${activeTab === t.id ? 'bg-violet-600 text-white shadow-lg' : 'text-gray-400 hover:text-gray-200'}`}>
@@ -205,7 +205,7 @@ export default function ClientDetail() {
         {activeTab === 'iva' && (
           <div className="card p-0 overflow-hidden">
             <div className="overflow-x-auto">
-              <table className="w-full">
+            <table className="w-full">
               <thead>
                 <tr className="border-b border-gray-700/60 bg-[#0f172a]/60">
                   <th className="table-header">Período</th>
@@ -241,7 +241,7 @@ export default function ClientDetail() {
         {activeTab === 'facturas' && (
           <div className="card p-0 overflow-hidden">
             <div className="overflow-x-auto">
-              <table className="w-full">
+            <table className="w-full">
               <thead>
                 <tr className="border-b border-gray-700/60 bg-[#0f172a]/60">
                   <th className="table-header">Fecha</th>
@@ -284,7 +284,7 @@ export default function ClientDetail() {
         {activeTab === 'tareas' && (
           <div className="card p-0 overflow-hidden">
             <div className="overflow-x-auto">
-              <table className="w-full">
+            <table className="w-full">
               <thead>
                 <tr className="border-b border-gray-700/60 bg-[#0f172a]/60">
                   <th className="table-header">Tarea</th>

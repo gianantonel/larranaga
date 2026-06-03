@@ -1,10 +1,14 @@
 """
-Event listeners para sincronización automática con InsForge.
+Event listeners y scheduler periódico para sincronización con InsForge.
 
-Detecta cambios en la base de datos y dispara la sincronización.
+- register_sync_events: hook de SQLAlchemy (placeholder, no dispara sync por commit
+  porque InsForge sync es caro — 1+ MB SQL upload)
+- start_periodic_sync: timer que cada N segundos dispara un sync en background
+- sync_now: trigger sincrónico (usado por endpoints REST)
 """
 
 import logging
+import os
 import threading
 from sqlalchemy import event
 from sqlalchemy.orm import Session
@@ -15,6 +19,10 @@ logger = logging.getLogger(__name__)
 # Flag para evitar sincronizaciones simultáneas
 _pending_sync = False
 _sync_lock = threading.Lock()
+
+# Timer de auto-sync periódico
+_periodic_timer: threading.Timer | None = None
+_periodic_stop = threading.Event()
 
 
 def register_sync_events(engine):
@@ -90,6 +98,60 @@ def _do_sync():
     finally:
         with _sync_lock:
             _pending_sync = False
+
+
+def start_periodic_sync(interval_seconds: int = 0) -> bool:
+    """
+    Arranca un timer en background que dispara sync_to_insforge() cada
+    `interval_seconds` segundos. Si interval_seconds <= 0, no hace nada
+    (auto-sync deshabilitado).
+
+    Lee la env var INSFORGE_AUTOSYNC_INTERVAL_SECONDS si interval_seconds=0.
+    Retorna True si arrancó el timer, False si quedó deshabilitado.
+    """
+    global _periodic_timer
+
+    if interval_seconds <= 0:
+        try:
+            interval_seconds = int(os.getenv("INSFORGE_AUTOSYNC_INTERVAL_SECONDS", "0"))
+        except ValueError:
+            interval_seconds = 0
+
+    if interval_seconds <= 0:
+        logger.info("Auto-sync InsForge deshabilitado (INSFORGE_AUTOSYNC_INTERVAL_SECONDS=0)")
+        return False
+
+    logger.info(f"Auto-sync InsForge habilitado: cada {interval_seconds}s")
+
+    def _tick():
+        if _periodic_stop.is_set():
+            return
+        try:
+            _trigger_sync()
+        except Exception as e:
+            logger.error(f"Auto-sync tick error: {e}", exc_info=True)
+        # Re-armar el timer
+        if not _periodic_stop.is_set():
+            global _periodic_timer
+            _periodic_timer = threading.Timer(interval_seconds, _tick)
+            _periodic_timer.daemon = True
+            _periodic_timer.start()
+
+    # Arrancar el primer tick (al intervalo, no inmediato)
+    _periodic_timer = threading.Timer(interval_seconds, _tick)
+    _periodic_timer.daemon = True
+    _periodic_timer.start()
+    return True
+
+
+def stop_periodic_sync():
+    """Frena el timer de auto-sync (útil en shutdown)."""
+    global _periodic_timer
+    _periodic_stop.set()
+    if _periodic_timer is not None:
+        _periodic_timer.cancel()
+        _periodic_timer = None
+    logger.info("Auto-sync InsForge detenido")
 
 
 def sync_now() -> bool:

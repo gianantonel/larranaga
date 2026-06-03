@@ -7,17 +7,23 @@ export const formatCurrency = (value) => {
   }).format(value)
 }
 
-export const formatCurrencyCompact = (value) => {
+// Formato compacto para mobile/tablet: "$ 1,6M", "$ 28,5M", "$ 163,9M", "$ 1,2B"
+export const formatCurrencyShort = (value) => {
   if (value == null) return '—'
-  const abs = Math.abs(value)
-  const NBSP = ' '
-  if (abs >= 1_000_000) {
-    return `$${NBSP}${new Intl.NumberFormat('es-AR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(value / 1_000_000)}${NBSP}M`
-  }
-  if (abs >= 1_000) {
-    return `$${NBSP}${new Intl.NumberFormat('es-AR', { minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(value / 1_000)}${NBSP}K`
-  }
-  return formatCurrency(value)
+  const v = Number(value) || 0
+  const abs = Math.abs(v)
+  const sign = v < 0 ? '-' : ''
+  let n, suffix
+  if (abs >= 1_000_000_000) { n = v / 1_000_000_000; suffix = 'B' }
+  else if (abs >= 1_000_000) { n = v / 1_000_000; suffix = 'M' }
+  else if (abs >= 1_000)     { n = v / 1_000;     suffix = 'K' }
+  else                        { return formatCurrency(v) }
+  // 1 decimal si <100, 0 decimales si >=100
+  const dec = Math.abs(n) >= 100 ? 0 : 1
+  const formatted = new Intl.NumberFormat('es-AR', {
+    minimumFractionDigits: dec, maximumFractionDigits: dec,
+  }).format(n)
+  return `${sign}$ ${formatted.replace('-', '')}${suffix}`
 }
 
 export const formatNumber = (value) => {

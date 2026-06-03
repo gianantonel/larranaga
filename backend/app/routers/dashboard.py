@@ -177,41 +177,44 @@ def get_monthly_activity(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user)
 ):
-    # Use SQL aggregation instead of loading all rows into Python
-    invoice_agg = db.query(
-        func.strftime("%Y-%m", models.Invoice.date).label("period"),
-        func.count(models.Invoice.id).label("facturas"),
-        func.sum(models.Invoice.total).label("monto_facturas"),
-    ).group_by(func.strftime("%Y-%m", models.Invoice.date)).all()
+    # Agregación portable (SQLite y PostgreSQL): traer (date, total) y agrupar en Python
+    monthly: dict = {}
 
+    def _bucket(period: str):
+        return monthly.setdefault(
+            period,
+            {"facturas": 0, "monto_facturas": 0.0, "iva_presentados": 0, "tareas": 0},
+        )
+
+    # Invoices
+    for inv_date, inv_total in db.query(models.Invoice.date, models.Invoice.total).all():
+        if inv_date is None:
+            continue
+        period = inv_date.strftime("%Y-%m")
+        b = _bucket(period)
+        b["facturas"] += 1
+        b["monto_facturas"] += float(inv_total or 0)
+
+    # IVA presentados (period ya viene como "YYYY-MM")
     iva_agg = db.query(
         models.IVARecord.period,
         func.count(models.IVARecord.id).label("iva_presentados"),
     ).filter(models.IVARecord.filed == True).group_by(models.IVARecord.period).all()
-
-    task_agg = db.query(
-        func.strftime("%Y-%m", models.Task.created_at).label("period"),
-        func.count(models.Task.id).label("tareas"),
-    ).filter(models.Task.created_at.isnot(None)).group_by(
-        func.strftime("%Y-%m", models.Task.created_at)
-    ).all()
-
-    monthly: dict = {}
-
-    for row in invoice_agg:
-        if row.period:
-            monthly.setdefault(row.period, {"facturas": 0, "monto_facturas": 0, "iva_presentados": 0, "tareas": 0})
-            monthly[row.period]["facturas"] = row.facturas
-            monthly[row.period]["monto_facturas"] = round(row.monto_facturas or 0, 2)
-
     for row in iva_agg:
         if row.period:
-            monthly.setdefault(row.period, {"facturas": 0, "monto_facturas": 0, "iva_presentados": 0, "tareas": 0})
-            monthly[row.period]["iva_presentados"] = row.iva_presentados
+            _bucket(row.period)["iva_presentados"] = row.iva_presentados
 
-    for row in task_agg:
-        if row.period:
-            monthly.setdefault(row.period, {"facturas": 0, "monto_facturas": 0, "iva_presentados": 0, "tareas": 0})
-            monthly[row.period]["tareas"] = row.tareas
+    # Tasks por mes de created_at
+    for (task_created,) in db.query(models.Task.created_at).filter(
+        models.Task.created_at.isnot(None)
+    ).all():
+        if task_created is None:
+            continue
+        period = task_created.strftime("%Y-%m")
+        _bucket(period)["tareas"] += 1
+
+    # Redondear montos
+    for k in monthly:
+        monthly[k]["monto_facturas"] = round(monthly[k]["monto_facturas"], 2)
 
     return [{"period": k, **monthly[k]} for k in sorted(monthly)]
