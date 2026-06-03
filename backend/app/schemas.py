@@ -66,6 +66,7 @@ class ClientCreate(BaseModel):
 class ClientUpdate(BaseModel):
     name: Optional[str] = None
     business_name: Optional[str] = None
+    cuit: Optional[str] = None
     clave_fiscal: Optional[str] = None
     address: Optional[str] = None
     phone: Optional[str] = None
