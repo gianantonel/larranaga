@@ -9,9 +9,9 @@ from .routers import (
     auth, clients, collaborators, tasks, iva, facturas, dashboard,
     retenciones, comprobantes, herramientas, cuentas_corrientes,
     honorarios, profesionales_adm, users, bulk, billetes, pagos, imputacion,
-    insforge, retiros, flujo_fondos,
+    insforge, retiros, flujo_fondos, feature_flags,
 )
-from .mock_data import seed_database, seed_profesionales_y_productos
+from .mock_data import seed_database, seed_profesionales_y_productos, seed_feature_flags
 
 
 def _migrate_sqlite():
@@ -102,6 +102,7 @@ app.include_router(imputacion.router)
 app.include_router(retiros.router)
 app.include_router(flujo_fondos.router)
 app.include_router(insforge.router)
+app.include_router(feature_flags.router)
 
 # Fase 3 — R-15 conciliación bancaria
 from .routers import conciliacion  # noqa: E402
@@ -129,6 +130,7 @@ async def startup_event():
     seed_database()
     seed_profesionales_y_productos()
     _seed_billetes()
+    seed_feature_flags()
     # Auto-sync periódico a InsForge (controlado por env var
     # INSFORGE_AUTOSYNC_INTERVAL_SECONDS, 0 o sin definir = deshabilitado)
     start_periodic_sync()

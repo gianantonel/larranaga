@@ -213,3 +213,8 @@ export const desconciliarMovimiento = (movimientoId) =>
   api.post(`/conciliacion/movimiento/${movimientoId}/desconciliar`)
 export const sugerenciasMovimiento = (movimientoId, topN = 3) =>
   api.get(`/conciliacion/movimiento/${movimientoId}/sugerencias`, { params: { top_n: topN } })
+
+// ─── Feature Flags ────────────────────────────────────────────────────────────
+export const getFeatureFlags = () => api.get('/feature-flags').then(r => r.data)
+export const updateFeatureFlag = (codigo, enabled) =>
+  api.put(`/feature-flags/${codigo}`, { enabled }).then(r => r.data)

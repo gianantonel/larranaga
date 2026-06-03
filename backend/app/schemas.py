@@ -1223,3 +1223,24 @@ class AplicarActualizacionOut(BaseModel):
     aplicados: int
     saltados: int
     detalle: List[dict]
+
+
+# ─── Feature Flags ────────────────────────────────────────────────────────────
+
+class FeatureFlagOut(BaseModel):
+    codigo: str
+    titulo: str
+    descripcion: Optional[str] = None
+    area: Optional[str] = None
+    fase: Optional[int] = None
+    dificultad: Optional[str] = None
+    ruta_frontend: Optional[str] = None
+    implementado: bool
+    enabled: bool
+    updated_at: Optional[datetime] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class FeatureFlagUpdate(BaseModel):
+    enabled: bool

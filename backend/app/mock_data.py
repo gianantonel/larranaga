@@ -10,7 +10,7 @@ from .models import (
     IVARecord, Invoice, IngresosBrutos, ActionLog,
     UserRole, UserStatus, TaskType, TaskStatus, InvoiceType,
     Profesional, TipoProfesional, ProductoReferencia, HistorialPrecioProducto,
-    TipoHonorario,
+    TipoHonorario, FeatureFlag,
 )
 from .security import get_password_hash, encrypt_credential
 from .database import SessionLocal, engine, Base
@@ -611,3 +611,94 @@ def seed_profesionales_y_productos():
 
 if __name__ == "__main__":
     seed_database()
+
+
+# ─── Catálogo Requisitos R-XX (Plan Maestro líneas 17-36) ─────────────────────
+
+CATALOGO_REQUISITOS = [
+    # Fase 1
+    {"codigo":"R-01","fase":1,"area":"IVA","dificultad":"Muy fácil","ruta_frontend":"/herramientas","implementado":True,
+     "titulo":"Corrección comprobantes tipo B/C + formato col. L",
+     "descripcion":"Limpia el libro IVA compras corrigiendo tipos B/C y el formato de la columna L (tipo de cambio)."},
+    {"codigo":"R-02","fase":1,"area":"IVA","dificultad":"Muy fácil","ruta_frontend":"/herramientas","implementado":True,
+     "titulo":"División de comprobantes por múltiples alícuotas de IVA",
+     "descripcion":"Divide cada comprobante en filas separadas por cada alícuota distinta (10.5%, 21%, 27%)."},
+    {"codigo":"R-03","fase":1,"area":"ADM","dificultad":"Muy fácil","ruta_frontend":"/honorarios","implementado":True,
+     "titulo":"Cálculo automático de honorarios (fijo y valor producto)",
+     "descripcion":"Calcula honorario mensual por cliente, sea importe fijo o por unidades × precio de producto vigente."},
+    {"codigo":"R-04","fase":1,"area":"ADM","dificultad":"Muy fácil","ruta_frontend":"/liquidaciones","implementado":True,
+     "titulo":"Liquidación mensual de profesionales — cálculo automático",
+     "descripcion":"Resuelve adelantos − honorarios + saldo anterior + reintegros por profesional, por mes."},
+    {"codigo":"R-05","fase":1,"area":"IVA","dificultad":"Fácil","ruta_frontend":"/retenciones","implementado":True,
+     "titulo":"Separación retenciones IVA vs IIBB (col. AB — Otros Tributos)",
+     "descripcion":"Trae 'Mis Retenciones' desde ARCA y separa por código de régimen IVA, IIBB y Ganancias."},
+    {"codigo":"R-07","fase":1,"area":"ADM","dificultad":"Fácil","ruta_frontend":"/cuentas-corrientes","implementado":True,
+     "titulo":"Cuentas corrientes de clientes — registro y saldo en tiempo real",
+     "descripcion":"Movimientos de cuenta corriente por cliente con saldo recalculado en cada cobro."},
+    # Fase 2
+    {"codigo":"R-06","fase":2,"area":"IVA","dificultad":"Fácil","ruta_frontend":"/iva","implementado":True,
+     "titulo":"Conciliación IVA compras/ventas — posición IVA del mes",
+     "descripcion":"Posición mensual: débito − crédito − percepciones = saldo a favor o a pagar."},
+    {"codigo":"R-08","fase":2,"area":"ADM","dificultad":"Fácil","ruta_frontend":"/cobros","implementado":True,
+     "titulo":"Tesorería — registro de pagos con impacto automático",
+     "descripcion":"Registrar cobro impacta cuenta corriente, tesorería, liquidación profesional y caja billetes."},
+    {"codigo":"R-09","fase":2,"area":"IVA","dificultad":"Media","ruta_frontend":"/maestro-proveedores","implementado":True,
+     "titulo":"Imputación contable por CUIT (5 niveles)",
+     "descripcion":"Maestro → padrón → reglas → IA → fallback. Asigna cuenta contable a cada proveedor."},
+    {"codigo":"R-10","fase":2,"area":"IVA","dificultad":"Media","ruta_frontend":None,"implementado":True,
+     "titulo":"Generación HWCRARCA completo para Holistor/Onvio",
+     "descripcion":"Output final del pipeline IVA compras, validado Debe=Haber antes de escribir al disco."},
+    {"codigo":"R-14","fase":2,"area":"ADM","dificultad":"Media","ruta_frontend":None,"implementado":True,
+     "titulo":"Control de billetes / caja efectivo",
+     "descripcion":"Seguimiento de efectivo por denominación. Integrado a R-08."},
+    # Fase 3
+    {"codigo":"R-11","fase":3,"area":"ADM","dificultad":"Media","ruta_frontend":"/flujo-fondos","implementado":True,
+     "titulo":"Flujo de fondos — seguimiento y proyección vs real",
+     "descripcion":"Mensual y anual por cliente. Detecta inconsistencias entre saldo CC y deuda calculada."},
+    {"codigo":"R-12","fase":3,"area":"ADM","dificultad":"Media","ruta_frontend":"/retiros","implementado":True,
+     "titulo":"Retiro de honorarios de socios — registro y control",
+     "descripcion":"Triple impacto: tesorería + RetiroSocio + descuento billetes si es efectivo."},
+    {"codigo":"R-13","fase":3,"area":"ADM","dificultad":"Media","ruta_frontend":"/actualizar-honorarios","implementado":True,
+     "titulo":"Actualización cuatrimestral de honorarios con pantalla de validación",
+     "descripcion":"Wizard de 3 pasos: preview de índice, selección de clientes, aplicación granular con historial."},
+    {"codigo":"R-15","fase":3,"area":"IVA+ADM","dificultad":"Alta","ruta_frontend":"/conciliacion-bancaria","implementado":True,
+     "titulo":"Conciliación bancaria — importación y matching automático",
+     "descripcion":"Parsers Pampa/Santander/MP + matching IA contra movimientos contables."},
+    # Fase 4
+    {"codigo":"R-16","fase":4,"area":"IVA","dificultad":"Alta","ruta_frontend":None,"implementado":False,
+     "titulo":"Reportes periódicos automáticos IVA-MES — 100+ clientes",
+     "descripcion":"Automatización mis-comprobantes con credenciales por cliente. Pendiente Fase 4."},
+    {"codigo":"R-17","fase":4,"area":"ADM","dificultad":"Alta","ruta_frontend":None,"implementado":False,
+     "titulo":"Informes de gestión — deuda, honorarios, retiros, flujo real vs proyectado",
+     "descripcion":"Suite de reportes ejecutivos para socios. Pendiente Fase 4."},
+    {"codigo":"R-18","fase":4,"area":"IVA","dificultad":"Muy alta","ruta_frontend":None,"implementado":False,
+     "titulo":"Liquidación de impuestos: IVA, Ganancias, F931, VEPs automáticos",
+     "descripcion":"WS djprocessorcontribuyente + createVEP. Pendiente Fase 4."},
+    {"codigo":"R-19","fase":4,"area":"IVA","dificultad":"Muy alta","ruta_frontend":None,"implementado":False,
+     "titulo":"Consulta IVA-MES por cliente desde ARCA",
+     "descripcion":"Cálculo de posición IVA por cliente con datos en vivo. Pendiente Fase 4."},
+    {"codigo":"R-20","fase":4,"area":"IVA+ADM","dificultad":"Muy alta","ruta_frontend":None,"implementado":False,
+     "titulo":"Migración histórica desde Excel (cuentas corrientes + liquidaciones pasadas)",
+     "descripcion":"Importación masiva de Excel históricos. Pendiente Fase 4."},
+]
+
+
+def seed_feature_flags():
+    """Seed idempotente del catálogo de requisitos. Crea entries faltantes y
+    refresca metadata; no toca el campo `enabled` (eso lo decide el super_admin)."""
+    db = SessionLocal()
+    creados = 0
+    for it in CATALOGO_REQUISITOS:
+        existing = db.query(FeatureFlag).filter_by(codigo=it["codigo"]).first()
+        if existing is None:
+            db.add(FeatureFlag(**it, enabled=False))
+            creados += 1
+        else:
+            for k, v in it.items():
+                if k == "codigo": continue
+                if getattr(existing, k) != v:
+                    setattr(existing, k, v)
+    db.commit()
+    db.close()
+    if creados:
+        print(f"[OK] FeatureFlags: {creados} requisitos creados.")

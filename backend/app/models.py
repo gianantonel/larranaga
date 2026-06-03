@@ -767,3 +767,31 @@ class HistorialActualizacionHonorario(Base):
 
     indice = relationship("IndiceActualizacion", foreign_keys=[indice_id])
     client = relationship("Client", foreign_keys=[client_id])
+
+
+# ─── Feature Flags por Requisito ──────────────────────────────────────────────
+
+class FeatureFlag(Base):
+    """Toggle por requisito (R-XX) para controlar la visibilidad en frontend.
+
+    Solo `super_admin` puede modificar el campo `enabled` desde la UI
+    `/gestion-requisitos`. Para los colaboradores: si enabled=False las rutas
+    y items de sidebar asociados al requisito se ocultan.
+    `implementado` indica si existe código real (False → toggle solo muestra
+    una página vacía si se prende).
+    """
+    __tablename__ = "feature_flags"
+
+    codigo          = Column(String(10), primary_key=True)   # "R-01" .. "R-20"
+    titulo          = Column(String(200), nullable=False)
+    descripcion     = Column(Text, nullable=True)
+    area            = Column(String(20), nullable=True)
+    fase            = Column(Integer, nullable=True, index=True)
+    dificultad      = Column(String(20), nullable=True)
+    ruta_frontend   = Column(String(120), nullable=True)
+    implementado    = Column(Boolean, nullable=False, default=False)
+    enabled         = Column(Boolean, nullable=False, default=False)
+    updated_by_id   = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    updated_at      = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    updated_by = relationship("User", foreign_keys=[updated_by_id])
