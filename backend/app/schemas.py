@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, ConfigDict, EmailStr
 from typing import Optional, List
 from datetime import datetime, date
 from .models import UserRole, TaskType, TaskStatus, InvoiceType
@@ -373,6 +373,32 @@ class RetencionSyncResponse(BaseModel):
     skipped_duplicates: int
     summary_by_holistor: dict  # {"PIVC": {"count": 7, "total": 8045.13}}
     records: List[RetencionPercepcionOut]
+
+
+class RetencionSyncJobOut(BaseModel):
+    """Estado del job asíncrono de sync de Mis Retenciones."""
+    id: int
+    client_id: int
+    period: str
+    status: str  # pending | running | done | error
+    impuesto_retenido: Optional[int] = None
+    sdk_job_id: Optional[str] = None
+    total_records: Optional[int] = None
+    inserted: Optional[int] = None
+    skipped_duplicates: Optional[int] = None
+    summary_by_holistor: Optional[dict] = None
+    error: Optional[str] = None
+    created_at: datetime
+    started_at: Optional[datetime] = None
+    completed_at: Optional[datetime] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class RetencionSyncJobAccepted(BaseModel):
+    """Response inmediato del POST /retenciones/sync (job encolado)."""
+    job_id: int
+    status: str = "pending"
 
 
 # ─── Comprobantes Recibidos (Mis Comprobantes ARCA, t=R) ─────────────────────

@@ -1,24 +1,32 @@
 """Endpoints para Retenciones y Percepciones (Mis Retenciones ARCA).
 
-Consume la automatizacion `mis-retenciones` de AFIP SDK (via backend/app/afip_sdk/),
-clasifica por impuestoRetenido -> codigo Holistor, persiste en DB y expone listado.
+POST /retenciones/sync   → crea un RetencionSyncJob (status=pending), encola
+                           BackgroundTask, devuelve {job_id} en <1s. El
+                           scraping AFIP tarda 1-3 min — supera Cloudflare ~100s.
+GET  /retenciones/sync/{job_id} → estado del job (polling cada ~3s desde el
+                           frontend hasta status in {done, error}).
+GET  /retenciones/        → listado de registros ya sincronizados.
 """
 from __future__ import annotations
 
 import calendar
-from datetime import date, datetime
+import json
+import logging
+from datetime import date, datetime, timezone
 from typing import Optional, List
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from .. import models, schemas
-from ..database import get_db
+from ..database import SessionLocal, get_db
 from .auth import get_current_user
 from ..afip_sdk.client import load_context
 from ..afip_sdk.automations import run_automation, save_raw
 from ..afip_sdk.retenciones import IMPUESTO_TO_HOLISTOR, classify_regimen, extract_records
 
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/retenciones", tags=["retenciones"])
 
@@ -53,16 +61,147 @@ def _summarize(records: list[models.RetencionPercepcion]) -> dict:
     return out
 
 
-@router.post("/sync", response_model=schemas.RetencionSyncResponse, status_code=status.HTTP_200_OK)
+def _run_sync_job(job_id: int) -> None:
+    """Worker que corre en BackgroundTasks. Abre su propia sesión de DB."""
+    db: Session = SessionLocal()
+    try:
+        job = db.query(models.RetencionSyncJob).filter(models.RetencionSyncJob.id == job_id).first()
+        if not job:
+            logger.error("RetencionSyncJob %s no existe", job_id)
+            return
+
+        job.status = "running"
+        job.started_at = datetime.now(timezone.utc)
+        db.commit()
+
+        try:
+            client = db.query(models.Client).filter(models.Client.id == job.client_id).first()
+            if not client or not client.cuit or not client.clave_fiscal_encrypted:
+                raise RuntimeError("Cliente sin CUIT o clave fiscal")
+
+            ctx = load_context(client_id=job.client_id, production=True)
+            desde, hasta = _parse_period(job.period)
+            params = {
+                "cuit": str(ctx.cuit_int),
+                "username": str(ctx.cuit_int),
+                "password": ctx.clave_fiscal,
+                "mode": "filter",
+                "page": 0,
+                "size": 100,
+                "filters": {
+                    "descripcionImpuesto": job.descripcion_impuesto,
+                    "fechaRetencionDesde": desde,
+                    "fechaRetencionHasta": hasta,
+                    "impuestoRetenido": job.impuesto_retenido,
+                    "tipoImpuesto": "IMP",
+                    "percepciones": job.incluir_percepciones,
+                    "retenciones": job.incluir_retenciones,
+                },
+            }
+
+            payload = run_automation(ctx, "mis-retenciones", params,
+                                     wait=True, include_credentials=False)
+
+            if payload.get("status") == "error":
+                raise RuntimeError(f"AFIP SDK error: {payload.get('data')}")
+
+            save_raw(ctx, "mis-retenciones", job.period, payload)
+
+            rows = extract_records(payload)
+            sdk_job_id = payload.get("id")
+
+            inserted = 0
+            skipped = 0
+            persisted: list[models.RetencionPercepcion] = []
+
+            for row in rows:
+                numero_cert = str(row.get("numeroCertificado") or "")
+                numero_cbte = str(row.get("numeroComprobante") or "")
+                fecha_ret = _parse_afip_date(row.get("fechaRetencion"))
+                cuit_agente = str(row.get("cuitAgenteRetencion") or "")
+
+                q = db.query(models.RetencionPercepcion).filter(
+                    models.RetencionPercepcion.client_id == job.client_id,
+                    models.RetencionPercepcion.period == job.period,
+                )
+                if numero_cert:
+                    existing = q.filter(models.RetencionPercepcion.numero_certificado == numero_cert).first()
+                else:
+                    existing = q.filter(
+                        models.RetencionPercepcion.cuit_agente == cuit_agente,
+                        models.RetencionPercepcion.fecha_retencion == fecha_ret,
+                        models.RetencionPercepcion.numero_comprobante == numero_cbte,
+                    ).first()
+
+                if existing:
+                    skipped += 1
+                    persisted.append(existing)
+                    continue
+
+                rec = models.RetencionPercepcion(
+                    client_id=job.client_id,
+                    period=job.period,
+                    cuit_agente=cuit_agente,
+                    impuesto_retenido=row.get("impuestoRetenido"),
+                    codigo_regimen=row.get("codigoRegimen"),
+                    tipo_operacion=row.get("descripcionOperacion"),
+                    fecha_retencion=fecha_ret,
+                    fecha_comprobante=_parse_afip_date(row.get("fechaComprobante")),
+                    importe=float(row.get("importeRetenido") or 0),
+                    numero_certificado=numero_cert or None,
+                    numero_comprobante=numero_cbte or None,
+                    descripcion_comprobante=row.get("descripcionComprobante"),
+                    codigo_holistor=classify_regimen(row.get("impuestoRetenido")),
+                    sdk_job_id=sdk_job_id,
+                )
+                db.add(rec)
+                inserted += 1
+                persisted.append(rec)
+
+            db.add(models.ActionLog(
+                user_id=job.user_id,
+                client_id=job.client_id,
+                action_type="retenciones_sync",
+                description=(
+                    f"Mis Retenciones {job.period} impuesto={job.impuesto_retenido}: "
+                    f"{len(rows)} registros ({inserted} nuevos, {skipped} duplicados)"
+                ),
+            ))
+
+            job.status = "done"
+            job.sdk_job_id = sdk_job_id
+            job.total_records = len(rows)
+            job.inserted = inserted
+            job.skipped_duplicates = skipped
+            job.summary_by_holistor = json.dumps(_summarize(persisted))
+            job.completed_at = datetime.now(timezone.utc)
+            db.commit()
+
+        except Exception as e:
+            db.rollback()
+            logger.exception("RetencionSyncJob %s falló", job_id)
+            # re-fetch (post-rollback) y marcar error
+            j = db.query(models.RetencionSyncJob).filter(models.RetencionSyncJob.id == job_id).first()
+            if j is not None:
+                j.status = "error"
+                j.error = str(e)[:2000]
+                j.completed_at = datetime.now(timezone.utc)
+                db.commit()
+    finally:
+        db.close()
+
+
+@router.post("/sync", response_model=schemas.RetencionSyncJobAccepted, status_code=status.HTTP_202_ACCEPTED)
 def sync_retenciones(
     body: schemas.RetencionSyncRequest,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
-    """Dispara la automation `mis-retenciones` para (client_id, period) y persiste los resultados.
+    """Encola un job de scraping de Mis Retenciones y retorna `job_id` inmediatamente.
 
-    Idempotente: si ya hay registros para esa combinacion (client_id, period, numero_certificado),
-    se saltean los duplicados.
+    El cliente debe polear `GET /retenciones/sync/{job_id}` hasta status in {done,error}.
+    El scraping completo en AFIP SDK suele tardar 1–3 minutos.
     """
     client = db.query(models.Client).filter(models.Client.id == body.client_id).first()
     if not client:
@@ -72,113 +211,54 @@ def sync_retenciones(
     if not client.clave_fiscal_encrypted:
         raise HTTPException(status_code=400, detail="El cliente no tiene clave fiscal cargada (requerida para Mis Retenciones)")
 
-    try:
-        ctx = load_context(client_id=body.client_id, production=True)
-    except SystemExit as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-    desde, hasta = _parse_period(body.period)
-    params = {
-        "cuit": str(ctx.cuit_int),
-        "username": str(ctx.cuit_int),
-        "password": ctx.clave_fiscal,
-        "mode": "filter",
-        "page": 0,
-        "size": 100,
-        "filters": {
-            "descripcionImpuesto": body.descripcion_impuesto,
-            "fechaRetencionDesde": desde,
-            "fechaRetencionHasta": hasta,
-            "impuestoRetenido": body.impuesto_retenido,
-            "tipoImpuesto": "IMP",
-            "percepciones": body.incluir_percepciones,
-            "retenciones": body.incluir_retenciones,
-        },
-    }
-
-    try:
-        payload = run_automation(ctx, "mis-retenciones", params,
-                                 wait=True, include_credentials=False)
-    except Exception as e:
-        raise HTTPException(status_code=502, detail=f"AFIP SDK fallo: {e!s}")
-
-    if payload.get("status") == "error":
-        raise HTTPException(status_code=502, detail=f"AFIP SDK error: {payload.get('data')}")
-
-    save_raw(ctx, "mis-retenciones", body.period, payload)
-
-    rows = extract_records(payload)
-    sdk_job_id = payload.get("id")
-
-    inserted = 0
-    skipped = 0
-    result_models: list[models.RetencionPercepcion] = []
-
-    for row in rows:
-        numero_cert = str(row.get("numeroCertificado") or "")
-        numero_cbte = str(row.get("numeroComprobante") or "")
-        fecha_ret = _parse_afip_date(row.get("fechaRetencion"))
-        cuit_agente = str(row.get("cuitAgenteRetencion") or "")
-
-        # Idempotencia: misma (client, period, certificado) o (client, period, cuit_agente, fecha, cbte)
-        q = db.query(models.RetencionPercepcion).filter(
-            models.RetencionPercepcion.client_id == body.client_id,
-            models.RetencionPercepcion.period == body.period,
-        )
-        if numero_cert:
-            existing = q.filter(models.RetencionPercepcion.numero_certificado == numero_cert).first()
-        else:
-            existing = q.filter(
-                models.RetencionPercepcion.cuit_agente == cuit_agente,
-                models.RetencionPercepcion.fecha_retencion == fecha_ret,
-                models.RetencionPercepcion.numero_comprobante == numero_cbte,
-            ).first()
-
-        if existing:
-            skipped += 1
-            result_models.append(existing)
-            continue
-
-        rec = models.RetencionPercepcion(
-            client_id=body.client_id,
-            period=body.period,
-            cuit_agente=cuit_agente,
-            impuesto_retenido=row.get("impuestoRetenido"),
-            codigo_regimen=row.get("codigoRegimen"),
-            tipo_operacion=row.get("descripcionOperacion"),
-            fecha_retencion=fecha_ret,
-            fecha_comprobante=_parse_afip_date(row.get("fechaComprobante")),
-            importe=float(row.get("importeRetenido") or 0),
-            numero_certificado=numero_cert or None,
-            numero_comprobante=numero_cbte or None,
-            descripcion_comprobante=row.get("descripcionComprobante"),
-            codigo_holistor=classify_regimen(row.get("impuestoRetenido")),
-            sdk_job_id=sdk_job_id,
-        )
-        db.add(rec)
-        inserted += 1
-        result_models.append(rec)
-
-    db.add(models.ActionLog(
+    job = models.RetencionSyncJob(
+        client_id=body.client_id,
         user_id=current_user.id,
-        client_id=body.client_id,
-        action_type="retenciones_sync",
-        description=f"Mis Retenciones {body.period} impuesto={body.impuesto_retenido}: {len(rows)} registros ({inserted} nuevos, {skipped} duplicados)",
-    ))
-    db.commit()
-    for r in result_models:
-        db.refresh(r)
-
-    return schemas.RetencionSyncResponse(
-        client_id=body.client_id,
         period=body.period,
-        sdk_job_id=sdk_job_id,
-        status=payload.get("status", "complete"),
-        total_records=len(rows),
-        inserted=inserted,
-        skipped_duplicates=skipped,
-        summary_by_holistor=_summarize(result_models),
-        records=[schemas.RetencionPercepcionOut.model_validate(r) for r in result_models],
+        impuesto_retenido=body.impuesto_retenido,
+        descripcion_impuesto=body.descripcion_impuesto,
+        incluir_percepciones=body.incluir_percepciones,
+        incluir_retenciones=body.incluir_retenciones,
+        status="pending",
+    )
+    db.add(job)
+    db.commit()
+    db.refresh(job)
+
+    background_tasks.add_task(_run_sync_job, job.id)
+    return schemas.RetencionSyncJobAccepted(job_id=job.id, status="pending")
+
+
+@router.get("/sync/{job_id}", response_model=schemas.RetencionSyncJobOut)
+def get_sync_job(
+    job_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    job = db.query(models.RetencionSyncJob).filter(models.RetencionSyncJob.id == job_id).first()
+    if not job:
+        raise HTTPException(status_code=404, detail="Job no encontrado")
+    summary = None
+    if job.summary_by_holistor:
+        try:
+            summary = json.loads(job.summary_by_holistor)
+        except Exception:
+            summary = None
+    return schemas.RetencionSyncJobOut(
+        id=job.id,
+        client_id=job.client_id,
+        period=job.period,
+        status=job.status,
+        impuesto_retenido=job.impuesto_retenido,
+        sdk_job_id=job.sdk_job_id,
+        total_records=job.total_records,
+        inserted=job.inserted,
+        skipped_duplicates=job.skipped_duplicates,
+        summary_by_holistor=summary,
+        error=job.error,
+        created_at=job.created_at,
+        started_at=job.started_at,
+        completed_at=job.completed_at,
     )
 
 
