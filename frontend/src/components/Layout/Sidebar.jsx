@@ -35,7 +35,7 @@ const ACCIONES = [
   { to: '/cobros',                 icon: DollarSign,      label: 'Registrar Cobro',      req: 'R-08' },
   { to: '/retiros',                icon: ArrowDownToLine, label: 'Retiros Socios',       req: 'R-12' },
   { to: '/flujo-fondos',           icon: TrendingUp,      label: 'Flujo de Fondos',      req: 'R-11' },
-  { to: '/conciliacion-bancaria',  icon: Banknote,        label: 'Conciliación bancaria',req: 'R-15' },
+  { to: '/conciliacion-bancaria',  icon: Banknote,        label: 'Conciliación Bancaria',req: 'R-15' },
   { to: '/herramientas',           icon: Wrench,          label: 'Adaptador IVA',        req: ['R-01', 'R-02'] },
 ]
 

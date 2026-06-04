@@ -126,7 +126,7 @@ export default function RetencionesPanel({ clientId, defaultPeriod = '' }) {
       <div className="card p-4">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
           <div>
-            <label className="text-xs text-gray-400 mb-1 block">Período (YYYY-MM)</label>
+            <label className="label">Período</label>
             <input
               type="month"
               value={period}
@@ -135,7 +135,7 @@ export default function RetencionesPanel({ clientId, defaultPeriod = '' }) {
             />
           </div>
           <div className="md:col-span-2">
-            <label className="text-xs text-gray-400 mb-1 block">Impuesto</label>
+            <label className="label">Impuesto</label>
             <select
               value={impuesto}
               onChange={(e) => setImpuesto(Number(e.target.value))}

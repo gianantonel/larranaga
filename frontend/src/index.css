@@ -141,6 +141,20 @@ body {
   html.dark .input:focus { box-shadow: 0 0 0 4px rgb(255 255 255 / 0.05); }
 
   .select { @apply input appearance-none cursor-pointer; }
+  /* Alias usado por páginas de Fase 2/3 — apunta a .input para mantener consistencia */
+  .input-field { @apply input; }
+  .input-field:focus {
+    background: var(--surface);
+    border-color: var(--text);
+    box-shadow: 0 0 0 4px rgb(10 10 10 / 0.05);
+  }
+  html.dark .input-field:focus { box-shadow: 0 0 0 4px rgb(255 255 255 / 0.05); }
+  /* Para inputs nativos type=date/month: que el ícono de calendario sea visible en dark */
+  html.dark input[type="date"]::-webkit-calendar-picker-indicator,
+  html.dark input[type="month"]::-webkit-calendar-picker-indicator {
+    filter: invert(0.8);
+    cursor: pointer;
+  }
 
   .label {
     color: var(--text-subtle);
@@ -308,7 +322,9 @@ body {
   .bg-\[\#0a0f1e\]     { background-color: var(--bg) !important; }
   .bg-\[\#0f172a\]     { background-color: var(--surface) !important; }
   .bg-\[\#111827\]     { background-color: var(--surface) !important; }
+  .bg-\[\#1e293b\]     { background-color: var(--surface) !important; }
   .bg-\[\#1f2937\]     { background-color: var(--surface-2) !important; }
+  .bg-\[\#0f172a\]\/50 { background-color: var(--surface-2) !important; }
 
   .border-gray-700,
   .border-gray-700\/40,

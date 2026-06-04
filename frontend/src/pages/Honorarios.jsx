@@ -215,7 +215,7 @@ export default function Honorarios() {
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <StatCard title="Honorarios calculados" value={honorarios.length} icon={Calculator} color="violet" />
         <StatCard title={`Total ${formatPeriod(period)}`} value={formatCurrency(totalImporte)} icon={DollarSign} color="emerald" />
-        <StatCard title="Productos referencia" value={productos.length} icon={Package} color="amber" />
+        <StatCard title="Productos de referencia" value={productos.length} icon={Package} color="amber" />
       </div>
 
       {/* Alerta clientes sin config */}

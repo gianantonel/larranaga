@@ -100,23 +100,31 @@ export default function GestionRequisitos() {
 }
 
 function RequirementCard({ flag, saving, onToggle }) {
-  const statusIcon = flag.implementado
-    ? (flag.enabled
-        ? <CheckCircle2 size={14} className="text-emerald-500" />
-        : <Clock size={14} className="text-amber-500" />)
-    : <AlertTriangle size={14} className="text-zinc-400" />
-  const statusLabel = !flag.implementado ? 'Pendiente' : flag.enabled ? 'Activo' : 'Inactivo'
+  const { statusIcon, statusLabel, statusColor } = (() => {
+    if (!flag.implementado) return {
+      statusIcon: <AlertTriangle size={13} />, statusLabel: 'Sin implementar', statusColor: '#9ca3af',
+    }
+    if (flag.enabled) return {
+      statusIcon: <CheckCircle2 size={13} />, statusLabel: 'Activo', statusColor: '#10b981',
+    }
+    return {
+      statusIcon: <Clock size={13} />, statusLabel: 'Listo, inactivo', statusColor: '#f59e0b',
+    }
+  })()
 
   return (
     <div className="card p-4 flex flex-col gap-3" style={{ minHeight: 200 }}>
       <div className="flex items-start justify-between gap-2">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 min-w-0">
           <RequirementBadge flag={flag} size="md" />
-          <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
+          <span className="text-xs truncate" style={{ color: 'var(--text-muted)' }}>
             {flag.area} · {flag.dificultad}
           </span>
         </div>
-        <span className="flex items-center gap-1 text-xs" style={{ color: 'var(--text-muted)' }}>
+        <span
+          className="flex items-center gap-1 text-[11px] font-medium shrink-0"
+          style={{ color: statusColor }}
+        >
           {statusIcon} {statusLabel}
         </span>
       </div>
@@ -130,15 +138,12 @@ function RequirementCard({ flag, saving, onToggle }) {
         </p>
         {flag.ruta_frontend && (
           <p className="mt-2 text-[10px] font-mono" style={{ color: 'var(--text-faint)' }}>
-            UI: {flag.ruta_frontend}
+            {flag.ruta_frontend}
           </p>
         )}
       </div>
 
-      <div className="flex items-center justify-between pt-2 border-t" style={{ borderColor: 'var(--border)' }}>
-        <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
-          {flag.enabled ? 'Visible para colaboradores' : 'Oculto para colaboradores'}
-        </span>
+      <div className="flex items-center justify-end pt-2 border-t" style={{ borderColor: 'var(--border)' }}>
         <Toggle checked={flag.enabled} disabled={saving} onChange={onToggle} />
       </div>
     </div>
@@ -155,9 +160,9 @@ function Toggle({ checked, disabled, onChange }) {
       onClick={onChange}
       className="relative inline-flex h-6 w-11 items-center rounded-full transition-colors"
       style={{
-        background: checked ? 'var(--brand)' : 'var(--surface-2)',
-        border: '1px solid var(--border)',
-        opacity: disabled ? 0.5 : 1,
+        background: checked ? '#10b981' : 'var(--surface-2)',
+        border: `1px solid ${checked ? '#10b981' : 'var(--border)'}`,
+        opacity: disabled ? 0.4 : 1,
         cursor: disabled ? 'not-allowed' : 'pointer',
       }}
     >

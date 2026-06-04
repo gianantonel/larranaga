@@ -130,13 +130,16 @@ function FilaProfesional({ preview, onCerrar }) {
         <td className="table-cell text-right font-bold text-gray-100">
           {formatCurrency(preview.total_a_cobrar)}
         </td>
-        <td className="table-cell text-center">
+        <td className="table-cell text-center whitespace-nowrap">
           {preview.cerrada ? (
-            <span className="badge-green">
-              <CheckCircle size={12} /> CERRADO
+            <span className="badge-green inline-flex items-center gap-1">
+              <CheckCircle size={12} /> Cerrado
             </span>
           ) : (
-            <button onClick={() => onCerrar(preview)} className="badge-purple hover:bg-violet-500/25 transition">
+            <button
+              onClick={() => onCerrar(preview)}
+              className="btn btn-secondary btn-sm inline-flex items-center gap-1 whitespace-nowrap"
+            >
               <Lock size={12} /> Cerrar
             </button>
           )}
@@ -262,13 +265,9 @@ export default function Liquidaciones() {
   return (
     <div className="p-6">
       <PageHeader
-        title="Liquidaciones del mes"
-        subtitle="Resumen de honorarios, adelantos y total a cobrar por profesional."
-        icon={CalendarCheck}
-      />
-
-      <div className="flex items-center gap-3 mb-6">
-        <label className="text-sm font-medium text-gray-300">Período:</label>
+        title="Liquidaciones"
+        subtitle={`Honorarios, adelantos y total a cobrar por profesional — ${periodoLabel(periodo)}`}
+      >
         <select
           value={periodo}
           onChange={(e) => setPeriodo(e.target.value)}
@@ -278,8 +277,8 @@ export default function Liquidaciones() {
             <option key={o.value} value={o.value}>{o.label}</option>
           ))}
         </select>
-        <span className="text-sm text-gray-500 font-medium">{periodoLabel(periodo)}</span>
-      </div>
+      </PageHeader>
+      <div className="mb-2" />
 
       {successMsg && (
         <div className="mb-4 p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-lg flex items-center gap-2 text-sm text-emerald-300">
