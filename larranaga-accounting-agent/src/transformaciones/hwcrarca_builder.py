@@ -38,7 +38,13 @@ from .division_alicuotas import parse_string_float
 # CONSTANTES
 # ─────────────────────────────────────────────────────────────────────────────
 
-# Headers de las 30 columnas A-AD según el template oficial de Holistor
+# Headers de las 48 columnas A-AV según el template oficial de Holistor
+# Cols 0-29 (A-AD): datos directos de ARCA
+# Cols 30-34 (AE-AI): totales recalculados (validación interna)
+# Cols 35-36 (AJ-AK): metadata adicional (Fecha Recepción, Pcia)
+# Cols 37-45 (AL-AT): imputación contable (requiere Maestro de Proveedores — R-09)
+# Col  46 (AU): Moneda secundaria
+# Col  47 (AV): DIFERENCIA = Importe Total ARCA − Importe Total recalculado
 HWCRARCA_HEADERS: List[str] = [
     "Fecha Emisión",                           # A
     "Cpbte",                                   # B
@@ -69,7 +75,29 @@ HWCRARCA_HEADERS: List[str] = [
     "Importes Exentos",                        # AA
     "Otros Tributos",                          # AB
     "Total IVA",                               # AC
-    "Importe Total",                           # AD
+    "Importe   Total",                         # AD — Holistor usa doble espacio
+    # ── Totales recalculados (validación interna Holistor) ─────────────────
+    "Neto Gravado",                            # AE — duplicado de Y para chequeo
+    "Importes No Gravados",                    # AF — duplicado de Z
+    "Importes Exentos",                        # AG — duplicado de AA
+    "IVA  Liquidado",                          # AH — Holistor usa doble espacio
+    "Importe   Total",                         # AI — Holistor usa doble espacio
+    # ── Metadata adicional ─────────────────────────────────────────────────
+    "Fecha Recepción",                         # AJ — default = Fecha Emisión
+    "Pcia",                                    # AK — vacío (sin maestro)
+    # ── Imputación contable (R-09 — requiere Maestro de Proveedores) ──────
+    "Neto Cód.",                               # AL
+    "Alíc.",                                   # AM
+    "Neto a importar",                         # AN
+    "IVA   Crédito",                           # AO — Holistor usa triple espacio
+    "NG/EX  Cód.",                             # AP — Holistor usa doble espacio
+    "P/R Cód.",                                # AQ
+    "Perc./Ret.",                              # AR
+    "Pcia P/R",                                # AS
+    "Cód Cte",                                 # AT
+    # ── Moneda secundaria + DIFERENCIA de cuadre ──────────────────────────
+    "Moneda",                                  # AU
+    "DIFERENCIA",                              # AV — Importe Total ARCA − recalculado
 ]
 
 # Mapeo R-02 → posición HWCRARCA (índices A-AD = 0-29)
@@ -422,7 +450,7 @@ def construir_hwcrarca_xlsx(df: pd.DataFrame) -> Tuple[bytes, Dict[str, Any]]:
     cell.font = Font(bold=True, color="FFFFFF", size=11)
     cell.fill = PatternFill("solid", fgColor="305496")
     cell.alignment = Alignment(horizontal="center", vertical="center")
-    ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=30)
+    ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=len(HWCRARCA_HEADERS))
     ws.row_dimensions[1].height = 22
 
     # Fila 2: headers
@@ -435,6 +463,7 @@ def construir_hwcrarca_xlsx(df: pd.DataFrame) -> Tuple[bytes, Dict[str, Any]]:
 
     # Fila 3+: datos
     for row_pos, (_, row) in enumerate(df.iterrows(), start=3):
+        # ── 1. Cols A-AD (0-29): datos directos de ARCA ─────────────────────
         for col_pos, arca_col in enumerate(ARCA_COLS_ORDERED):
             valor_raw = row.get(arca_col, "")
 
@@ -458,6 +487,48 @@ def construir_hwcrarca_xlsx(df: pd.DataFrame) -> Tuple[bytes, Dict[str, Any]]:
             else:
                 valor = str(valor_raw).strip()
             ws.cell(row=row_pos, column=col_pos + 1, value=valor)
+
+        # ── 2. Cols AE-AI (30-34): totales recalculados (duplicado validación) ──
+        neto_gravado = parse_string_float(row.get("Neto Gravado Total", "0"))
+        no_gravado   = parse_string_float(row.get("Neto No Gravado",    "0"))
+        exentas      = parse_string_float(row.get("Op. Exentas",        "0"))
+        total_iva    = parse_string_float(row.get("Total IVA",          "0"))
+        imp_total    = parse_string_float(row.get("Imp. Total",         "0"))
+        otros_trib   = parse_string_float(row.get("Otros Tributos",     "0"))
+
+        for col_idx, val in [
+            (31, neto_gravado),  # AE = col 31
+            (32, no_gravado),    # AF
+            (33, exentas),       # AG
+            (34, total_iva),     # AH — IVA Liquidado
+            (35, imp_total),     # AI
+        ]:
+            c = ws.cell(row=row_pos, column=col_idx, value=val)
+            c.number_format = "#,##0.00"
+
+        # ── 3. Cols AJ-AK (35-36): metadata ────────────────────────────────
+        fecha_emision = row.get("Fecha", "")
+        if not pd.isna(fecha_emision):
+            ws.cell(row=row_pos, column=36, value=str(fecha_emision).strip())  # AJ Fecha Recepción
+        ws.cell(row=row_pos, column=37, value="")  # AK Pcia — vacío sin maestro
+
+        # ── 4. Cols AL-AT (38-46): imputación contable — VACÍAS (R-09 pendiente) ─
+        # Cuando se cargue el Maestro de Proveedores, acá va:
+        #   Neto Cód., Alíc., Neto a importar, IVA Crédito, NG/EX Cód.,
+        #   P/R Cód., Perc./Ret., Pcia P/R, Cód Cte (cuenta contable por CUIT)
+        for col_idx in range(38, 47):  # AL..AT (1-indexed: 38..46)
+            ws.cell(row=row_pos, column=col_idx, value="")
+
+        # ── 5. Col AU (46): Moneda secundaria (igual a la primera) ─────────
+        moneda = row.get("Moneda", "PES")
+        ws.cell(row=row_pos, column=47, value=str(moneda).strip() if not pd.isna(moneda) else "PES")
+
+        # ── 6. Col AV (47): DIFERENCIA = ARCA Total − recalculado ──────────
+        # Recalculado = Neto + NoGrav + Exentas + IVA + Otros
+        recalculado = neto_gravado + no_gravado + exentas + total_iva + otros_trib
+        diferencia  = round(imp_total - recalculado, 2)
+        c = ws.cell(row=row_pos, column=48, value=diferencia)
+        c.number_format = "#,##0.00"
 
     # Anchos de columna
     widths = {
