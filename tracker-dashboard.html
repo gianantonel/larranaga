@@ -141,7 +141,7 @@
       <input type="file" id="file-input" accept="image/*" multiple style="display:none;" onchange="handleFileSelect(event)">
       <div style="font-size:1.5rem;margin-bottom:4px;color:rgba(255,255,255,0.5);">&#128206;</div>
       <p style="font-size:0.85rem;color:white;">Adjunta capturas de pantalla</p>
-      <p style="font-size:0.75rem;color:rgba(255,255,255,0.4);">JPG, PNG - max 5MB c/u</p>
+      <p style="font-size:0.75rem;color:rgba(255,255,255,0.4);">JPG, PNG - max 2MB c/u</p>
     </div>
     <div class="preview-grid" id="preview-grid"></div>
 
@@ -163,6 +163,8 @@ let currentCalYear = new Date().getFullYear();
 let projects = [];
 
 const TURNO_KEY = 'optimizar_turno_activo';
+const MAX_IMG_BASE64 = 2 * 1024 * 1024; // 2 MB max por imagen
+const MAX_DESC_LEN   = 2000;            // largo max de descripcion y dudas
 const DIAS  = ['Dom','Lun','Mar','Mie','Jue','Vie','Sab'];
 const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 
@@ -220,6 +222,22 @@ function formatTime(s) {
     .map(n => String(n).padStart(2,'0')).join(':');
 }
 
+// Escapa caracteres HTML para prevenir XSS al interpolar datos de usuario en innerHTML
+function escapeHtml(str) {
+  return String(str ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+// Delegación de clicks para imágenes de avances (evita onclick inline con comillas sin escapar)
+document.addEventListener('click', ev => {
+  const img = ev.target.closest('.entry-img-grid img');
+  if (img) { ev.stopPropagation(); openLightbox(img.getAttribute('src')); }
+}, true);
+
 function tickTimer() {
   const d = JSON.parse(localStorage.getItem(TURNO_KEY) || 'null');
   if (!d) return;
@@ -264,8 +282,8 @@ function restaurarTurnoSiExiste() {
         <span class="entry-time">${t.toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'})}</span>
         <span class="entry-duration">${formatTime(e.elapsedSecs||0)}</span>
       </div>
-      <p class="entry-desc">${e.desc||'(sin descripcion)'}</p>
-      ${e.doubt ? `<div class="entry-doubt">${e.doubt}</div>` : ''}
+      <p class="entry-desc">${escapeHtml(e.desc||'(sin descripcion)')}</p>
+      ${e.doubt ? `<div class="entry-doubt">${escapeHtml(e.doubt)}</div>` : ''}
     `;
     container.appendChild(div);
   });
@@ -329,9 +347,14 @@ function closeModal() { document.getElementById('modal-turno').style.display = '
 
 function handleFileSelect(e) {
   Array.from(e.target.files).forEach(file => {
-    if (file.size > 5*1024*1024) { showToast('Imagen muy grande (max 5MB)','error'); return; }
+    if (file.size > MAX_IMG_BASE64) { showToast('Imagen muy grande (max 2MB)','error'); return; }
     const reader = new FileReader();
-    reader.onload = ev => { uploadedImages.push({file, base64: ev.target.result}); renderPreviews(); };
+    reader.onload = ev => {
+      if (!ev.target.result || ev.target.result.length > MAX_IMG_BASE64 * 1.4) {
+        showToast('Imagen muy grande (max 2MB)','error'); return;
+      }
+      uploadedImages.push({file, base64: ev.target.result}); renderPreviews();
+    };
     reader.readAsDataURL(file);
   });
   e.target.value = '';
@@ -342,7 +365,7 @@ function renderPreviews() {
   grid.innerHTML = '';
   uploadedImages.forEach((img, i) => {
     const div = document.createElement('div'); div.className = 'preview-img';
-    div.innerHTML = `<img src="${img.base64}" alt="preview"><button onclick="removeImage(${i})">&times;</button>`;
+    div.innerHTML = `<img src="${escapeHtml(img.base64)}" alt="preview"><button onclick="removeImage(${i})">&times;</button>`;
     grid.appendChild(div);
   });
 }
@@ -352,12 +375,19 @@ function removeImage(i) { uploadedImages.splice(i,1); renderPreviews(); }
 async function saveEntry() {
   const desc = document.getElementById('entry-desc').value.trim();
   if (!desc) { showToast('Describe el avance antes de guardar','error'); return; }
+  if (desc.length > MAX_DESC_LEN) { showToast(`Descripcion muy larga (max ${MAX_DESC_LEN} caracteres)`,'error'); return; }
+
+  const doubt = document.getElementById('entry-doubt').value.trim();
+  if (doubt.length > MAX_DESC_LEN) { showToast(`Dudas muy largas (max ${MAX_DESC_LEN} caracteres)`,'error'); return; }
+
+  const oversize = uploadedImages.find(i => (i.base64||'').length > MAX_IMG_BASE64 * 1.4);
+  if (oversize) { showToast('Hay una imagen que supera los 2MB. Quitala antes de guardar.','error'); return; }
 
   const ahora = new Date();
   const entry = {
     timestamp:   ahora.toISOString(),
     desc,
-    doubt:       document.getElementById('entry-doubt').value.trim(),
+    doubt,
     images:      uploadedImages.map(i => i.base64),
     elapsedSecs: getSegundosActuales()
   };
@@ -371,9 +401,9 @@ async function saveEntry() {
       <span class="entry-time">${ahora.toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'})}</span>
       <span class="entry-duration">${formatTime(entry.elapsedSecs)}</span>
     </div>
-    <p class="entry-desc">${entry.desc}</p>
-    ${entry.doubt ? `<div class="entry-doubt">${entry.doubt}</div>` : ''}
-    ${entry.images.length ? `<div class="entry-img-grid">${entry.images.map(s=>`<img src="${s}" onclick="openLightbox('${s}')">`).join('')}</div>` : ''}
+    <p class="entry-desc">${escapeHtml(entry.desc)}</p>
+    ${entry.doubt ? `<div class="entry-doubt">${escapeHtml(entry.doubt)}</div>` : ''}
+    ${entry.images.length ? `<div class="entry-img-grid">${entry.images.map(s=>`<img src="${escapeHtml(s)}">`).join('')}</div>` : ''}
   `;
   container.appendChild(div);
 
@@ -538,7 +568,7 @@ function renderChart(rows) {
   legend.innerHTML = '';
   Object.values(pmap).forEach(info => {
     const li = document.createElement('div'); li.className = 'legend-item';
-    li.innerHTML = `<div class="legend-dot" style="background:${info.color}"></div><span style="color:white;">${info.name}</span>`;
+    li.innerHTML = `<div class="legend-dot" style="background:${escapeHtml(info.color)}"></div><span style="color:white;">${escapeHtml(info.name)}</span>`;
     legend.appendChild(li);
   });
 }
@@ -576,7 +606,7 @@ function renderCalendar() {
         const pid = s.project_id || 'libre';
         if (!seen.has(pid)) {
           seen.add(pid);
-          dots += `<span style="width:5px;height:5px;border-radius:50%;background:${getProjectColor(s.project_id)};display:inline-block;margin:0 1px;"></span>`;
+          dots += `<span style="width:5px;height:5px;border-radius:50%;background:${escapeHtml(getProjectColor(s.project_id))};display:inline-block;margin:0 1px;"></span>`;
         }
       });
     }
@@ -612,8 +642,8 @@ function openDayDetail(ds) {
     const header = document.createElement('div');
     header.style.cssText = 'display:flex;align-items:center;gap:8px;margin:14px 0 8px;';
     header.innerHTML = `
-      <span style="width:10px;height:10px;border-radius:50%;background:${color};flex-shrink:0;"></span>
-      <span style="font-size:0.82rem;font-weight:600;color:white;">${pname}</span>
+      <span style="width:10px;height:10px;border-radius:50%;background:${escapeHtml(color)};flex-shrink:0;"></span>
+      <span style="font-size:0.82rem;font-weight:600;color:white;">${escapeHtml(pname)}</span>
       <span style="font-size:0.75rem;color:rgba(255,255,255,0.6);">- ${shift.total_horas}h</span>
     `;
     list.appendChild(header);
@@ -634,9 +664,9 @@ function openDayDetail(ds) {
             <span class="entry-time">${t.toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'})}</span>
             <span class="entry-duration">${formatTime(e.elapsedSecs||0)}</span>
           </div>
-          <p class="entry-desc">${e.desc}</p>
-          ${e.doubt ? `<div class="entry-doubt">${e.doubt}</div>` : ''}
-          ${(e.images||[]).length ? `<div class="entry-img-grid">${e.images.map(s=>`<img src="${s}" onclick="openLightbox('${s}')">`).join('')}</div>` : ''}
+          <p class="entry-desc">${escapeHtml(e.desc)}</p>
+          ${e.doubt ? `<div class="entry-doubt">${escapeHtml(e.doubt)}</div>` : ''}
+          ${(e.images||[]).length ? `<div class="entry-img-grid">${e.images.map(s=>`<img src="${escapeHtml(s)}">`).join('')}</div>` : ''}
         `;
         list.appendChild(div);
       });
