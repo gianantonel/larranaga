@@ -157,7 +157,10 @@ function showToast(msg, type = 'success') {
 function openLightbox(src) {
   const overlay = document.createElement('div');
   overlay.className = 'lightbox-overlay';
-  overlay.innerHTML = `<img src="${src}" alt="captura">`;
+  const img = document.createElement('img');
+  img.src = src;
+  img.alt = 'captura';
+  overlay.appendChild(img);
   overlay.onclick = () => overlay.remove();
   document.body.appendChild(overlay);
 }

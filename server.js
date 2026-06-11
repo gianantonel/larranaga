@@ -60,10 +60,10 @@ app.post('/api/tracker/create-user', async (req, res) => {
       console.error('Error insertando perfil:', await profileRes.text());
     }
 
-    res.json({ success: true, userId: authData.id });
+    return res.json({ success: true, userId: authData.id });
   } catch (e) {
     console.error('Error en create-user:', e);
-    res.status(500).json({ success: false, message: 'Error interno del servidor.' });
+    return res.status(500).json({ success: false, message: 'Error interno del servidor.' });
   }
 });
 
@@ -81,9 +81,10 @@ app.delete('/api/tracker/delete-user/:id', async (req, res) => {
         'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`
       }
     });
-    res.json({ success: true });
+    return res.json({ success: true });
   } catch (e) {
-    res.status(500).json({ success: false, message: 'Error eliminando usuario.' });
+    console.error('Error en delete-user:', e);
+    return res.status(500).json({ success: false, message: 'Error eliminando usuario.' });
   }
 });
 

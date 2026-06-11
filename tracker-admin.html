@@ -351,7 +351,7 @@ function renderAdminChart() {
       pointRadius: 4, pointHoverRadius: 7, tension: 0.3
     });
     var li = document.createElement('div'); li.className = 'legend-item';
-    li.innerHTML = '<div class="legend-dot" style="background:'+color+'"></div><span>'+u.name.split(' ')[0].toLowerCase()+'</span>';
+    li.innerHTML = '<div class="legend-dot" style="background:'+color+'"></div><span>'+escapeHtml(u.name.split(' ')[0].toLowerCase())+'</span>';
     li.addEventListener('click', function(){
       var m = adminChart.getDatasetMeta(idx); m.hidden = !m.hidden; adminChart.update(); li.classList.toggle('hidden');
     });
@@ -416,7 +416,7 @@ function renderAdminProjectChart(shifts) {
   var legend = document.getElementById('admin-project-legend'); legend.innerHTML = '';
   pvals.forEach(function(info){
     var li = document.createElement('div'); li.className = 'legend-item';
-    li.innerHTML = '<div class="legend-dot" style="background:'+info.color+'"></div><span>'+info.name.toLowerCase()+'</span>';
+    li.innerHTML = '<div class="legend-dot" style="background:'+escapeHtml(info.color)+'"></div><span>'+escapeHtml(info.name.toLowerCase())+'</span>';
     legend.appendChild(li);
   });
 }
@@ -438,7 +438,7 @@ function openAdminDayDetail(dateStr) {
       var div = document.createElement('div'); div.style.marginBottom = '16px';
       div.innerHTML =
         '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">' +
-          '<h3 style="color:var(--accent-blue);font-size:0.9rem;">'+uname+'</h3>' +
+          '<h3 style="color:var(--accent-blue);font-size:0.9rem;">'+escapeHtml(uname)+'</h3>' +
           '<span class="entry-duration">'+shift.total_horas+'h - '+(shift.entradas?shift.entradas.length:0)+' avance(s)</span>' +
         '</div>' +
         '<div class="entries-list">'+(shift.entradas||[]).map(function(e){
@@ -448,9 +448,9 @@ function openAdminDayDetail(dateStr) {
               '<span class="entry-time">'+t.toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'})+'</span>'+
               '<span class="entry-duration">'+fmtTime(e.elapsedSecs||0)+'</span>'+
             '</div>'+
-            '<p class="entry-desc">'+e.desc+'</p>'+
-            (e.doubt?'<div class="entry-doubt">'+e.doubt+'</div>':'')+
-            ((e.images&&e.images.length)?'<div class="entry-img-grid">'+e.images.map(function(s){return '<img src="'+s+'" onclick="openLightbox(\''+s+'\')">'; }).join('')+'</div>':'')+
+            '<p class="entry-desc">'+escapeHtml(e.desc)+'</p>'+
+            (e.doubt?'<div class="entry-doubt">'+escapeHtml(e.doubt)+'</div>':'')+
+            ((e.images&&e.images.length)?'<div class="entry-img-grid">'+e.images.map(function(s){return '<img src="'+escapeHtml(s)+'">'; }).join('')+'</div>':'')+
           '</div>';
         }).join('')+'</div>'+
         '<hr style="border-color:rgba(255,255,255,0.08);margin-top:14px;">';
@@ -463,6 +463,22 @@ function openAdminDayDetail(dateStr) {
 }
 
 function fmtTime(secs){var h=Math.floor(secs/3600),m=Math.floor((secs%3600)/60);return h>0?h+'h '+m+'m':m+'m';}
+
+// Escapa caracteres HTML para prevenir XSS al interpolar datos de usuario en innerHTML
+function escapeHtml(str) {
+  return String(str === null || str === undefined ? '' : str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+// Delegación de clicks para imágenes de avances (evita onclick inline con comillas sin escapar)
+document.addEventListener('click', function(ev) {
+  var img = ev.target.closest ? ev.target.closest('.entry-img-grid img') : null;
+  if (img) { ev.stopPropagation(); openLightbox(img.getAttribute('src')); }
+}, true);
 
 // -- USUARIOS -----------------------------------------------------------------
 async function loadUsersTable() {
@@ -479,17 +495,17 @@ async function loadUsersTable() {
     var fd = ul ? ul.fecha.split('-').reverse().join('/') : '-';
     var tr = document.createElement('tr');
     tr.innerHTML =
-      '<td style="color:var(--text-primary);font-weight:600;">'+u.name+'</td>'+
-      '<td style="font-size:0.82rem;">'+(u.email||'-')+'</td>'+
-      '<td><span class="badge badge-'+u.role+'">'+u.role+'</span></td>'+
+      '<td style="color:var(--text-primary);font-weight:600;">'+escapeHtml(u.name)+'</td>'+
+      '<td style="font-size:0.82rem;">'+escapeHtml(u.email||'-')+'</td>'+
+      '<td><span class="badge badge-'+escapeHtml(u.role)+'">'+escapeHtml(u.role)+'</span></td>'+
       '<td>'+fd+'</td>'+
       '<td style="color:var(--accent-green);font-weight:700;">'+th+'h</td>'+
       '<td style="color:var(--text-secondary);">'+ta+'</td>'+
       '<td style="display:flex;gap:6px;flex-wrap:wrap;">'+
         '<button type="button" class="btn-optimizar btn-primary" style="padding:4px 10px;font-size:0.75rem;" '+
-          'onclick="verDetalle(\''+u.id+'\',\''+u.name.replace(/'/g,"\\'")+'\',' +'\''+u.email+'\')">ver detalle</button>'+
+          'onclick="verDetalle(\''+u.id+'\',\''+escapeHtml(u.name.replace(/'/g,"\\'"))+'\',' +'\''+escapeHtml(u.email)+'\')">ver detalle</button>'+
         '<button type="button" class="btn-optimizar btn-danger" style="padding:4px 10px;font-size:0.75rem;" '+
-          'onclick="deleteUser(\''+u.id+'\',\''+u.name.replace(/'/g,"\\'")+'\')">eliminar</button>'+
+          'onclick="deleteUser(\''+u.id+'\',\''+escapeHtml(u.name.replace(/'/g,"\\'"))+'\')">eliminar</button>'+
       '</td>';
     tbody.appendChild(tr);
   });
@@ -580,8 +596,8 @@ function renderDetalleShifts(mesFilter) {
       return '<div class="entry-card" style="border-left:3px solid '+color+'">'+
         '<div class="entry-card-header"><span class="entry-time">'+t.toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'})+'</span>'+
         '<span class="entry-duration">'+fmtTime(e.elapsedSecs||0)+'</span></div>'+
-        '<p class="entry-desc">'+e.desc+'</p>'+(e.doubt?'<div class="entry-doubt">'+e.doubt+'</div>':'')+
-        ((e.images&&e.images.length)?'<div class="entry-img-grid">'+e.images.map(function(s){return '<img src="'+s+'" onclick="event.stopPropagation();openLightbox(\''+s+'\')">'; }).join('')+'</div>':'')+
+        '<p class="entry-desc">'+escapeHtml(e.desc)+'</p>'+(e.doubt?'<div class="entry-doubt">'+escapeHtml(e.doubt)+'</div>':'')+
+        ((e.images&&e.images.length)?'<div class="entry-img-grid">'+e.images.map(function(s){return '<img src="'+escapeHtml(s)+'">'; }).join('')+'</div>':'')+
       '</div>';
     }).join('');
     var card=document.createElement('div');card.className='glass-container';
@@ -591,7 +607,7 @@ function renderDetalleShifts(mesFilter) {
         '<div style="display:flex;align-items:center;gap:10px;">'+
           '<span style="width:10px;height:10px;border-radius:50%;background:'+color+';display:inline-block;flex-shrink:0;"></span>'+
           '<span style="font-size:0.88rem;font-weight:700;color:var(--accent-blue);">'+fd+'</span>'+
-          '<span style="font-size:0.78rem;color:var(--text-secondary);">'+pname.toLowerCase()+'</span>'+
+          '<span style="font-size:0.78rem;color:var(--text-secondary);">'+escapeHtml(pname.toLowerCase())+'</span>'+
           '<span style="font-size:0.75rem;color:var(--text-secondary);">'+ini+' - '+fin+'</span>'+
         '</div>'+
         '<div style="display:flex;gap:10px;align-items:center;">'+
@@ -622,8 +638,8 @@ function renderProjectsList() {
       '<div style="display:flex;align-items:center;gap:12px;">'+
         '<span style="width:14px;height:14px;border-radius:50%;background:'+p.color+';flex-shrink:0;display:inline-block;"></span>'+
         '<div>'+
-          '<div style="font-weight:600;color:var(--text-primary);font-size:0.9rem;">'+p.name+'</div>'+
-          (p.description?'<div style="font-size:0.75rem;color:var(--text-secondary);margin-top:2px;">'+p.description+'</div>':'')+
+          '<div style="font-weight:600;color:var(--text-primary);font-size:0.9rem;">'+escapeHtml(p.name)+'</div>'+
+          (p.description?'<div style="font-size:0.75rem;color:var(--text-secondary);margin-top:2px;">'+escapeHtml(p.description)+'</div>':'')+
         '</div>'+
       '</div>'+
       '<div style="display:flex;gap:8px;align-items:center;">'+
@@ -632,7 +648,7 @@ function renderProjectsList() {
         '">'+( p.active?'activo':'inactivo')+'</span>'+
         (!isLibre?
           '<button type="button" class="btn-optimizar" style="padding:4px 12px;font-size:0.75rem;" onclick="toggleProject(\''+p.id+'\','+(!p.active)+')">'+( p.active?'desactivar':'activar')+'</button>'+
-          '<button type="button" class="btn-optimizar btn-danger" style="padding:4px 12px;font-size:0.75rem;" onclick="deleteProject(\''+p.id+'\',\''+p.name.replace(/'/g,"\\'")+'\')">eliminar</button>':
+          '<button type="button" class="btn-optimizar btn-danger" style="padding:4px 12px;font-size:0.75rem;" onclick="deleteProject(\''+p.id+'\',\''+escapeHtml(p.name.replace(/'/g,"\\'"))+'\')">eliminar</button>':
           '<span style="font-size:0.72rem;color:var(--text-secondary);">predeterminado</span>')+
       '</div>';
     cont.appendChild(card);
