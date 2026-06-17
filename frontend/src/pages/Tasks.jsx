@@ -6,7 +6,7 @@ import { StatusBadge, TypeBadge } from '../components/UI/Badge'
 import PageHeader from '../components/UI/PageHeader'
 import LoadingSpinner from '../components/UI/LoadingSpinner'
 import { formatDate, formatPeriod, taskTypeConfig, taskStatusConfig } from '../utils/helpers'
-import RetencionesPanel from '../components/RetencionesPanel'
+import RetencionesPanel from '../components/UI/RetencionesPanel'
 
 const TASK_TYPES = Object.entries(taskTypeConfig).map(([v, c]) => ({ value: v, ...c }))
 const TASK_STATUSES = Object.entries(taskStatusConfig).map(([v, c]) => ({ value: v, ...c }))

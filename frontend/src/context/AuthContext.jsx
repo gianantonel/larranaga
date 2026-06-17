@@ -58,10 +58,21 @@ export function AuthProvider({ children }) {
     return userData
   }
 
-  const isAdmin = user?.role && ['admin1', 'admin2', 'admin3'].includes(user.role)
+  const isAdmin = user?.role && ['admin', 'super_admin'].includes(user.role)
+  const isSuperAdmin = user?.role === 'super_admin'
+
+  // Roles que el usuario actual puede asignar a otros.
+  // Nadie puede asignar 'super_admin' (solo via seed/migración).
+  const assignableRoles = (() => {
+    if (isSuperAdmin) return ['admin', 'colaborador', 'invitado']
+    if (user?.role === 'admin') return ['colaborador', 'invitado']
+    return []
+  })()
+
+  const canAssignRole = (targetRole) => assignableRoles.includes(targetRole)
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout, isAdmin }}>
+    <AuthContext.Provider value={{ user, loading, login, logout, isAdmin, isSuperAdmin, canAssignRole, assignableRoles }}>
       {children}
     </AuthContext.Provider>
   )

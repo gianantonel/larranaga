@@ -91,12 +91,29 @@ export default function Herramientas() {
   }
 
   const descargar = (id, nombre) => {
-    api.get(`/herramientas/limpiar-libro-iva/${id}/descargar`, { responseType: 'blob' })
+    // R-10: descarga el HWCRARCA (formato Holistor) en vez del ARCA corregido.
+    // Si el cuadre falla, el backend responde 422 con detalle de la diferencia.
+    api.post(`/herramientas/${id}/generar-hwcrarca`, null, { responseType: 'blob' })
       .then(r => {
-        const url = URL.createObjectURL(new Blob([r.data]))
+        const url = URL.createObjectURL(new Blob([r.data], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }))
         const a   = document.createElement('a')
-        a.href = url; a.download = nombre; a.click()
+        // Renombra a "HWCRARCA_<nombre_original>.xlsx"
+        const stem = (nombre || 'output').replace(/\.xlsx?$/i, '').replace(/_corregido$/, '')
+        a.href = url; a.download = `HWCRARCA_${stem}.xlsx`; a.click()
         URL.revokeObjectURL(url)
+      })
+      .catch(async err => {
+        // Si vino 422 con cuerpo JSON, leer del Blob
+        let msg = 'No se pudo generar HWCRARCA'
+        if (err.response?.data instanceof Blob) {
+          try {
+            const text = await err.response.data.text()
+            const detail = JSON.parse(text).detail
+            if (typeof detail === 'string') msg = detail
+            else if (detail?.message) msg = `${detail.message} (dif: $${detail.diferencia?.toFixed(2) ?? '?'})`
+          } catch {}
+        }
+        alert(msg)
       })
   }
 

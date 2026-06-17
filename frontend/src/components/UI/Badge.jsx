@@ -14,7 +14,7 @@ export function StatusBadge({ status }) {
 export function TypeBadge({ type }) {
   const config = taskTypeConfig[type] || { label: type, color: '#9ca3af', icon: '📁' }
   return (
-    <span className="badge" style={{ backgroundColor: config.color + '20', color: config.color, borderColor: config.color + '40' }}>
+    <span className="badge border" style={{ backgroundColor: config.color + '20', color: config.color, borderColor: config.color + '40' }}>
       {config.icon} {config.label}
     </span>
   )

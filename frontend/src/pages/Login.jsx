@@ -145,7 +145,7 @@ export default function Login() {
               Cuentas de prueba
             </p>
             <p style={{ color: 'var(--text-subtle)' }}>
-              <span className="font-mono" style={{ color: 'var(--text)' }}>admin1@larranaga.com</span>
+              <span className="font-mono" style={{ color: 'var(--text)' }}>gianantonel@gmail.com</span>
               {' · '}admin123
             </p>
             <p style={{ color: 'var(--text-subtle)' }}>

@@ -26,7 +26,7 @@ def list_tasks(
         selectinload(models.Task.subtasks),
     )
 
-    if current_user.role == models.UserRole.collaborator:
+    if current_user.role == models.UserRole.colaborador:
         query = query.filter(models.Task.collaborator_id == current_user.id)
 
     if client_id:

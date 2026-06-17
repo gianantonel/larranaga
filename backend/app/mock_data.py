@@ -8,7 +8,9 @@ import random
 from .models import (
     User, Client, ClientCollaborator, Task, Subtask,
     IVARecord, Invoice, IngresosBrutos, ActionLog,
-    UserRole, TaskType, TaskStatus, InvoiceType
+    UserRole, UserStatus, TaskType, TaskStatus, InvoiceType,
+    Profesional, TipoProfesional, ProductoReferencia, HistorialPrecioProducto,
+    TipoHonorario, FeatureFlag,
 )
 from .security import get_password_hash, encrypt_credential
 from .database import SessionLocal, engine, Base
@@ -28,42 +30,45 @@ def seed_database():
     # ─── Usuarios ────────────────────────────────────────────────────────────
 
     admins = [
-        User(name="Administrador 1", email="admin1@larranaga.com",
-             password_hash=get_password_hash("admin123"), role=UserRole.admin1,
-             avatar_initials="A1"),
-        User(name="Administrador 2", email="admin2@larranaga.com",
-             password_hash=get_password_hash("admin123"), role=UserRole.admin2,
-             avatar_initials="A2"),
-        User(name="Administrador 3", email="admin3@larranaga.com",
-             password_hash=get_password_hash("admin123"), role=UserRole.admin3,
-             avatar_initials="A3"),
+        User(name="Optimizar", last_name="AI", email="optimizar.ai@gmail.com",
+             password_hash=get_password_hash("optimizar123"), role=UserRole.super_admin,
+             status=UserStatus.active, avatar_initials="OP"),
+        User(name="Gian", last_name="Antonel", email="gianantonel@gmail.com",
+             password_hash=get_password_hash("admin123"), role=UserRole.super_admin,
+             status=UserStatus.active, avatar_initials="GA"),
+        User(name="Federico", last_name="Rodriguez", email="rodriguezfederico765@gmail.com",
+             password_hash=get_password_hash("admin123"), role=UserRole.super_admin,
+             status=UserStatus.active, avatar_initials="FR"),
+        User(name="Gero", last_name="Gambuli", email="gerogambuli2002@gmail.com",
+             password_hash=get_password_hash("admin123"), role=UserRole.super_admin,
+             status=UserStatus.active, avatar_initials="GG"),
     ]
 
     collaborators = [
-        User(name="María González", email="mgonzalez@larranaga.com",
-             password_hash=get_password_hash("colab123"), role=UserRole.collaborator,
-             avatar_initials="MG"),
-        User(name="Carlos Rodríguez", email="crodriguez@larranaga.com",
-             password_hash=get_password_hash("colab123"), role=UserRole.collaborator,
-             avatar_initials="CR"),
-        User(name="Ana Martínez", email="amartinez@larranaga.com",
-             password_hash=get_password_hash("colab123"), role=UserRole.collaborator,
-             avatar_initials="AM"),
-        User(name="Diego Fernández", email="dfernandez@larranaga.com",
-             password_hash=get_password_hash("colab123"), role=UserRole.collaborator,
-             avatar_initials="DF"),
-        User(name="Laura Sánchez", email="lsanchez@larranaga.com",
-             password_hash=get_password_hash("colab123"), role=UserRole.collaborator,
-             avatar_initials="LS"),
-        User(name="Roberto Gómez", email="rgomez@larranaga.com",
-             password_hash=get_password_hash("colab123"), role=UserRole.collaborator,
-             avatar_initials="RG"),
-        User(name="Patricia Torres", email="ptorres@larranaga.com",
-             password_hash=get_password_hash("colab123"), role=UserRole.collaborator,
-             avatar_initials="PT"),
-        User(name="Sebastián Morales", email="smorales@larranaga.com",
-             password_hash=get_password_hash("colab123"), role=UserRole.collaborator,
-             avatar_initials="SM"),
+        User(name="María", last_name="González", email="mgonzalez@larranaga.com",
+             password_hash=get_password_hash("colab123"), role=UserRole.colaborador,
+             status=UserStatus.active, avatar_initials="MG"),
+        User(name="Carlos", last_name="Rodríguez", email="crodriguez@larranaga.com",
+             password_hash=get_password_hash("colab123"), role=UserRole.colaborador,
+             status=UserStatus.active, avatar_initials="CR"),
+        User(name="Ana", last_name="Martínez", email="amartinez@larranaga.com",
+             password_hash=get_password_hash("colab123"), role=UserRole.colaborador,
+             status=UserStatus.active, avatar_initials="AM"),
+        User(name="Diego", last_name="Fernández", email="dfernandez@larranaga.com",
+             password_hash=get_password_hash("colab123"), role=UserRole.colaborador,
+             status=UserStatus.active, avatar_initials="DF"),
+        User(name="Laura", last_name="Sánchez", email="lsanchez@larranaga.com",
+             password_hash=get_password_hash("colab123"), role=UserRole.colaborador,
+             status=UserStatus.active, avatar_initials="LS"),
+        User(name="Roberto", last_name="Gómez", email="rgomez@larranaga.com",
+             password_hash=get_password_hash("colab123"), role=UserRole.colaborador,
+             status=UserStatus.active, avatar_initials="RG"),
+        User(name="Patricia", last_name="Torres", email="ptorres@larranaga.com",
+             password_hash=get_password_hash("colab123"), role=UserRole.colaborador,
+             status=UserStatus.active, avatar_initials="PT"),
+        User(name="Sebastián", last_name="Morales", email="smorales@larranaga.com",
+             password_hash=get_password_hash("colab123"), role=UserRole.colaborador,
+             status=UserStatus.active, avatar_initials="SM"),
     ]
 
     for u in admins + collaborators:
@@ -536,5 +541,164 @@ def seed_database():
     print("    smorales@larranaga.com    — Sebastián Morales")
 
 
+def seed_profesionales_y_productos():
+    """Seed idempotente para R-03/R-04. Se ejecuta sobre la DB existente sin borrarla."""
+    db = SessionLocal()
+
+    if db.query(Profesional).count() > 0:
+        db.close()
+        return
+
+    print("Agregando profesionales y productos de referencia (R-03/R-04)...")
+
+    # Profesionales del estudio
+    rodrigo  = Profesional(nombre="Rodrigo Larrañaga", tipo=TipoProfesional.socio)
+    manuel   = Profesional(nombre="Manuel Larrañaga",  tipo=TipoProfesional.socio)
+    marisol  = Profesional(nombre="Marisol Borrego",   tipo=TipoProfesional.socio)
+    silvana  = Profesional(nombre="Silvana Gómez",     tipo=TipoProfesional.profesional)
+    stefi    = Profesional(nombre="Stefania Vicente",  tipo=TipoProfesional.profesional)
+    mariana  = Profesional(nombre="Mariana Ruiz",      tipo=TipoProfesional.profesional)
+
+    for p in [rodrigo, manuel, marisol, silvana, stefi, mariana]:
+        db.add(p)
+    db.commit()
+    for p in [rodrigo, manuel, marisol, silvana, stefi, mariana]:
+        db.refresh(p)
+
+    # Producto de referencia: bolsa de cemento (para clientes constructoras)
+    cemento = ProductoReferencia(nombre="Bolsa de cemento", unidad="bolsa", precio_vigente=4600.0)
+    db.add(cemento)
+    db.commit()
+    db.refresh(cemento)
+    db.add(HistorialPrecioProducto(
+        producto_id=cemento.id, precio=4600.0, vigente_desde=date(2026, 4, 1)
+    ))
+    db.commit()
+
+    # Configurar honorarios en los clientes existentes (toma los primeros activos por orden de ID)
+    existing_clients = (
+        db.query(Client)
+        .filter(Client.is_active == True, Client.tipo_honorario == None)
+        .order_by(Client.id)
+        .all()
+    )
+
+    configs = [
+        # (tipo,       importe_fijo, prod,    unidades, profesional)
+        ("fijo",       850000.0,     None,    None,     silvana),
+        ("fijo",       1200000.0,    None,    None,     stefi),
+        ("fijo",       2500000.0,    None,    None,     mariana),
+        ("fijo",       3800000.0,    None,    None,     rodrigo),
+        ("fijo",       180000.0,     None,    None,     marisol),
+        ("fijo",       950000.0,     None,    None,     silvana),
+        ("fijo",       430000.0,     None,    None,     stefi),
+        ("fijo",       680000.0,     None,    None,     mariana),
+        ("producto",   None,         cemento, 50.0,     rodrigo),
+        ("fijo",       760000.0,     None,    None,     manuel),
+    ]
+
+    for client, (tipo, importe, prod, unidades, prof) in zip(existing_clients, configs):
+        client.tipo_honorario = TipoHonorario.fijo if tipo == "fijo" else TipoHonorario.producto
+        client.importe_honorario = importe
+        client.producto_ref_id = prod.id if prod else None
+        client.cantidad_unidades = unidades
+        client.profesional_id = prof.id
+
+    db.commit()
+    db.close()
+    print(f"[OK] R-03/R-04: {len([rodrigo, manuel, marisol, silvana, stefi, mariana])} profesionales y 1 producto de referencia creados.")
+
+
 if __name__ == "__main__":
     seed_database()
+
+
+# ─── Catálogo Requisitos R-XX (Plan Maestro líneas 17-36) ─────────────────────
+
+CATALOGO_REQUISITOS = [
+    # Fase 1
+    {"codigo":"R-01","fase":1,"area":"IVA","dificultad":"Muy fácil","ruta_frontend":"/herramientas","implementado":True,
+     "titulo":"Corrección comprobantes tipo B/C + formato col. L",
+     "descripcion":"Limpia el libro IVA compras corrigiendo tipos B/C y el formato de la columna L (tipo de cambio)."},
+    {"codigo":"R-02","fase":1,"area":"IVA","dificultad":"Muy fácil","ruta_frontend":"/herramientas","implementado":True,
+     "titulo":"División de comprobantes por múltiples alícuotas de IVA",
+     "descripcion":"Divide cada comprobante en filas separadas por cada alícuota distinta (10.5%, 21%, 27%)."},
+    {"codigo":"R-03","fase":1,"area":"ADM","dificultad":"Muy fácil","ruta_frontend":"/honorarios","implementado":True,
+     "titulo":"Cálculo automático de honorarios (fijo y valor producto)",
+     "descripcion":"Calcula honorario mensual por cliente, sea importe fijo o por unidades × precio de producto vigente."},
+    {"codigo":"R-04","fase":1,"area":"ADM","dificultad":"Muy fácil","ruta_frontend":"/liquidaciones","implementado":True,
+     "titulo":"Liquidación mensual de profesionales — cálculo automático",
+     "descripcion":"Resuelve adelantos − honorarios + saldo anterior + reintegros por profesional, por mes."},
+    {"codigo":"R-05","fase":1,"area":"IVA","dificultad":"Fácil","ruta_frontend":"/retenciones","implementado":True,
+     "titulo":"Separación retenciones IVA vs IIBB (col. AB — Otros Tributos)",
+     "descripcion":"Trae 'Mis Retenciones' desde ARCA y separa por código de régimen IVA, IIBB y Ganancias."},
+    {"codigo":"R-07","fase":1,"area":"ADM","dificultad":"Fácil","ruta_frontend":"/cuentas-corrientes","implementado":True,
+     "titulo":"Cuentas corrientes de clientes — registro y saldo en tiempo real",
+     "descripcion":"Movimientos de cuenta corriente por cliente con saldo recalculado en cada cobro."},
+    # Fase 2
+    {"codigo":"R-06","fase":2,"area":"IVA","dificultad":"Fácil","ruta_frontend":"/iva","implementado":True,
+     "titulo":"Conciliación IVA compras/ventas — posición IVA del mes",
+     "descripcion":"Posición mensual: débito − crédito − percepciones = saldo a favor o a pagar."},
+    {"codigo":"R-08","fase":2,"area":"ADM","dificultad":"Fácil","ruta_frontend":"/cobros","implementado":True,
+     "titulo":"Tesorería — registro de pagos con impacto automático",
+     "descripcion":"Registrar cobro impacta cuenta corriente, tesorería, liquidación profesional y caja billetes."},
+    {"codigo":"R-09","fase":2,"area":"IVA","dificultad":"Media","ruta_frontend":"/maestro-proveedores","implementado":True,
+     "titulo":"Imputación contable por CUIT (5 niveles)",
+     "descripcion":"Maestro → padrón → reglas → IA → fallback. Asigna cuenta contable a cada proveedor."},
+    {"codigo":"R-10","fase":2,"area":"IVA","dificultad":"Media","ruta_frontend":None,"implementado":True,
+     "titulo":"Generación HWCRARCA completo para Holistor/Onvio",
+     "descripcion":"Output final del pipeline IVA compras, validado Debe=Haber antes de escribir al disco."},
+    {"codigo":"R-14","fase":2,"area":"ADM","dificultad":"Media","ruta_frontend":None,"implementado":True,
+     "titulo":"Control de billetes / caja efectivo",
+     "descripcion":"Seguimiento de efectivo por denominación. Integrado a R-08."},
+    # Fase 3
+    {"codigo":"R-11","fase":3,"area":"ADM","dificultad":"Media","ruta_frontend":"/flujo-fondos","implementado":True,
+     "titulo":"Flujo de fondos — seguimiento y proyección vs real",
+     "descripcion":"Mensual y anual por cliente. Detecta inconsistencias entre saldo CC y deuda calculada."},
+    {"codigo":"R-12","fase":3,"area":"ADM","dificultad":"Media","ruta_frontend":"/retiros","implementado":True,
+     "titulo":"Retiro de honorarios de socios — registro y control",
+     "descripcion":"Triple impacto: tesorería + RetiroSocio + descuento billetes si es efectivo."},
+    {"codigo":"R-13","fase":3,"area":"ADM","dificultad":"Media","ruta_frontend":"/actualizar-honorarios","implementado":True,
+     "titulo":"Actualización cuatrimestral de honorarios con pantalla de validación",
+     "descripcion":"Wizard de 3 pasos: preview de índice, selección de clientes, aplicación granular con historial."},
+    {"codigo":"R-15","fase":3,"area":"IVA+ADM","dificultad":"Alta","ruta_frontend":"/conciliacion-bancaria","implementado":True,
+     "titulo":"Conciliación bancaria — importación y matching automático",
+     "descripcion":"Parsers Pampa/Santander/MP + matching IA contra movimientos contables."},
+    # Fase 4
+    {"codigo":"R-16","fase":4,"area":"IVA","dificultad":"Alta","ruta_frontend":None,"implementado":False,
+     "titulo":"Reportes periódicos automáticos IVA-MES — 100+ clientes",
+     "descripcion":"Automatización mis-comprobantes con credenciales por cliente. Pendiente Fase 4."},
+    {"codigo":"R-17","fase":4,"area":"ADM","dificultad":"Alta","ruta_frontend":None,"implementado":False,
+     "titulo":"Informes de gestión — deuda, honorarios, retiros, flujo real vs proyectado",
+     "descripcion":"Suite de reportes ejecutivos para socios. Pendiente Fase 4."},
+    {"codigo":"R-18","fase":4,"area":"IVA","dificultad":"Muy alta","ruta_frontend":None,"implementado":False,
+     "titulo":"Liquidación de impuestos: IVA, Ganancias, F931, VEPs automáticos",
+     "descripcion":"WS djprocessorcontribuyente + createVEP. Pendiente Fase 4."},
+    {"codigo":"R-19","fase":4,"area":"IVA","dificultad":"Muy alta","ruta_frontend":None,"implementado":False,
+     "titulo":"Consulta IVA-MES por cliente desde ARCA",
+     "descripcion":"Cálculo de posición IVA por cliente con datos en vivo. Pendiente Fase 4."},
+    {"codigo":"R-20","fase":4,"area":"IVA+ADM","dificultad":"Muy alta","ruta_frontend":None,"implementado":False,
+     "titulo":"Migración histórica desde Excel (cuentas corrientes + liquidaciones pasadas)",
+     "descripcion":"Importación masiva de Excel históricos. Pendiente Fase 4."},
+]
+
+
+def seed_feature_flags():
+    """Seed idempotente del catálogo de requisitos. Crea entries faltantes y
+    refresca metadata; no toca el campo `enabled` (eso lo decide el super_admin)."""
+    db = SessionLocal()
+    creados = 0
+    for it in CATALOGO_REQUISITOS:
+        existing = db.query(FeatureFlag).filter_by(codigo=it["codigo"]).first()
+        if existing is None:
+            db.add(FeatureFlag(**it, enabled=False))
+            creados += 1
+        else:
+            for k, v in it.items():
+                if k == "codigo": continue
+                if getattr(existing, k) != v:
+                    setattr(existing, k, v)
+    db.commit()
+    db.close()
+    if creados:
+        print(f"[OK] FeatureFlags: {creados} requisitos creados.")

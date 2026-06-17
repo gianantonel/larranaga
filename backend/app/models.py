@@ -9,10 +9,31 @@ from .database import Base
 
 
 class UserRole(str, enum.Enum):
-    admin1 = "admin1"
-    admin2 = "admin2"
-    admin3 = "admin3"
-    collaborator = "collaborator"
+    super_admin = "super_admin"
+    admin = "admin"
+    colaborador = "colaborador"
+    invitado = "invitado"
+
+
+class UserStatus(str, enum.Enum):
+    active = "active"
+    pending = "pending"
+    rejected = "rejected"
+
+
+class TipoHonorario(str, enum.Enum):
+    fijo = "fijo"
+    producto = "producto"
+
+
+class TipoProfesional(str, enum.Enum):
+    profesional = "profesional"
+    socio = "socio"
+
+
+class FormaPago(str, enum.Enum):
+    efectivo = "efectivo"
+    transferencia = "transferencia"
 
 
 class TaskType(str, enum.Enum):
@@ -47,9 +68,12 @@ class User(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String(100), nullable=False)
+    last_name = Column(String(100))
+    cuit = Column(String(13), index=True)
     email = Column(String(100), unique=True, index=True, nullable=False)
     password_hash = Column(String(255), nullable=False)
-    role = Column(Enum(UserRole), nullable=False, default=UserRole.collaborator)
+    role = Column(Enum(UserRole), nullable=False, default=UserRole.colaborador)
+    status = Column(Enum(UserStatus), nullable=False, default=UserStatus.active)
     is_active = Column(Boolean, default=True)
     avatar_initials = Column(String(3))
     created_at = Column(DateTime(timezone=True), server_default=func.now())
@@ -77,6 +101,13 @@ class Client(Base):
     notes = Column(Text)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
+    # R-03: configuración de honorario (Gero)
+    tipo_honorario = Column(Enum(TipoHonorario), nullable=True)
+    importe_honorario = Column(Float, nullable=True)           # para tipo "fijo"
+    producto_ref_id = Column(Integer, ForeignKey("productos_referencia.id"), nullable=True)
+    cantidad_unidades = Column(Float, nullable=True)           # para tipo "producto"
+    profesional_id = Column(Integer, ForeignKey("profesionales.id"), nullable=True)
+
     tasks = relationship("Task", back_populates="client")
     collaborators = relationship("ClientCollaborator", back_populates="client")
     iva_records = relationship("IVARecord", back_populates="client")
@@ -85,9 +116,12 @@ class Client(Base):
     retenciones_percepciones = relationship("RetencionPercepcion", back_populates="client", cascade="all, delete-orphan")
     comprobantes_recibidos = relationship("ComprobanteRecibido", back_populates="client", cascade="all, delete-orphan")
     action_logs = relationship("ActionLog", back_populates="client")
-
     limpiezas_iva = relationship("LimpiezaIVA", back_populates="client")
     movimientos_cc = relationship("MovimientoCuentaCorriente", back_populates="client", cascade="all, delete-orphan")
+    honorarios = relationship("Honorario", back_populates="client", cascade="all, delete-orphan")
+    pagos = relationship("Pago", back_populates="client", cascade="all, delete-orphan")
+    profesional_a_cargo = relationship("Profesional", back_populates="clientes", foreign_keys=[profesional_id])
+    producto_referencia = relationship("ProductoReferencia", back_populates="clientes", foreign_keys=[producto_ref_id])
 
 
 class LimpiezaIVA(Base):
@@ -369,11 +403,395 @@ class MovimientoCuentaCorriente(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     client_id = Column(Integer, ForeignKey("clients.id", ondelete="CASCADE"), nullable=False)
-    tipo = Column(String(20), nullable=False) # 'ingreso' or 'egreso'
+    tipo = Column(String(20), nullable=False)  # 'honorario' | 'pago' | 'ajuste'
     monto = Column(Float, nullable=False)
     concepto = Column(String(255), nullable=False)
     fecha = Column(Date, nullable=False)
+    periodo_honorario = Column(String(7))  # YYYY-MM — qué período imputa
+    forma_pago = Column(String(20))  # 'efectivo' | 'transferencia'
+    profesional_id = Column(Integer, ForeignKey("profesionales.id"), nullable=True)
     notas = Column(Text)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     client = relationship("Client", back_populates="movimientos_cc")
+    profesional = relationship("Profesional", back_populates="movimientos_cc")
+
+
+# ─── R-03: Productos de referencia y honorarios ───────────────────────────────
+
+class ProductoReferencia(Base):
+    """Producto cuyo precio se usa como base para honorarios tipo 'producto'."""
+    __tablename__ = "productos_referencia"
+
+    id = Column(Integer, primary_key=True, index=True)
+    nombre = Column(String(100), nullable=False)   # ej: "bolsa de cemento", "kilo de carne"
+    unidad = Column(String(30))                    # ej: "bolsa", "kg", "litro"
+    precio_vigente = Column(Float, nullable=False)
+    actualizado_en = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    clientes = relationship("Client", back_populates="producto_referencia", foreign_keys="Client.producto_ref_id")
+    historial = relationship("HistorialPrecioProducto", back_populates="producto",
+                             order_by="HistorialPrecioProducto.vigente_desde.desc()",
+                             cascade="all, delete-orphan")
+
+
+class HistorialPrecioProducto(Base):
+    """Historial de precios de un ProductoReferencia."""
+    __tablename__ = "historial_precios_producto"
+
+    id = Column(Integer, primary_key=True, index=True)
+    producto_id = Column(Integer, ForeignKey("productos_referencia.id", ondelete="CASCADE"), nullable=False)
+    precio = Column(Float, nullable=False)
+    vigente_desde = Column(Date, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    producto = relationship("ProductoReferencia", back_populates="historial")
+
+
+class Honorario(Base):
+    """Honorario calculado para un cliente en un período YYYY-MM (snapshot del cálculo)."""
+    __tablename__ = "honorarios"
+
+    id = Column(Integer, primary_key=True, index=True)
+    client_id = Column(Integer, ForeignKey("clients.id", ondelete="CASCADE"), nullable=False)
+    period = Column(String(7), nullable=False)          # YYYY-MM
+    importe = Column(Float, nullable=False)
+    tipo = Column(String(20), nullable=False)           # snapshot: "fijo" | "producto"
+    precio_producto_snapshot = Column(Float)            # precio del producto al generar
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    client = relationship("Client", back_populates="honorarios")
+    pagos = relationship("Pago", back_populates="honorario")
+
+
+# ─── R-04: Profesionales, pagos y liquidaciones ───────────────────────────────
+
+class Profesional(Base):
+    """Integrante del estudio que recibe honorarios (profesional o socio)."""
+    __tablename__ = "profesionales"
+
+    id = Column(Integer, primary_key=True, index=True)
+    nombre = Column(String(100), nullable=False)
+    tipo = Column(Enum(TipoProfesional), default=TipoProfesional.profesional)
+    activo = Column(Boolean, default=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    clientes = relationship("Client", back_populates="profesional_a_cargo", foreign_keys="Client.profesional_id")
+    pagos_recibidos = relationship("Pago", back_populates="profesional_destinatario")
+    liquidaciones = relationship("Liquidacion", back_populates="profesional", cascade="all, delete-orphan")
+    movimientos_cc = relationship("MovimientoCuentaCorriente", back_populates="profesional")
+
+
+class Pago(Base):
+    """Pago de un cliente al estudio.
+
+    Al crearse impacta automáticamente en:
+    - MovimientoCuentaCorriente del cliente (ingreso)
+    - Liquidacion del profesional destinatario (adelanto)
+    """
+    __tablename__ = "pagos"
+
+    id = Column(Integer, primary_key=True, index=True)
+    client_id = Column(Integer, ForeignKey("clients.id", ondelete="CASCADE"), nullable=False)
+    honorario_id = Column(Integer, ForeignKey("honorarios.id", ondelete="SET NULL"), nullable=True)
+    fecha = Column(Date, nullable=False)
+    importe = Column(Float, nullable=False)
+    forma_pago = Column(Enum(FormaPago), nullable=False)
+    fuente_pago = Column(String(200))                   # empresa/persona que transfirió
+    banco_destino = Column(String(100))
+    profesional_destinatario_id = Column(Integer, ForeignKey("profesionales.id", ondelete="SET NULL"), nullable=True)
+    notas = Column(Text)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    client = relationship("Client", back_populates="pagos")
+    honorario = relationship("Honorario", back_populates="pagos")
+    profesional_destinatario = relationship("Profesional", back_populates="pagos_recibidos")
+
+
+class ReintegroGasto(Base):
+    """Gasto del profesional que el estudio le reintegra en la liquidación mensual."""
+    __tablename__ = "reintegros_gastos"
+
+    id = Column(Integer, primary_key=True, index=True)
+    liquidacion_id = Column(Integer, ForeignKey("liquidaciones.id", ondelete="CASCADE"), nullable=False)
+    concepto = Column(String(100), nullable=False)   # "monotributo", "iibb", "gastos bancarios", "otros"
+    importe = Column(Float, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    liquidacion = relationship("Liquidacion", back_populates="reintegros")
+
+
+# ─── R-09: Maestro de Proveedores ────────────────────────────────────────────
+
+class FuenteMaestro(str, enum.Enum):
+    manual = "manual"
+    padron = "padron"
+    ia = "ia"
+
+
+class MaestroProveedor(Base):
+    """Caché local del padrón ARCA.
+
+    Mapea CUIT → cuenta contable Holistor.
+    Alimentado manualmente, por consulta al padrón ARCA (ws_sr_padron_a4)
+    o por clasificación IA.  Clave para el pipeline R-10 (HWCRARCA).
+    """
+    __tablename__ = "maestro_proveedores"
+
+    id               = Column(Integer, primary_key=True, index=True)
+    cuit             = Column(String(13), unique=True, index=True, nullable=False)
+    razon_social     = Column(String(200), nullable=True)
+    cuenta_contable  = Column(String(50),  nullable=True)   # e.g. "PIVC", "PGAN", "1.1.1.01"
+    fuente           = Column(Enum(FuenteMaestro), default=FuenteMaestro.manual)
+    activo           = Column(Boolean, default=True)
+    notas            = Column(Text, nullable=True)
+    created_at       = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at       = Column(DateTime(timezone=True), onupdate=func.now())
+
+
+class Liquidacion(Base):
+    """Liquidación mensual de un profesional.
+
+    honorarios_totales: fijado manualmente al inicio del mes.
+    adelantos_percibidos: calculado en tiempo real desde Pago por período.
+    saldo_anterior: arrastrado del cierre del mes anterior.
+    total_a_cobrar = honorarios_totales - adelantos + saldo_anterior + reintegros
+    """
+    __tablename__ = "liquidaciones"
+
+    id = Column(Integer, primary_key=True, index=True)
+    profesional_id = Column(Integer, ForeignKey("profesionales.id", ondelete="CASCADE"), nullable=False)
+    period = Column(String(7), nullable=False)          # YYYY-MM
+    honorarios_totales = Column(Float, default=0)       # fijado por el admin
+    saldo_anterior = Column(Float, default=0)           # arrastrado del cierre anterior
+    cobro_efectivo = Column(Float, default=0)           # registrado al cerrar
+    cobro_transferencia = Column(Float, default=0)      # registrado al cerrar
+    cerrada = Column(Boolean, default=False)
+    cerrada_en = Column(DateTime(timezone=True))
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    profesional = relationship("Profesional", back_populates="liquidaciones")
+    reintegros = relationship("ReintegroGasto", back_populates="liquidacion", cascade="all, delete-orphan")
+
+
+# ─── F2-05: Control de billetes en caja ──────────────────────────────────────
+
+class ControlBillete(Base):
+    """Stock actual de billetes en caja por denominación."""
+    __tablename__ = "control_billetes"
+
+    id           = Column(Integer, primary_key=True, index=True)
+    denominacion = Column(Integer, nullable=False, unique=True, index=True)
+    cantidad     = Column(Integer, nullable=False, default=0)
+    updated_at   = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+
+class MovimientoBillete(Base):
+    """Auditoría de entradas/salidas de billetes. delta > 0 = entrada, delta < 0 = salida."""
+    __tablename__ = "movimientos_billetes"
+
+    id           = Column(Integer, primary_key=True, index=True)
+    denominacion = Column(Integer, nullable=False, index=True)
+    delta        = Column(Integer, nullable=False)
+    concepto     = Column(String(200), nullable=False)
+    pago_id      = Column(Integer, ForeignKey("pagos.id", ondelete="SET NULL"), nullable=True)
+    created_at   = Column(DateTime(timezone=True), server_default=func.now())
+
+    pago = relationship("Pago", foreign_keys=[pago_id])
+
+
+# ─── F3-01 (R-15): Conciliación bancaria ─────────────────────────────────────
+
+class BancoEnum(str, enum.Enum):
+    pampa = "pampa"
+    santander = "santander"
+    mercadopago = "mercadopago"
+
+
+class ExtractoBancario(Base):
+    """Cabecera de un extracto bancario importado."""
+    __tablename__ = "extractos_bancarios"
+
+    id                = Column(Integer, primary_key=True, index=True)
+    banco             = Column(String(20), nullable=False, index=True)
+    periodo           = Column(String(7), nullable=False, index=True)  # YYYY-MM
+    archivo_nombre    = Column(String(255), nullable=True)
+    fecha_importacion = Column(DateTime(timezone=True), server_default=func.now())
+    n_movimientos    = Column(Integer, nullable=False, default=0)
+    n_conciliados    = Column(Integer, nullable=False, default=0)
+    n_pendientes     = Column(Integer, nullable=False, default=0)
+
+    movimientos = relationship(
+        "MovimientoBancario",
+        back_populates="extracto",
+        cascade="all, delete-orphan",
+    )
+
+
+class MovimientoBancario(Base):
+    """Cada línea del extracto bancario."""
+    __tablename__ = "movimientos_bancarios"
+
+    id              = Column(Integer, primary_key=True, index=True)
+    extracto_id     = Column(Integer, ForeignKey("extractos_bancarios.id", ondelete="CASCADE"), nullable=False, index=True)
+    banco           = Column(String(20), nullable=False)
+    fecha           = Column(Date, nullable=False, index=True)
+    descripcion     = Column(Text, nullable=False)
+    importe         = Column(Float, nullable=False)
+    tipo            = Column(String(1), nullable=False)  # 'D' = débito, 'C' = crédito
+    saldo           = Column(Float, nullable=True)
+    cuit_detectado  = Column(String(13), nullable=True, index=True)
+    conciliado      = Column(Boolean, nullable=False, default=False, index=True)
+    pago_id         = Column(Integer, ForeignKey("pagos.id", ondelete="SET NULL"), nullable=True)
+    # En el futuro se podrá ligar a egresos / retiros también
+    notas           = Column(Text, nullable=True)
+    created_at      = Column(DateTime(timezone=True), server_default=func.now())
+
+    extracto = relationship("ExtractoBancario", back_populates="movimientos")
+    pago = relationship("Pago", foreign_keys=[pago_id])
+
+
+# ─── F3 (R-12): Tesorería + Retiros de socios ────────────────────────────────
+
+class TipoMovTesoreria(str, enum.Enum):
+    ingreso = "ingreso"
+    egreso = "egreso"
+
+
+class CategoriaTesoreria(str, enum.Enum):
+    cobro_cliente = "cobro_cliente"
+    retiro_socio = "retiro_socio"
+    gasto_general = "gasto_general"
+    impuesto = "impuesto"
+    sueldo = "sueldo"
+    gasto_bancario = "gasto_bancario"
+    otro = "otro"
+
+
+class MovimientoTesoreria(Base):
+    """Libro central de tesorería del estudio.
+
+    Centraliza ingresos (cobros desde Pago) y egresos (retiros de socios, gastos).
+    Cada Pago debe generar un MovimientoTesoreria tipo=ingreso categoria=cobro_cliente.
+    Cada RetiroSocio debe generar un MovimientoTesoreria tipo=egreso categoria=retiro_socio.
+    """
+    __tablename__ = "movimientos_tesoreria"
+
+    id             = Column(Integer, primary_key=True, index=True)
+    fecha          = Column(Date, nullable=False, index=True)
+    tipo           = Column(Enum(TipoMovTesoreria), nullable=False, index=True)
+    categoria      = Column(Enum(CategoriaTesoreria), nullable=False, index=True)
+    importe        = Column(Float, nullable=False)
+    forma_pago     = Column(Enum(FormaPago), nullable=True)
+    banco          = Column(String(100), nullable=True)
+    concepto       = Column(String(255), nullable=False)
+    pago_id        = Column(Integer, ForeignKey("pagos.id", ondelete="SET NULL"), nullable=True)
+    profesional_id = Column(Integer, ForeignKey("profesionales.id", ondelete="SET NULL"), nullable=True)
+    client_id      = Column(Integer, ForeignKey("clients.id", ondelete="SET NULL"), nullable=True)
+    notas          = Column(Text, nullable=True)
+    created_at     = Column(DateTime(timezone=True), server_default=func.now())
+
+    pago        = relationship("Pago", foreign_keys=[pago_id])
+    profesional = relationship("Profesional", foreign_keys=[profesional_id])
+    client      = relationship("Client", foreign_keys=[client_id])
+
+
+class RetiroSocio(Base):
+    """Retiro de honorarios de un socio (Pablo, Manuel, Marisol).
+
+    Al crearse impacta automáticamente en:
+    - MovimientoCuentaCorriente del estudio — egreso (CC interna del socio)
+    - MovimientoTesoreria — egreso categoria=retiro_socio
+    - ControlBillete — solo si forma_pago=efectivo
+    """
+    __tablename__ = "retiros_socios"
+
+    id                      = Column(Integer, primary_key=True, index=True)
+    profesional_id          = Column(Integer, ForeignKey("profesionales.id", ondelete="CASCADE"), nullable=False, index=True)
+    fecha                   = Column(Date, nullable=False, index=True)
+    importe                 = Column(Float, nullable=False)
+    forma_pago              = Column(Enum(FormaPago), nullable=False)
+    banco_origen            = Column(String(100), nullable=True)
+    conciliado              = Column(Boolean, nullable=False, default=False, index=True)
+    movimiento_tesoreria_id = Column(Integer, ForeignKey("movimientos_tesoreria.id", ondelete="SET NULL"), nullable=True)
+    notas                   = Column(Text, nullable=True)
+    created_at              = Column(DateTime(timezone=True), server_default=func.now())
+
+    profesional          = relationship("Profesional", foreign_keys=[profesional_id])
+    movimiento_tesoreria = relationship("MovimientoTesoreria", foreign_keys=[movimiento_tesoreria_id])
+
+
+# ─── F3 (R-13): Índice de actualización cuatrimestral ────────────────────────
+
+class FuenteActualizacion(str, enum.Enum):
+    ipc       = "ipc"
+    manual    = "manual"
+    negociado = "negociado"
+
+
+class IndiceActualizacion(Base):
+    """Cabecera de cada actualización de honorarios cuatrimestral.
+
+    Se persiste al hacer preview (con aplicado=false) y se marca aplicado=true
+    cuando el admin confirma uno o varios clientes.
+    """
+    __tablename__ = "indices_actualizacion"
+
+    id                = Column(Integer, primary_key=True, index=True)
+    periodo           = Column(String(7), nullable=False, index=True)  # YYYY-MM aplicación
+    indice_pct        = Column(Float, nullable=False)
+    fuente            = Column(Enum(FuenteActualizacion), nullable=False, default=FuenteActualizacion.manual)
+    aplicado          = Column(Boolean, nullable=False, default=False, index=True)
+    fecha_aplicacion  = Column(DateTime(timezone=True), nullable=True)
+    notas             = Column(Text, nullable=True)
+    created_at        = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class HistorialActualizacionHonorario(Base):
+    """Registro histórico de cambios en honorarios fijos por aplicar un índice.
+
+    Permite auditar la evolución del importe por cliente y rastrear de qué
+    `IndiceActualizacion` proviene cada cambio.
+    """
+    __tablename__ = "historial_actualizaciones_honorario"
+
+    id              = Column(Integer, primary_key=True, index=True)
+    indice_id       = Column(Integer, ForeignKey("indices_actualizacion.id", ondelete="CASCADE"), nullable=False, index=True)
+    client_id       = Column(Integer, ForeignKey("clients.id", ondelete="CASCADE"), nullable=False, index=True)
+    importe_anterior = Column(Float, nullable=False)
+    importe_nuevo   = Column(Float, nullable=False)
+    fecha           = Column(Date, nullable=False)
+    created_at      = Column(DateTime(timezone=True), server_default=func.now())
+
+    indice = relationship("IndiceActualizacion", foreign_keys=[indice_id])
+    client = relationship("Client", foreign_keys=[client_id])
+
+
+# ─── Feature Flags por Requisito ──────────────────────────────────────────────
+
+class FeatureFlag(Base):
+    """Toggle por requisito (R-XX) para controlar la visibilidad en frontend.
+
+    Solo `super_admin` puede modificar el campo `enabled` desde la UI
+    `/gestion-requisitos`. Para los colaboradores: si enabled=False las rutas
+    y items de sidebar asociados al requisito se ocultan.
+    `implementado` indica si existe código real (False → toggle solo muestra
+    una página vacía si se prende).
+    """
+    __tablename__ = "feature_flags"
+
+    codigo          = Column(String(10), primary_key=True)   # "R-01" .. "R-20"
+    titulo          = Column(String(200), nullable=False)
+    descripcion     = Column(Text, nullable=True)
+    area            = Column(String(20), nullable=True)
+    fase            = Column(Integer, nullable=True, index=True)
+    dificultad      = Column(String(20), nullable=True)
+    ruta_frontend   = Column(String(120), nullable=True)
+    implementado    = Column(Boolean, nullable=False, default=False)
+    enabled         = Column(Boolean, nullable=False, default=False)
+    updated_by_id   = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    updated_at      = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    updated_by = relationship("User", foreign_keys=[updated_by_id])

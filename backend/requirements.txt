@@ -14,3 +14,6 @@ psycopg2-binary==2.9.9
 afip.py==1.2.0
 pandas>=2.2.2
 openpyxl>=3.1.2
+resend>=2.0.0
+reportlab==4.2.2
+xlrd>=2.0.1

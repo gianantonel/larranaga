@@ -1,0 +1,52 @@
+[
+  [
+    "T1",
+    "Sidebar tiene 'Conciliación bancaria'",
+    "PASS"
+  ],
+  [
+    "T2",
+    "Pantalla carga con tabs Importar/Extractos",
+    "PASS"
+  ],
+  [
+    "T3",
+    "Extracto importado y procesado",
+    "PASS"
+  ],
+  [
+    "T4",
+    "Listado con 2 extracto(s)",
+    "PASS"
+  ],
+  [
+    "T5",
+    "Tabla de movimientos con 15 filas",
+    "PASS"
+  ],
+  [
+    "T6",
+    "3 movimientos conciliados (BUTALO + Gesualdo + Gaucho)",
+    "PASS"
+  ],
+  [
+    "T7",
+    "Filtro Conciliados aplicado",
+    "PASS"
+  ],
+  [
+    "T8",
+    "Filtro Pendientes muestra 11 filas",
+    "PASS"
+  ],
+  [
+    "T9",
+    "Buscador filtra por texto",
+    "PASS"
+  ],
+  [
+    "T10",
+    "Modal con 5 candidatos sugeridos (scores 10-32%)",
+    "PASS"
+  ]
+]

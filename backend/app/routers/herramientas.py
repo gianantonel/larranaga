@@ -49,9 +49,11 @@ for _AGENT in _CANDIDATES:
 try:
     from src.transformaciones.limpieza_inicial import limpiar_comprobantes_desde_bytes
     from src.transformaciones.division_alicuotas import aplicar_division_alicuotas
+    from src.transformaciones.hwcrarca_builder import construir_hwcrarca_xlsx, CuadreError
     _MODULO_OK = True
 except ImportError:
     _MODULO_OK = False
+    CuadreError = Exception  # placeholder cuando módulo no disponible
 
 router = APIRouter(prefix="/herramientas", tags=["herramientas"])
 
@@ -175,6 +177,105 @@ def descargar_limpieza(
         io.BytesIO(limpieza.archivo_corregido),
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f'attachment; filename="{limpieza.nombre_corregido}"'},
+    )
+
+
+# ── R-10: Generación HWCRARCA ───────────────────────────────────────────────
+
+@router.post("/{limpieza_id}/generar-hwcrarca")
+def generar_hwcrarca(
+    limpieza_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    """
+    Genera el archivo HWCRARCA.xlsx a partir de un registro de limpieza existente.
+
+    Toma el archivo procesado por R-01 + R-02 (guardado en `limpiezas_iva`),
+    aplica las transformaciones de R-10 (formato Holistor) y devuelve el
+    .xlsx como descarga.
+
+    El archivo resultante tiene:
+      - Pestaña "HWComprobantes Recibidos"
+      - Banner en fila 1
+      - 30 columnas A-AD según convención Holistor
+      - Datos transformados (Tipo numérico, Tipo Doc mapeado, etc.)
+
+    Headers de respuesta:
+      X-Total-Filas: cantidad de filas procesadas
+      X-Cuadre-Ok:  "true" | "false" (si las filas validan Debe=Haber)
+      X-Filas-B-C:  cantidad de comprobantes Tipo B/C
+      X-Filas-CF:   cantidad de filas marcadas como Consumidor Final
+    """
+    if not _MODULO_OK:
+        raise HTTPException(503, "Módulo HWCRARCA no disponible.")
+
+    limpieza = db.query(models.LimpiezaIVA).filter(
+        models.LimpiezaIVA.id == limpieza_id
+    ).first()
+    if not limpieza:
+        raise HTTPException(404, "Registro de limpieza no encontrado")
+
+    # Leer el .xlsx procesado (output de R-01 + R-02) en DataFrame
+    import pandas as pd
+    try:
+        df = pd.read_excel(io.BytesIO(limpieza.archivo_corregido), dtype=str)
+    except Exception as e:
+        raise HTTPException(422, f"No se pudo leer el archivo procesado: {e}")
+
+    # Aplicar R-10 con hook de validación pre-exportación (F-10)
+    try:
+        xlsx_bytes, stats = construir_hwcrarca_xlsx(df)
+    except CuadreError as ce:
+        # Cuadre Debe=Haber falla a nivel agregado: HTTP 422 con detalle estructurado
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "error":        "cuadre_invalido",
+                "message":      str(ce),
+                "debe_total":   ce.result["debe_total"],
+                "haber_total":  ce.result["haber_total"],
+                "diferencia":   ce.result["diferencia_agregada"],
+                "totales":      ce.result["totales"],
+                "advertencias": ce.result["advertencias"][:20],  # primeras 20 filas
+                "filas_con_advertencia": ce.result["filas_con_advertencia"],
+            },
+        )
+    except Exception as e:
+        raise HTTPException(422, f"Error al generar HWCRARCA: {e}")
+
+    # Log de acción
+    desc = f"R-10 HWCRARCA generado: {stats['total_filas']} filas"
+    if stats["filas_b_c"]:
+        desc += f", {stats['filas_b_c']} Tipo B/C"
+    if stats["filas_consumidor_final"]:
+        desc += f", {stats['filas_consumidor_final']} consumidor final"
+    if not stats["validacion"]["valido"]:
+        desc += " (CON ERRORES)"
+
+    db.add(models.ActionLog(
+        user_id     = current_user.id,
+        client_id   = limpieza.client_id,
+        action_type = "hwcrarca_generado",
+        description = desc,
+    ))
+    db.commit()
+
+    # Construir nombre de salida
+    stem = Path(limpieza.nombre_original).stem
+    nombre_salida = f"HWCRARCA_{stem}.xlsx"
+
+    return StreamingResponse(
+        io.BytesIO(xlsx_bytes),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={
+            "Content-Disposition":  f'attachment; filename="{nombre_salida}"',
+            "X-Total-Filas":        str(stats["total_filas"]),
+            "X-Filas-B-C":          str(stats["filas_b_c"]),
+            "X-Filas-CF":           str(stats["filas_consumidor_final"]),
+            "X-Cuadre-Ok":          "true" if stats["validacion"]["valido"] else "false",
+            "X-Filas-Adv":          str(stats["validacion"]["filas_con_advertencia"]),
+        },
     )
 
 
