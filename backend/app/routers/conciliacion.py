@@ -26,7 +26,14 @@ for _candidate in (
         sys.path.insert(0, str(_candidate))
         break
 
-from src.bancos import PARSERS, get_parser  # type: ignore  # noqa: E402
+# Import defensivo: si el agente no está disponible (p. ej. vendor incompleto),
+# degradamos en vez de tumbar TODA la app al importar este router (causó un 502
+# global en producción). Los endpoints responden 400 con la lista vacía de bancos.
+try:
+    from src.bancos import PARSERS, get_parser  # type: ignore  # noqa: E402
+except ImportError:  # pragma: no cover
+    PARSERS = {}
+    get_parser = None
 
 
 router = APIRouter(prefix="/conciliacion", tags=["conciliacion"])
