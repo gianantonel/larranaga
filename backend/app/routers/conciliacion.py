@@ -13,11 +13,18 @@ from .. import models, schemas
 from ..database import get_db
 from .auth import get_current_user
 
-# Hacemos disponible larranaga-accounting-agent como import path
-_REPO_ROOT = Path(__file__).resolve().parents[3]
-_ACCOUNTING_PKG = _REPO_ROOT / "larranaga-accounting-agent"
-if str(_ACCOUNTING_PKG) not in sys.path:
-    sys.path.insert(0, str(_ACCOUNTING_PKG))
+# Hacemos disponible larranaga-accounting-agent como import path.
+# Busca el agent en dos ubicaciones (igual que herramientas.py):
+#   1) Dev local: <repo_root>/larranaga-accounting-agent  (parents[3])
+#   2) Producción Docker: backend/larranaga-accounting-agent (parents[2] = /app)
+_HERE = Path(__file__).resolve()
+for _candidate in (
+    _HERE.parents[3] / "larranaga-accounting-agent",  # dev local
+    _HERE.parents[2] / "larranaga-accounting-agent",  # docker / vendor
+):
+    if _candidate.is_dir() and str(_candidate) not in sys.path:
+        sys.path.insert(0, str(_candidate))
+        break
 
 from src.bancos import PARSERS, get_parser  # type: ignore  # noqa: E402
 
