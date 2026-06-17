@@ -51,6 +51,36 @@ EXCLUDED_FIELDS = {
     "limpiezas_iva": ["archivo_corregido"],  # binario
 }
 
+# Valores de rol válidos según el enum UserRole del modelo.
+VALID_ROLES = {"super_admin", "admin", "colaborador", "invitado"}
+
+# Alias de roles que InsForge puede tener con valores que el enum local no acepta.
+# Sin esta normalización, SQLAlchemy tira LookupError al leer `users` y todo
+# endpoint que consulte usuarios (login incluido) devuelve 500.
+ROLE_ALIASES = {
+    "admin1":        "super_admin",
+    "collaborator":  "colaborador",
+}
+
+
+def _normalize_role(value: Any) -> Any:
+    """Mapea un valor de rol de InsForge a uno válido del enum UserRole.
+
+    - Aplica los alias conocidos (admin1→super_admin, collaborator→colaborador).
+    - Deja intactos los valores ya válidos.
+    - Cualquier valor desconocido cae a 'invitado' (mínimo privilegio) y se loguea,
+      para no romper la app ni otorgar acceso de más.
+    """
+    if value is None:
+        return value
+    raw = str(value).strip()
+    if raw in VALID_ROLES:
+        return raw
+    if raw in ROLE_ALIASES:
+        return ROLE_ALIASES[raw]
+    logger.warning(f"Rol desconocido desde InsForge: {value!r} → 'invitado' (mínimo privilegio)")
+    return "invitado"
+
 
 def fetch_records(table: str, limit: int = 1000) -> List[Dict[str, Any]]:
     """Lee todos los registros de una tabla desde InsForge."""
@@ -107,8 +137,11 @@ def _normalize_record(table: str, record: Dict[str, Any]) -> Dict[str, Any]:
     for k, v in record.items():
         if k in excluded:
             continue
+        # role de users → normalizar a un valor válido del enum UserRole
+        if table == "users" and k == "role":
+            out[k] = _normalize_role(v)
         # bools → int (SQLite)
-        if k in bool_cols and isinstance(v, bool):
+        elif k in bool_cols and isinstance(v, bool):
             out[k] = 1 if v else 0
         elif isinstance(v, bool):
             out[k] = 1 if v else 0
