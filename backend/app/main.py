@@ -75,6 +75,40 @@ def _migrate_sqlite():
         conn.commit()
 
 
+def _add_missing_columns():
+    """Agrega columnas que existen en el modelo pero faltan en la base. InsForge
+    importó algunas tablas sin todas las columnas (p. ej. `limpiezas_iva` quedó sin
+    `archivo_corregido`/BYTEA), y `create_all` NO altera tablas existentes → cualquier
+    SELECT de esa tabla falla con `UndefinedColumn` → 500.
+
+    Cross-dialect: compila el tipo de cada columna según el dialecto activo
+    (LargeBinary→BYTEA en Postgres, etc.). Las columnas se agregan SIN NOT NULL ni
+    default para no fallar si la tabla ya tiene filas; la app igual valida el not-null
+    al insertar. Cada ALTER va en su propia transacción + try/except. Idempotente."""
+    from sqlalchemy import inspect as sa_inspect
+
+    insp = sa_inspect(engine)
+    db_tables = set(insp.get_table_names())
+    dialect = engine.dialect
+
+    for table_name, table in models.Base.metadata.tables.items():
+        if table_name not in db_tables:
+            continue  # create_all ya crea las tablas nuevas completas
+        existing = {c["name"] for c in insp.get_columns(table_name)}
+        for col in table.columns:
+            if col.name in existing:
+                continue
+            try:
+                col_type = col.type.compile(dialect=dialect)
+                with engine.begin() as conn:
+                    conn.execute(
+                        text(f'ALTER TABLE "{table_name}" ADD COLUMN "{col.name}" {col_type}')
+                    )
+                print(f"[migrate] columna agregada: {table_name}.{col.name} {col_type}")
+            except Exception as e:  # noqa: BLE001 — no debe romper el arranque
+                print(f"[migrate] WARN no se pudo agregar {table_name}.{col.name}: {e}")
+
+
 def _repair_numeric_columns():
     """Auto-reparación de tipos: InsForge (y otros BaaS que importan datos) crean
     columnas numéricas como TEXT. El ORM las mapea como Float y al leerlas psycopg
@@ -227,6 +261,7 @@ def _seed_billetes():
 @app.on_event("startup")
 async def startup_event():
     _migrate_sqlite()
+    _add_missing_columns()
     _repair_numeric_columns()
     _resync_sequences()
     register_sync_events(engine)
