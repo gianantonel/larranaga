@@ -75,6 +75,51 @@ def _migrate_sqlite():
         conn.commit()
 
 
+def _repair_numeric_columns():
+    """Auto-reparación de tipos: InsForge (y otros BaaS que importan datos) crean
+    columnas numéricas como TEXT. El ORM las mapea como Float y al leerlas psycopg
+    falla con `InvalidRequestError: Unknown PG numeric type: 25` (25 = OID de text),
+    devolviendo 500 en TODO endpoint que lea esas tablas (clients, iva, facturas,
+    honorarios, etc.).
+
+    Solo aplica en Postgres: recorre las columnas Float del modelo, y si en la base
+    están como texto las convierte a `double precision` con un cast seguro
+    (`NULLIF(btrim(...), '')`). Cada ALTER corre en su propia transacción y bajo
+    try/except, de modo que una columna con datos no convertibles no aborte el resto
+    ni rompa el arranque. Es idempotente: si ya es numérica, no hace nada."""
+    from sqlalchemy import inspect as sa_inspect, types as sqltypes
+
+    if engine.dialect.name == "sqlite":
+        return
+
+    insp = sa_inspect(engine)
+    db_tables = set(insp.get_table_names())
+
+    for table_name, table in models.Base.metadata.tables.items():
+        if table_name not in db_tables:
+            continue
+        live_types = {c["name"]: c["type"] for c in insp.get_columns(table_name)}
+        for col in table.columns:
+            # Float es subclase de Numeric en SQLAlchemy
+            if not isinstance(col.type, sqltypes.Numeric):
+                continue
+            live = live_types.get(col.name)
+            # Solo reparar si en la base la columna está como texto
+            if live is None or not isinstance(live, sqltypes.String):
+                continue
+            stmt = text(
+                f'ALTER TABLE "{table_name}" '
+                f'ALTER COLUMN "{col.name}" TYPE double precision '
+                f'USING NULLIF(btrim("{col.name}"::text), \'\')::double precision'
+            )
+            try:
+                with engine.begin() as conn:
+                    conn.execute(stmt)
+                print(f"[migrate] {table_name}.{col.name}: TEXT → double precision")
+            except Exception as e:  # noqa: BLE001 — no debe romper el arranque
+                print(f"[migrate] WARN no se pudo convertir {table_name}.{col.name}: {e}")
+
+
 # Create tables
 models.Base.metadata.create_all(bind=engine)
 
@@ -139,6 +184,7 @@ def _seed_billetes():
 @app.on_event("startup")
 async def startup_event():
     _migrate_sqlite()
+    _repair_numeric_columns()
     register_sync_events(engine)
     seed_database()
     seed_profesionales_y_productos()
