@@ -154,6 +154,55 @@ def _repair_numeric_columns():
                 print(f"[migrate] WARN no se pudo convertir {table_name}.{col.name}: {e}")
 
 
+def _repair_boolean_columns():
+    """Convierte a boolean las columnas Boolean del modelo que InsForge guardó como
+    INTEGER o TEXT. Síntoma: queries como `liquidaciones.cerrada == True` generan
+    `cerrada = true` y Postgres falla con
+    `operator does not exist: integer = boolean` → 500.
+
+    Solo Postgres. Por cada columna Boolean del modelo cuya columna real no sea
+    boolean, hace DROP DEFAULT (evita conflicto de cast del default) y luego
+    ALTER ... TYPE boolean USING (...). Integer→(col<>0); Text→(lower(col) in
+    'true','t','1','yes','y'). Cada tabla en su transacción + try/except. Idempotente."""
+    from sqlalchemy import inspect as sa_inspect, types as sqltypes
+
+    if engine.dialect.name == "sqlite":
+        return
+
+    insp = sa_inspect(engine)
+    db_tables = set(insp.get_table_names())
+
+    for table_name, table in models.Base.metadata.tables.items():
+        if table_name not in db_tables:
+            continue
+        live_types = {c["name"]: c["type"] for c in insp.get_columns(table_name)}
+        for col in table.columns:
+            if not isinstance(col.type, sqltypes.Boolean):
+                continue
+            live = live_types.get(col.name)
+            if live is None or isinstance(live, sqltypes.Boolean):
+                continue  # ya es boolean o no existe
+            if isinstance(live, sqltypes.Integer):
+                using = f'("{col.name}" <> 0)'
+            else:  # texto u otro
+                using = (
+                    f"(lower(nullif(btrim(\"{col.name}\"::text), '')) "
+                    f"IN ('true', 't', '1', 'yes', 'y'))"
+                )
+            try:
+                with engine.begin() as conn:
+                    conn.execute(text(
+                        f'ALTER TABLE "{table_name}" ALTER COLUMN "{col.name}" DROP DEFAULT'
+                    ))
+                    conn.execute(text(
+                        f'ALTER TABLE "{table_name}" ALTER COLUMN "{col.name}" '
+                        f'TYPE boolean USING {using}'
+                    ))
+                print(f"[migrate] {table_name}.{col.name}: → boolean")
+            except Exception as e:  # noqa: BLE001 — no debe romper el arranque
+                print(f"[migrate] WARN no se pudo convertir {table_name}.{col.name} a boolean: {e}")
+
+
 def _resync_sequences():
     """Resincroniza las secuencias de `id` en Postgres. Cuando se importan datos con
     `id` explícito (como hace InsForge desde el dump SQLite), la secuencia SERIAL/IDENTITY
@@ -263,6 +312,7 @@ async def startup_event():
     _migrate_sqlite()
     _add_missing_columns()
     _repair_numeric_columns()
+    _repair_boolean_columns()
     _resync_sequences()
     register_sync_events(engine)
     seed_database()
