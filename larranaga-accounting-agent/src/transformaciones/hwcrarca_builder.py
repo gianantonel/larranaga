@@ -34,6 +34,36 @@ from openpyxl.styles import Alignment, Font, PatternFill
 from .division_alicuotas import parse_string_float
 
 
+def _to_float(valor) -> float:
+    """Parser robusto a formato argentino Y estándar, para el archivo YA limpio
+    (output de R-01/R-02) que viene con punto decimal estándar (ej. "26663355.8").
+
+    `parse_string_float` asume formato ARCA crudo (punto=miles, coma=decimal) y
+    rompía acá: tomaba el punto decimal como separador de miles e inflaba cada valor
+    10×/100× según la cantidad de decimales, generando un falso descuadre. Este parser
+    detecta el separador decimal real (el que esté más a la derecha) y funciona con
+    "26663355.8", "1234.56", "1.234,56" y "89.516,16" por igual.
+    """
+    if valor is None:
+        return 0.0
+    s = str(valor).strip()
+    if s == "" or s.lower() == "nan":
+        return 0.0
+    if "," in s and "." in s:
+        # el separador más a la derecha es el decimal; el otro es de miles
+        if s.rfind(",") > s.rfind("."):
+            s = s.replace(".", "").replace(",", ".")
+        else:
+            s = s.replace(",", "")
+    elif "," in s:
+        s = s.replace(",", ".")
+    # solo "." (o sin separador) → punto decimal estándar → float directo
+    try:
+        return float(s)
+    except (ValueError, TypeError):
+        return 0.0
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # CONSTANTES
 # ─────────────────────────────────────────────────────────────────────────────
@@ -171,7 +201,7 @@ def formatear_tipo_cambio(valor: Any) -> float:
     if s in {"$", ""}:
         return 1.0
     try:
-        return parse_string_float(s) or 1.0
+        return _to_float(s) or 1.0
     except Exception:
         return 1.0
 
@@ -307,12 +337,12 @@ def validar_cuadre(
             tipo = extraer_codigo_tipo(row.get("Tipo", ""))
             es_b_c = tipo in TIPOS_B_C
 
-            neto    = parse_string_float(row.get("Neto Gravado Total", "0"))
-            no_grav = parse_string_float(row.get("Neto No Gravado",    "0"))
-            exentas = parse_string_float(row.get("Op. Exentas",        "0"))
-            iva     = parse_string_float(row.get("Total IVA",          "0"))
-            otros   = parse_string_float(row.get("Otros Tributos",     "0"))
-            total   = parse_string_float(row.get("Imp. Total",         "0"))
+            neto    = _to_float(row.get("Neto Gravado Total", "0"))
+            no_grav = _to_float(row.get("Neto No Gravado",    "0"))
+            exentas = _to_float(row.get("Op. Exentas",        "0"))
+            iva     = _to_float(row.get("Total IVA",          "0"))
+            otros   = _to_float(row.get("Otros Tributos",     "0"))
+            total   = _to_float(row.get("Imp. Total",         "0"))
 
             # Agregar a sumas
             suma_neto       += neto
@@ -476,7 +506,7 @@ def construir_hwcrarca_xlsx(df: pd.DataFrame) -> Tuple[bytes, Dict[str, Any]]:
 
             # Columnas numéricas (N-AD): convertir string ARCA a float
             if col_pos in NUMERIC_COL_INDICES:
-                valor = parse_string_float(valor_raw)
+                valor = _to_float(valor_raw)
                 c = ws.cell(row=row_pos, column=col_pos + 1, value=valor)
                 c.number_format = "#,##0.00"
                 continue
@@ -489,12 +519,12 @@ def construir_hwcrarca_xlsx(df: pd.DataFrame) -> Tuple[bytes, Dict[str, Any]]:
             ws.cell(row=row_pos, column=col_pos + 1, value=valor)
 
         # ── 2. Cols AE-AI (30-34): totales recalculados (duplicado validación) ──
-        neto_gravado = parse_string_float(row.get("Neto Gravado Total", "0"))
-        no_gravado   = parse_string_float(row.get("Neto No Gravado",    "0"))
-        exentas      = parse_string_float(row.get("Op. Exentas",        "0"))
-        total_iva    = parse_string_float(row.get("Total IVA",          "0"))
-        imp_total    = parse_string_float(row.get("Imp. Total",         "0"))
-        otros_trib   = parse_string_float(row.get("Otros Tributos",     "0"))
+        neto_gravado = _to_float(row.get("Neto Gravado Total", "0"))
+        no_gravado   = _to_float(row.get("Neto No Gravado",    "0"))
+        exentas      = _to_float(row.get("Op. Exentas",        "0"))
+        total_iva    = _to_float(row.get("Total IVA",          "0"))
+        imp_total    = _to_float(row.get("Imp. Total",         "0"))
+        otros_trib   = _to_float(row.get("Otros Tributos",     "0"))
 
         for col_idx, val in [
             (31, neto_gravado),  # AE = col 31
