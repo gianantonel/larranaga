@@ -15,7 +15,12 @@ from .mock_data import seed_database, seed_profesionales_y_productos, seed_featu
 
 
 def _migrate_sqlite():
-    """Migración liviana para SQLite: añade columnas nuevas y recrea tablas con schema incorrecto."""
+    """Migración liviana de schema: añade columnas nuevas y recrea tablas con schema
+    incorrecto. Cross-dialect (SQLite + PostgreSQL): usa el inspector de SQLAlchemy
+    en vez de `PRAGMA table_info` (que es exclusivo de SQLite y rompía el arranque
+    en producción sobre Postgres con `syntax error at or near "PRAGMA"`)."""
+    from sqlalchemy import inspect as sa_inspect
+
     new_client_cols = [
         ("tipo_honorario",   "VARCHAR(20)"),
         ("importe_honorario","FLOAT"),
@@ -33,21 +38,29 @@ def _migrate_sqlite():
         ("forma_pago",        "VARCHAR(20)"),
         ("profesional_id",    "INTEGER"),
     ]
+
+    insp = sa_inspect(engine)
+    tables = set(insp.get_table_names())
+
+    def _cols(table):
+        """Columnas existentes de una tabla (vacío si la tabla no existe)."""
+        return {c["name"] for c in insp.get_columns(table)} if table in tables else set()
+
     with engine.connect() as conn:
         # 1. Columnas nuevas en clients
-        existing_cols = {row[1] for row in conn.execute(text("PRAGMA table_info(clients)"))}
+        existing_cols = _cols("clients")
         for col, col_type in new_client_cols:
-            if col not in existing_cols:
+            if existing_cols and col not in existing_cols:
                 conn.execute(text(f"ALTER TABLE clients ADD COLUMN {col} {col_type}"))
 
         # 2. Columnas nuevas en users (sistema de roles v2)
-        existing_user_cols = {row[1] for row in conn.execute(text("PRAGMA table_info(users)"))}
+        existing_user_cols = _cols("users")
         for col, col_type in new_user_cols:
-            if col not in existing_user_cols:
+            if existing_user_cols and col not in existing_user_cols:
                 conn.execute(text(f"ALTER TABLE users ADD COLUMN {col} {col_type}"))
 
         # 2b. Columnas nuevas en movimientos_cc (R-03/R-04 — vínculo con honorarios y pagos)
-        existing_mov_cols = {row[1] for row in conn.execute(text("PRAGMA table_info(movimientos_cc)"))}
+        existing_mov_cols = _cols("movimientos_cc")
         if existing_mov_cols:
             for col, col_type in new_movimiento_cols:
                 if col not in existing_mov_cols:
@@ -55,7 +68,7 @@ def _migrate_sqlite():
 
         # 3. Si honorarios existe con schema viejo (columna 'amount' en lugar de 'importe'), la borramos
         #    para que create_all la recree correctamente.
-        hon_cols = {row[1] for row in conn.execute(text("PRAGMA table_info(honorarios)"))}
+        hon_cols = _cols("honorarios")
         if hon_cols and "importe" not in hon_cols:
             conn.execute(text("DROP TABLE honorarios"))
 
