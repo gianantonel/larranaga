@@ -120,6 +120,49 @@ def _repair_numeric_columns():
                 print(f"[migrate] WARN no se pudo convertir {table_name}.{col.name}: {e}")
 
 
+def _resync_sequences():
+    """Resincroniza las secuencias de `id` en Postgres. Cuando se importan datos con
+    `id` explícito (como hace InsForge desde el dump SQLite), la secuencia SERIAL/IDENTITY
+    NO se avanza, así que el próximo INSERT genera un id que ya existe →
+    `UniqueViolation: duplicate key ... _pkey`. Esto rompe TODO INSERT en tablas
+    importadas (crear cliente, tarea, factura, asignar colaborador, etc.).
+
+    Solo aplica en Postgres: por cada tabla con PK simple `id` con secuencia asociada,
+    hace `setval(seq, max(id)+1, false)`. Idempotente y seguro de correr en cada arranque.
+    No-op en SQLite local. Cada tabla va en su propia transacción + try/except."""
+    from sqlalchemy import inspect as sa_inspect
+
+    if engine.dialect.name == "sqlite":
+        return
+
+    insp = sa_inspect(engine)
+    db_tables = set(insp.get_table_names())
+
+    for table_name, table in models.Base.metadata.tables.items():
+        if table_name not in db_tables:
+            continue
+        pk_cols = [c.name for c in table.primary_key.columns]
+        if pk_cols != ["id"]:
+            continue
+        try:
+            with engine.begin() as conn:
+                seq = conn.execute(
+                    text("SELECT pg_get_serial_sequence(:t, 'id')"),
+                    {"t": table_name},
+                ).scalar()
+                if not seq:
+                    continue  # id sin secuencia (no autoincrement) → nada que resync
+                conn.execute(
+                    text(
+                        f"SELECT setval('{seq}', "
+                        f'COALESCE((SELECT MAX(id) FROM "{table_name}"), 0) + 1, false)'
+                    )
+                )
+            print(f"[migrate] secuencia resync: {table_name}")
+        except Exception as e:  # noqa: BLE001 — no debe romper el arranque
+            print(f"[migrate] WARN no se pudo resync secuencia de {table_name}: {e}")
+
+
 # Create tables
 models.Base.metadata.create_all(bind=engine)
 
@@ -185,6 +228,7 @@ def _seed_billetes():
 async def startup_event():
     _migrate_sqlite()
     _repair_numeric_columns()
+    _resync_sequences()
     register_sync_events(engine)
     seed_database()
     seed_profesionales_y_productos()
