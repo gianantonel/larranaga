@@ -7,6 +7,7 @@ from .. import models, schemas
 from ..database import get_db
 from .auth import get_current_user, require_admin
 from .clients import _format_client_out
+from ..access import assigned_client_ids, ensure_client_access
 
 router = APIRouter(prefix="/honorarios", tags=["honorarios"])
 
@@ -100,8 +101,12 @@ def configurar_honorario(client_id: int, data: schemas.ClientHonorarioUpdate,
 @router.get("/", response_model=List[schemas.HonorarioOut])
 def list_honorarios(client_id: Optional[int] = None, period: Optional[str] = None,
                     db: Session = Depends(get_db),
-                    _: models.User = Depends(get_current_user)):
+                    current_user: models.User = Depends(get_current_user)):
     q = db.query(models.Honorario)
+    # Un colaborador solo ve honorarios de sus clientes asignados
+    allowed = assigned_client_ids(db, current_user)
+    if allowed is not None:
+        q = q.filter(models.Honorario.client_id.in_(allowed))
     if client_id:
         q = q.filter(models.Honorario.client_id == client_id)
     if period:

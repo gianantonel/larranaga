@@ -21,6 +21,7 @@ from sqlalchemy.orm import Session
 from .. import models, schemas
 from ..database import SessionLocal, get_db
 from .auth import get_current_user
+from ..access import assigned_client_ids, ensure_client_access
 from ..afip_sdk.client import load_context
 from ..afip_sdk.automations import run_automation, save_raw
 from ..afip_sdk.retenciones import IMPUESTO_TO_HOLISTOR, classify_regimen, extract_records
@@ -203,6 +204,7 @@ def sync_retenciones(
     El cliente debe polear `GET /retenciones/sync/{job_id}` hasta status in {done,error}.
     El scraping completo en AFIP SDK suele tardar 1–3 minutos.
     """
+    ensure_client_access(db, current_user, body.client_id)
     client = db.query(models.Client).filter(models.Client.id == body.client_id).first()
     if not client:
         raise HTTPException(status_code=404, detail="Cliente no encontrado")
@@ -238,6 +240,7 @@ def get_sync_job(
     job = db.query(models.RetencionSyncJob).filter(models.RetencionSyncJob.id == job_id).first()
     if not job:
         raise HTTPException(status_code=404, detail="Job no encontrado")
+    ensure_client_access(db, current_user, job.client_id)
     summary = None
     if job.summary_by_holistor:
         try:
@@ -272,6 +275,9 @@ def list_retenciones(
     current_user: models.User = Depends(get_current_user),
 ):
     q = db.query(models.RetencionPercepcion)
+    allowed = assigned_client_ids(db, current_user)
+    if allowed is not None:
+        q = q.filter(models.RetencionPercepcion.client_id.in_(allowed))
     if client_id:
         q = q.filter(models.RetencionPercepcion.client_id == client_id)
     if period:
@@ -288,6 +294,7 @@ def summary(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
+    ensure_client_access(db, current_user, client_id)
     q = db.query(models.RetencionPercepcion).filter(models.RetencionPercepcion.client_id == client_id)
     if period:
         q = q.filter(models.RetencionPercepcion.period == period)
@@ -310,6 +317,7 @@ def delete_retencion(
     rec = db.query(models.RetencionPercepcion).filter(models.RetencionPercepcion.id == retencion_id).first()
     if not rec:
         raise HTTPException(status_code=404, detail="Registro no encontrado")
+    ensure_client_access(db, current_user, rec.client_id)
     db.delete(rec)
     db.commit()
     return None

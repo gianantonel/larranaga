@@ -5,6 +5,7 @@ from datetime import datetime
 from .. import models, schemas
 from ..database import get_db
 from .auth import get_current_user, require_admin
+from ..access import assigned_client_ids, ensure_client_access
 
 router = APIRouter(prefix="/iva", tags=["iva"])
 
@@ -18,6 +19,9 @@ def list_iva_records(
     current_user: models.User = Depends(get_current_user)
 ):
     query = db.query(models.IVARecord)
+    allowed = assigned_client_ids(db, current_user)
+    if allowed is not None:
+        query = query.filter(models.IVARecord.client_id.in_(allowed))
     if client_id:
         query = query.filter(models.IVARecord.client_id == client_id)
     if period:
@@ -48,9 +52,11 @@ def get_posicion_iva(
     NOTA: este endpoint debe declararse ANTES de /{record_id} porque sino FastAPI
     intenta interpretar "posicion" como un int y devuelve 422.
     """
-    records = db.query(models.IVARecord).filter(
-        models.IVARecord.period == periodo
-    ).all()
+    allowed = assigned_client_ids(db, current_user)
+    base_q = db.query(models.IVARecord).filter(models.IVARecord.period == periodo)
+    if allowed is not None:
+        base_q = base_q.filter(models.IVARecord.client_id.in_(allowed))
+    records = base_q.all()
 
     if not records:
         return {
@@ -76,9 +82,7 @@ def get_posicion_iva(
             "saldo": r.saldo,
             "presentada": r.filed,
         }
-        for r in db.query(models.IVARecord).options(
-            selectinload(models.IVARecord.client)
-        ).filter(models.IVARecord.period == periodo).all()
+        for r in base_q.options(selectinload(models.IVARecord.client)).all()
     ]
 
     return {
@@ -103,6 +107,7 @@ def get_iva_record(
     ).filter(models.IVARecord.id == record_id).first()
     if not record:
         raise HTTPException(status_code=404, detail="Registro IVA no encontrado")
+    ensure_client_access(db, current_user, record.client_id)
     return _build_iva_out(record)
 
 
@@ -112,6 +117,7 @@ def create_iva_record(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user)
 ):
+    ensure_client_access(db, current_user, data.client_id)
     existing = db.query(models.IVARecord).filter(
         models.IVARecord.client_id == data.client_id,
         models.IVARecord.period == data.period
@@ -142,6 +148,7 @@ def update_iva_record(
     record = db.query(models.IVARecord).filter(models.IVARecord.id == record_id).first()
     if not record:
         raise HTTPException(status_code=404, detail="Registro IVA no encontrado")
+    ensure_client_access(db, current_user, record.client_id)
 
     for field, value in data.model_dump(exclude_none=True).items():
         setattr(record, field, value)
@@ -164,6 +171,7 @@ def file_iva(
     record = db.query(models.IVARecord).filter(models.IVARecord.id == record_id).first()
     if not record:
         raise HTTPException(status_code=404, detail="Registro IVA no encontrado")
+    ensure_client_access(db, current_user, record.client_id)
 
     record.filed = True
     record.filed_at = datetime.utcnow()
@@ -187,6 +195,7 @@ def get_iva_summary(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user)
 ):
+    ensure_client_access(db, current_user, client_id)
     records = db.query(models.IVARecord).options(
         selectinload(models.IVARecord.client)
     ).filter(

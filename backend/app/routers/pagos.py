@@ -9,6 +9,7 @@ from .. import models, schemas
 from ..database import get_db
 from ..services import billetes as billetes_service
 from .auth import get_current_user
+from ..access import assigned_client_ids, ensure_client_access
 
 router = APIRouter(prefix="/pagos", tags=["pagos"])
 
@@ -50,6 +51,7 @@ def registrar_cobro(
     con el importe y actualiza el stock de caja.
     """
     # ── Validaciones ─────────────────────────────────────────────────────────
+    ensure_client_access(db, current_user, data.cliente_id)
     cliente = db.get(models.Client, data.cliente_id)
     if not cliente:
         raise HTTPException(404, "Cliente no encontrado")
@@ -146,11 +148,14 @@ def listar_pagos(
     profesional_id: Optional[int] = Query(None),
     period: Optional[str] = Query(None, description="YYYY-MM"),
     db: Session = Depends(get_db),
-    _: models.User = Depends(get_current_user),
+    current_user: models.User = Depends(get_current_user),
 ):
     """Lista cobros registrados. Filtra por cliente, profesional y/o período."""
     import calendar
     q = db.query(models.Pago)
+    allowed = assigned_client_ids(db, current_user)
+    if allowed is not None:
+        q = q.filter(models.Pago.client_id.in_(allowed))
     if client_id:
         q = q.filter(models.Pago.client_id == client_id)
     if profesional_id:
@@ -170,9 +175,10 @@ def listar_pagos(
 def get_pago(
     pago_id: int,
     db: Session = Depends(get_db),
-    _: models.User = Depends(get_current_user),
+    current_user: models.User = Depends(get_current_user),
 ):
     pago = db.get(models.Pago, pago_id)
     if not pago:
         raise HTTPException(404, "Pago no encontrado")
+    ensure_client_access(db, current_user, pago.client_id)
     return _build_pago_out(pago)

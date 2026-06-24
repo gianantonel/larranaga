@@ -29,6 +29,7 @@ from sqlalchemy.orm import Session
 from .. import models
 from ..database import get_db
 from .auth import get_current_user
+from ..access import assigned_client_ids, ensure_client_access
 
 # ── Importar módulo R-01 + R-02 ────────────────────────────────────────────
 # Busca el agent en dos ubicaciones (dev local + producción Docker):
@@ -94,6 +95,7 @@ async def limpiar_libro_iva(
     client = db.query(models.Client).filter(models.Client.id == client_id).first()
     if not client:
         raise HTTPException(404, "Cliente no encontrado")
+    ensure_client_access(db, current_user, client_id)
 
     if not archivo.filename.lower().endswith((".xlsx", ".xls")):
         raise HTTPException(400, "El archivo debe ser .xlsx o .xls")
@@ -157,6 +159,9 @@ def historial_limpiezas(
 ):
     """Devuelve el historial de archivos procesados (opcionalmente filtrado por cliente)."""
     q = db.query(models.LimpiezaIVA).order_by(models.LimpiezaIVA.created_at.desc())
+    allowed = assigned_client_ids(db, current_user)
+    if allowed is not None:
+        q = q.filter(models.LimpiezaIVA.client_id.in_(allowed))
     if client_id:
         q = q.filter(models.LimpiezaIVA.client_id == client_id)
     return [_build_out(l) for l in q.limit(50).all()]
@@ -172,6 +177,7 @@ def descargar_limpieza(
     limpieza = db.query(models.LimpiezaIVA).filter(models.LimpiezaIVA.id == limpieza_id).first()
     if not limpieza:
         raise HTTPException(404, "Registro no encontrado")
+    ensure_client_access(db, current_user, limpieza.client_id)
 
     return StreamingResponse(
         io.BytesIO(limpieza.archivo_corregido),
@@ -215,6 +221,7 @@ def generar_hwcrarca(
     ).first()
     if not limpieza:
         raise HTTPException(404, "Registro de limpieza no encontrado")
+    ensure_client_access(db, current_user, limpieza.client_id)
 
     # Leer el .xlsx procesado (output de R-01 + R-02) en DataFrame
     import pandas as pd

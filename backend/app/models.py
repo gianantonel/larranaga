@@ -122,6 +122,7 @@ class Client(Base):
     pagos = relationship("Pago", back_populates="client", cascade="all, delete-orphan")
     profesional_a_cargo = relationship("Profesional", back_populates="clientes", foreign_keys=[profesional_id])
     producto_referencia = relationship("ProductoReferencia", back_populates="clientes", foreign_keys=[producto_ref_id])
+    empleados = relationship("Empleado", back_populates="empresa", cascade="all, delete-orphan")
 
 
 class LimpiezaIVA(Base):
@@ -795,3 +796,24 @@ class FeatureFlag(Base):
     updated_at      = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
     updated_by = relationship("User", foreign_keys=[updated_by_id])
+
+
+class Empleado(Base):
+    """Nómina de empleados de una empresa cliente.
+
+    Cada empleado pertenece a una empresa (client_id → clients). Datos mínimos:
+    nombre, apellido, CUIL, fecha de ingreso y estado activo/baja.
+    """
+    __tablename__ = "empleados"
+
+    id = Column(Integer, primary_key=True, index=True)
+    client_id = Column(Integer, ForeignKey("clients.id", ondelete="CASCADE"),
+                       nullable=False, index=True)   # empresa empleadora
+    nombre = Column(String(100), nullable=False)
+    apellido = Column(String(100), nullable=False)
+    cuil = Column(String(13), index=True)             # formato XX-XXXXXXXX-X
+    fecha_ingreso = Column(Date, nullable=True)
+    activo = Column(Boolean, nullable=False, default=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    empresa = relationship("Client", back_populates="empleados")

@@ -5,6 +5,7 @@ from datetime import date
 from .. import models, schemas
 from ..database import get_db
 from .auth import get_current_user, require_admin
+from ..access import assigned_client_ids, ensure_client_access
 
 router = APIRouter(prefix="/facturas", tags=["facturas"])
 
@@ -20,6 +21,9 @@ def list_invoices(
     current_user: models.User = Depends(get_current_user)
 ):
     query = db.query(models.Invoice)
+    allowed = assigned_client_ids(db, current_user)
+    if allowed is not None:
+        query = query.filter(models.Invoice.client_id.in_(allowed))
     if client_id:
         query = query.filter(models.Invoice.client_id == client_id)
     if invoice_type:
@@ -54,6 +58,7 @@ def get_invoice(
     inv = db.query(models.Invoice).filter(models.Invoice.id == invoice_id).first()
     if not inv:
         raise HTTPException(status_code=404, detail="Factura no encontrada")
+    ensure_client_access(db, current_user, inv.client_id)
 
     clients_map = {}
     collabs_map = {}
@@ -74,6 +79,7 @@ def create_invoice(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user)
 ):
+    ensure_client_access(db, current_user, data.client_id)
     # Auto-increment number for that client+tipo+punto_venta
     last = db.query(models.Invoice).filter(
         models.Invoice.client_id == data.client_id,
@@ -120,6 +126,7 @@ def get_invoice_summary(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user)
 ):
+    ensure_client_access(db, current_user, client_id)
     query = db.query(models.Invoice).filter(models.Invoice.client_id == client_id)
     if year:
         query = query.filter(models.Invoice.date >= date(year, 1, 1), models.Invoice.date <= date(year, 12, 31))

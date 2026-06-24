@@ -4,6 +4,8 @@ from sqlalchemy.orm import Session
 from typing import List
 from .. import models, schemas
 from ..database import get_db
+from .auth import get_current_user
+from ..access import ensure_client_access
 
 router = APIRouter(
     prefix="/cuentas-corrientes",
@@ -29,11 +31,13 @@ def compute_saldo_cc(db: Session, client_id: int) -> float:
     return float(saldo or 0.0)
 
 @router.get("/client/{client_id}", response_model=List[schemas.MovimientoCCOut])
-def read_movimientos(client_id: int, db: Session = Depends(get_db)):
+def read_movimientos(client_id: int, db: Session = Depends(get_db),
+                     current_user: models.User = Depends(get_current_user)):
     # Check if client exists
     client = db.query(models.Client).filter(models.Client.id == client_id).first()
     if not client:
         raise HTTPException(status_code=404, detail="Client not found")
+    ensure_client_access(db, current_user, client_id)
 
     movimientos = db.query(models.MovimientoCuentaCorriente)\
         .filter(models.MovimientoCuentaCorriente.client_id == client_id)\
@@ -42,12 +46,14 @@ def read_movimientos(client_id: int, db: Session = Depends(get_db)):
     return movimientos
 
 @router.post("/", response_model=schemas.MovimientoCCOut, status_code=status.HTTP_201_CREATED)
-def create_movimiento(movimiento: schemas.MovimientoCCCreate, db: Session = Depends(get_db)):
+def create_movimiento(movimiento: schemas.MovimientoCCCreate, db: Session = Depends(get_db),
+                      current_user: models.User = Depends(get_current_user)):
     # Check if client exists
     client = db.query(models.Client).filter(models.Client.id == movimiento.client_id).first()
     if not client:
         raise HTTPException(status_code=404, detail="Client not found")
-        
+    ensure_client_access(db, current_user, movimiento.client_id)
+
     db_movimiento = models.MovimientoCuentaCorriente(**movimiento.model_dump())
     db.add(db_movimiento)
     db.commit()
@@ -55,9 +61,11 @@ def create_movimiento(movimiento: schemas.MovimientoCCCreate, db: Session = Depe
     return db_movimiento
 
 @router.get("/client/{client_id}/saldo", response_model=float)
-def get_saldo(client_id: int, db: Session = Depends(get_db)):
+def get_saldo(client_id: int, db: Session = Depends(get_db),
+              current_user: models.User = Depends(get_current_user)):
     client = db.query(models.Client).filter(models.Client.id == client_id).first()
     if not client:
         raise HTTPException(status_code=404, detail="Client not found")
+    ensure_client_access(db, current_user, client_id)
 
     return compute_saldo_cc(db, client_id)

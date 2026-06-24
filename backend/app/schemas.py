@@ -1237,3 +1237,68 @@ class FeatureFlagOut(BaseModel):
 
 class FeatureFlagUpdate(BaseModel):
     enabled: bool
+
+
+# ─── Empleados (nómina por empresa) ──────────────────────────────────────────
+
+def _normalizar_cuil(v: Optional[str]) -> Optional[str]:
+    """Acepta CUIL con o sin guiones; normaliza a XX-XXXXXXXX-X. None/'' → None."""
+    if v is None:
+        return None
+    digits = "".join(ch for ch in v if ch.isdigit())
+    if digits == "":
+        return None
+    if len(digits) != 11:
+        raise ValueError("CUIL debe tener 11 dígitos (formato XX-XXXXXXXX-X)")
+    return f"{digits[:2]}-{digits[2:10]}-{digits[10]}"
+
+
+class EmpleadoBase(BaseModel):
+    nombre: str
+    apellido: str
+    cuil: Optional[str] = None
+    fecha_ingreso: Optional[date] = None
+    activo: bool = True
+
+    @field_validator("nombre", "apellido")
+    @classmethod
+    def _no_vacio(cls, v: str) -> str:
+        if not v or not v.strip():
+            raise ValueError("requerido")
+        return v.strip()
+
+    @field_validator("cuil")
+    @classmethod
+    def _cuil(cls, v):
+        return _normalizar_cuil(v)
+
+
+class EmpleadoCreate(EmpleadoBase):
+    client_id: int
+
+
+class EmpleadoUpdate(BaseModel):
+    nombre: Optional[str] = None
+    apellido: Optional[str] = None
+    cuil: Optional[str] = None
+    fecha_ingreso: Optional[date] = None
+    activo: Optional[bool] = None
+
+    @field_validator("cuil")
+    @classmethod
+    def _cuil(cls, v):
+        return _normalizar_cuil(v)
+
+
+class EmpleadoOut(BaseModel):
+    id: int
+    client_id: int
+    nombre: str
+    apellido: str
+    cuil: Optional[str] = None
+    fecha_ingreso: Optional[date] = None
+    activo: bool
+    created_at: Optional[datetime] = None
+    client_name: Optional[str] = None   # nombre de la empresa (conveniencia)
+
+    model_config = ConfigDict(from_attributes=True)

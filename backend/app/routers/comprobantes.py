@@ -18,6 +18,7 @@ from sqlalchemy.orm import Session
 from .. import models, schemas
 from ..database import get_db
 from .auth import get_current_user
+from ..access import assigned_client_ids, ensure_client_access
 from ..afip_sdk.client import load_context
 from ..afip_sdk.automations import run_automation, save_raw
 from ..afip_sdk.comprobantes import extract_records, normalize_record, period_to_fechas
@@ -49,6 +50,7 @@ def sync_comprobantes(
     Idempotente por (client_id, period, cod_autorizacion) o
     (client_id, period, tipo, numero_desde, nro_doc_receptor).
     """
+    ensure_client_access(db, current_user, body.client_id)
     client = db.query(models.Client).filter(models.Client.id == body.client_id).first()
     if not client:
         raise HTTPException(404, "Cliente no encontrado")
@@ -180,6 +182,9 @@ def list_comprobantes(
     current_user: models.User = Depends(get_current_user),
 ):
     q = db.query(models.ComprobanteRecibido)
+    allowed = assigned_client_ids(db, current_user)
+    if allowed is not None:
+        q = q.filter(models.ComprobanteRecibido.client_id.in_(allowed))
     if client_id:
         q = q.filter(models.ComprobanteRecibido.client_id == client_id)
     if period:
@@ -229,6 +234,7 @@ def cruce_retenciones(
     Para cada retencion busca el comprobante con mejor score (exact > approx).
     Actualiza la FK comprobante_id en la retencion y devuelve el resultado.
     """
+    ensure_client_access(db, current_user, client_id)
     retenciones = (
         db.query(models.RetencionPercepcion)
         .filter(
@@ -313,6 +319,7 @@ def export_holistor(
     Columnas: Fecha Emisión, Tipo Cbte, Nro, CUIT Emisor, Denominación,
               Imp Total, Otros Tributos, Código Holistor, Match Score.
     """
+    ensure_client_access(db, current_user, client_id)
     comprobantes = (
         db.query(models.ComprobanteRecibido)
         .filter(
@@ -374,5 +381,6 @@ def delete_comprobante(
     ).first()
     if not rec:
         raise HTTPException(404, "Comprobante no encontrado")
+    ensure_client_access(db, current_user, rec.client_id)
     db.delete(rec)
     db.commit()
