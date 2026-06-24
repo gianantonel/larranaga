@@ -699,7 +699,7 @@ class HistorialPrecioOut(BaseModel):
     id: int
     precio: float
     vigente_desde: date
-    created_at: datetime
+    created_at: Optional[datetime] = None
 
     class Config:
         from_attributes = True
@@ -711,7 +711,7 @@ class ProductoReferenciaOut(BaseModel):
     unidad: Optional[str] = None
     precio_vigente: float
     actualizado_en: Optional[datetime] = None
-    created_at: datetime
+    created_at: Optional[datetime] = None
     historial: List[HistorialPrecioOut] = []
 
     class Config:

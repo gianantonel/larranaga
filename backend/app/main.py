@@ -257,6 +257,52 @@ def _repair_datetime_columns():
                 print(f"[migrate] WARN no se pudo convertir {table_name}.{col.name} a {target}: {e}")
 
 
+def _backfill_datetime_defaults():
+    """Rellena las columnas DateTime con server_default que quedaron en NULL y les
+    fija el DEFAULT now() en Postgres.
+
+    Causa: `_add_missing_columns` agrega columnas faltantes SIN default, así que las
+    columnas tipo `created_at`/`actualizado_en` (que en el modelo tienen
+    server_default=now()) quedan sin default en la base y los INSERT las dejan en NULL.
+    Como muchos schemas de salida declaran `created_at: datetime` (requerido), al
+    serializar una fila con NULL Pydantic lanza ValidationError → 500 en TODO endpoint
+    que lea esa tabla (p. ej. GET/POST productos_referencia, cálculo de honorarios).
+
+    Solo Postgres. Por cada columna DateTime del modelo con server_default: fija
+    `DEFAULT now()` y backfillea las filas en NULL con now(). Cada tabla en su
+    transacción + try/except. Idempotente."""
+    from sqlalchemy import inspect as sa_inspect, types as sqltypes
+
+    if engine.dialect.name == "sqlite":
+        return
+
+    insp = sa_inspect(engine)
+    db_tables = set(insp.get_table_names())
+
+    for table_name, table in models.Base.metadata.tables.items():
+        if table_name not in db_tables:
+            continue
+        live_cols = {c["name"] for c in insp.get_columns(table_name)}
+        for col in table.columns:
+            if not isinstance(col.type, sqltypes.DateTime):
+                continue
+            if col.server_default is None or col.name not in live_cols:
+                continue
+            try:
+                with engine.begin() as conn:
+                    conn.execute(text(
+                        f'ALTER TABLE "{table_name}" ALTER COLUMN "{col.name}" SET DEFAULT now()'
+                    ))
+                    res = conn.execute(text(
+                        f'UPDATE "{table_name}" SET "{col.name}" = now() '
+                        f'WHERE "{col.name}" IS NULL'
+                    ))
+                n = res.rowcount if res.rowcount is not None else 0
+                print(f"[migrate] {table_name}.{col.name}: default now() + backfill {n} NULL")
+            except Exception as e:  # noqa: BLE001 — no debe romper el arranque
+                print(f"[migrate] WARN no se pudo backfillear {table_name}.{col.name}: {e}")
+
+
 def _resync_sequences():
     """Resincroniza las secuencias de `id` en Postgres. Cuando se importan datos con
     `id` explícito (como hace InsForge desde el dump SQLite), la secuencia SERIAL/IDENTITY
@@ -368,6 +414,7 @@ async def startup_event():
     _repair_numeric_columns()
     _repair_boolean_columns()
     _repair_datetime_columns()
+    _backfill_datetime_defaults()
     _resync_sequences()
     register_sync_events(engine)
     seed_database()
