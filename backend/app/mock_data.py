@@ -10,7 +10,7 @@ from .models import (
     IVARecord, Invoice, IngresosBrutos, ActionLog,
     UserRole, UserStatus, TaskType, TaskStatus, InvoiceType,
     Profesional, TipoProfesional, ProductoReferencia, HistorialPrecioProducto,
-    TipoHonorario, FeatureFlag,
+    TipoHonorario, FeatureFlag, Empleado,
 )
 from .security import get_password_hash, encrypt_credential
 from .database import SessionLocal, engine, Base
@@ -609,8 +609,76 @@ def seed_profesionales_y_productos():
     print(f"[OK] R-03/R-04: {len([rodrigo, manuel, marisol, silvana, stefi, mariana])} profesionales y 1 producto de referencia creados.")
 
 
+_NOMBRES = [
+    "Juan", "María", "Carlos", "Ana", "Lucas", "Sofía", "Diego", "Valentina",
+    "Martín", "Camila", "Jorge", "Florencia", "Pablo", "Julieta", "Gabriel",
+    "Rocío", "Federico", "Agustina", "Nicolás", "Micaela", "Tomás", "Brenda",
+    "Ezequiel", "Carla", "Matías", "Daniela", "Hernán", "Paula", "Sergio", "Lorena",
+]
+_APELLIDOS = [
+    "Gómez", "Fernández", "Rodríguez", "López", "Martínez", "García", "Pérez",
+    "Sánchez", "Romero", "Díaz", "Álvarez", "Torres", "Ruiz", "Ramírez", "Flores",
+    "Benítez", "Acosta", "Medina", "Herrera", "Aguirre", "Suárez", "Molina",
+    "Castro", "Ortiz", "Núñez", "Rojas", "Cabrera", "Vega", "Ledesma", "Ferreyra",
+]
+
+
+def _cuil(rng: random.Random) -> str:
+    """Genera un CUIL plausible con formato XX-XXXXXXXX-X."""
+    prefijo = rng.choice([20, 23, 24, 27])
+    dni = rng.randint(10_000_000, 45_000_000)
+    verif = rng.randint(0, 9)
+    return f"{prefijo}-{dni:08d}-{verif}"
+
+
+def seed_empleados():
+    """Seed idempotente de nómina de empleados (data fake) para cada cliente activo.
+
+    Crea entre 3 y 6 empleados por cliente con nombres/CUIL/fecha de ingreso
+    ficticios. No borra nada; sólo corre si la tabla `empleados` está vacía."""
+    db = SessionLocal()
+    if db.query(Empleado).count() > 0:
+        db.close()
+        return
+
+    rng = random.Random(2026)   # determinístico: misma data en cada arranque/entorno
+    clientes = db.query(Client).filter(Client.is_active == True).order_by(Client.id).all()  # noqa: E712
+    if not clientes:
+        db.close()
+        return
+
+    print("Agregando nómina de empleados (data fake)...")
+    total = 0
+    for c in clientes:
+        n = rng.randint(3, 6)
+        usados = set()
+        for _ in range(n):
+            # evitar nombre+apellido repetido dentro del mismo cliente
+            for _try in range(10):
+                nombre = rng.choice(_NOMBRES)
+                apellido = rng.choice(_APELLIDOS)
+                if (nombre, apellido) not in usados:
+                    usados.add((nombre, apellido))
+                    break
+            ingreso = date(2026, 1, 1) - timedelta(days=rng.randint(60, 2200))
+            db.add(Empleado(
+                client_id=c.id,
+                nombre=nombre,
+                apellido=apellido,
+                cuil=_cuil(rng),
+                fecha_ingreso=ingreso,
+                activo=rng.random() > 0.08,   # ~8% dados de baja
+            ))
+            total += 1
+
+    db.commit()
+    db.close()
+    print(f"[OK] Nómina: {total} empleados creados en {len(clientes)} clientes.")
+
+
 if __name__ == "__main__":
     seed_database()
+    seed_empleados()
 
 
 # ─── Catálogo Requisitos R-XX (Plan Maestro líneas 17-36) ─────────────────────

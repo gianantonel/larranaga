@@ -1,6 +1,6 @@
 from sqlalchemy import (
     Column, Integer, String, Float, Boolean, DateTime, Text,
-    ForeignKey, Enum, Date, LargeBinary
+    ForeignKey, Enum, Date, LargeBinary, UniqueConstraint
 )
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
@@ -817,3 +817,30 @@ class Empleado(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     empresa = relationship("Client", back_populates="empleados")
+    liquidaciones = relationship("LiquidacionEmpleado", back_populates="empleado",
+                                 cascade="all, delete-orphan")
+
+
+class LiquidacionEmpleado(Base):
+    """Liquidación de honorarios de un empleado de la nómina, por período.
+
+    Una fila por (empleado, período). El monto sugerido de un período se arrastra
+    del período anterior; para el primer período se toma la config de honorario
+    del cliente (fijo → importe; producto → cantidad × precio vigente).
+    """
+    __tablename__ = "liquidaciones_empleado"
+    __table_args__ = (
+        UniqueConstraint("empleado_id", "period", name="uq_liquidacion_empleado_period"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    empleado_id = Column(Integer, ForeignKey("empleados.id", ondelete="CASCADE"),
+                         nullable=False, index=True)
+    client_id = Column(Integer, ForeignKey("clients.id", ondelete="CASCADE"),
+                       nullable=False, index=True)   # denormalizado para filtrar/acceso
+    period = Column(String(7), nullable=False, index=True)   # YYYY-MM
+    monto = Column(Float, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    empleado = relationship("Empleado", back_populates="liquidaciones")

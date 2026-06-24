@@ -1302,3 +1302,61 @@ class EmpleadoOut(BaseModel):
     client_name: Optional[str] = None   # nombre de la empresa (conveniencia)
 
     model_config = ConfigDict(from_attributes=True)
+
+
+# ─── Liquidación de honorarios por empleado (nómina) ─────────────────────────
+
+class NominaEmpleadoRow(BaseModel):
+    empleado_id: int
+    nombre: str
+    apellido: str
+    cuil: Optional[str] = None
+    monto_sugerido: float          # del período anterior; si es nuevo, base de config del cliente
+    ya_liquidado: bool = False     # si ya existe liquidación para (empleado, período)
+    monto_liquidado: Optional[float] = None
+    origen_sugerido: str           # "periodo_anterior" | "config_cliente" | "liquidado"
+
+
+class NominaOut(BaseModel):
+    client_id: int
+    client_name: Optional[str] = None
+    period: str
+    tipo_honorario: Optional[str] = None   # "fijo" | "producto" | None
+    empleados: List[NominaEmpleadoRow] = []
+
+
+class LiquidarItem(BaseModel):
+    empleado_id: int
+    monto: float
+
+    @field_validator("monto")
+    @classmethod
+    def _monto_pos(cls, v: float) -> float:
+        if v < 0:
+            raise ValueError("monto no puede ser negativo")
+        return v
+
+
+class LiquidarRequest(BaseModel):
+    period: str
+    items: List[LiquidarItem]
+
+
+class LiquidacionEmpleadoOut(BaseModel):
+    id: int
+    empleado_id: int
+    client_id: int
+    period: str
+    monto: float
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class LiquidarResponse(BaseModel):
+    client_id: int
+    period: str
+    liquidados: int
+    total: float
+    detalle: List[LiquidacionEmpleadoOut] = []
