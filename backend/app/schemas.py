@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr, ConfigDict
+from pydantic import BaseModel, EmailStr, ConfigDict, field_validator
 from typing import Optional, List
 from datetime import datetime, date
 from .models import UserRole, UserStatus, TaskType, TaskStatus, InvoiceType, TipoHonorario, TipoProfesional, FuenteMaestro
@@ -357,11 +357,16 @@ class RetencionPercepcionOut(BaseModel):
     codigo_holistor: Optional[str] = None
     sdk_job_id: Optional[str] = None
     synced_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
 # ─── Cuentas Corrientes ──────────────────────────────────────────────────────
 
 class MovimientoCCCreate(BaseModel):
     client_id: int
-    tipo: str  # 'honorario' | 'pago' | 'ajuste'
+    tipo: str  # 'ingreso' (el cliente paga) | 'egreso' (cargo al cliente)
     monto: float
     concepto: str
     fecha: date
@@ -369,6 +374,21 @@ class MovimientoCCCreate(BaseModel):
     forma_pago: Optional[str] = None  # 'efectivo' | 'transferencia'
     profesional_id: Optional[int] = None
     notas: Optional[str] = None
+
+    @field_validator("tipo")
+    @classmethod
+    def _validar_tipo(cls, v: str) -> str:
+        norm = (v or "").strip().lower()
+        if norm not in {"ingreso", "egreso"}:
+            raise ValueError("tipo debe ser 'ingreso' o 'egreso'")
+        return norm
+
+    @field_validator("monto")
+    @classmethod
+    def _validar_monto(cls, v: float) -> float:
+        if v <= 0:
+            raise ValueError("monto debe ser mayor a 0")
+        return v
 
 
 class MovimientoCCOut(BaseModel):
@@ -388,35 +408,8 @@ class MovimientoCCOut(BaseModel):
         from_attributes = True
 
 
-# ─── R-03 — Productos de Referencia y Honorarios ─────────────────────────────
-
-class ProductoReferenciaCreate(BaseModel):
-    nombre: str
-    unidad: str = "unidad"
-    precio_vigente: float
-    fecha_actualizacion: date
-
-
-class ProductoReferenciaUpdate(BaseModel):
-    nombre: Optional[str] = None
-    unidad: Optional[str] = None
-    precio_vigente: Optional[float] = None
-    fecha_actualizacion: Optional[date] = None
-    activo: Optional[bool] = None
-
-
-class ProductoReferenciaOut(BaseModel):
-    id: int
-    nombre: str
-    unidad: str
-    precio_vigente: float
-    fecha_actualizacion: date
-    activo: bool
-    created_at: datetime
-
-    class Config:
-        from_attributes = True
-
+# ─── R-03 — Honorarios ───────────────────────────────────────────────────────
+# (ProductoReferenciaCreate/Update/Out se definen más abajo, junto a HistorialPrecioOut)
 
 class HonorarioCalcular(BaseModel):
     """Parámetros para calcular/generar honorarios de un período."""

@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import case, func
 from sqlalchemy.orm import Session
 from typing import List
 from .. import models, schemas
@@ -8,6 +9,24 @@ router = APIRouter(
     prefix="/cuentas-corrientes",
     tags=["cuentas_corrientes"]
 )
+
+
+def compute_saldo_cc(db: Session, client_id: int) -> float:
+    """Saldo de cuenta corriente calculado en la BD con un único SUM(CASE...).
+
+    Convención: `ingreso` (el cliente nos paga) suma; cualquier otro tipo
+    (`egreso`/cargo) resta. Saldo > 0 = a favor del cliente; < 0 = deuda.
+    Reemplaza el loop en Python que cargaba todos los movimientos a memoria.
+    """
+    tipo = func.lower(models.MovimientoCuentaCorriente.tipo)
+    monto = models.MovimientoCuentaCorriente.monto
+    expr = func.sum(case((tipo == "ingreso", monto), else_=-monto))
+    saldo = (
+        db.query(expr)
+        .filter(models.MovimientoCuentaCorriente.client_id == client_id)
+        .scalar()
+    )
+    return float(saldo or 0.0)
 
 @router.get("/client/{client_id}", response_model=List[schemas.MovimientoCCOut])
 def read_movimientos(client_id: int, db: Session = Depends(get_db)):
@@ -40,26 +59,5 @@ def get_saldo(client_id: int, db: Session = Depends(get_db)):
     client = db.query(models.Client).filter(models.Client.id == client_id).first()
     if not client:
         raise HTTPException(status_code=404, detail="Client not found")
-        
-    movimientos = db.query(models.MovimientoCuentaCorriente).filter(models.MovimientoCuentaCorriente.client_id == client_id).all()
-    saldo = 0.0
-    for mov in movimientos:
-        if mov.tipo.lower() == 'egreso': # Cargo/Honorario aumenta deuda o quita saldo a favor (let's say egreso for client is what they owe)
-            # Actually, how do we define saldo? 
-            # If "cuenta corriente" usually positive means client owes money, negative means client has money in favor.
-            # Let's define: Ingreso (Client pays us) -> - saldo
-            # Egreso/Cargo (We charge client) -> + saldo
-            pass
-            
-    # Or let's just sum it straightforwardly:
-    # Ingreso = we receive money from client = increases their balance (favorable to them or reduces debt)
-    # Egreso = we charge client for services = decreases their balance (increases their debt)
-    # So saldo = sum(ingresos) - sum(egresos). Positive saldo means they have money in favor, negative means they owe.
-    saldo = 0.0
-    for mov in movimientos:
-        if mov.tipo.lower() == 'ingreso':
-            saldo += mov.monto
-        else:
-            saldo -= mov.monto
-            
-    return saldo
+
+    return compute_saldo_cc(db, client_id)

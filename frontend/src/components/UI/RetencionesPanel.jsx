@@ -14,12 +14,20 @@ const IMPUESTOS = [
   { value: 11,  label: 'Ganancias Retención (11)', descripcion: 'Ganancias' },
   { value: 10,  label: 'Ganancias Percepción (10)', descripcion: 'Ganancias' },
   { value: 767, label: 'Bienes Personales (767)', descripcion: 'Bienes Personales' },
+  { value: 902, label: 'IIBB La Pampa (902)', descripcion: 'Ingresos Brutos' },
+  { value: 903, label: 'IIBB Buenos Aires (903)', descripcion: 'Ingresos Brutos' },
+  { value: 905, label: 'IIBB Otras Provincias (905)', descripcion: 'Ingresos Brutos' },
 ]
 
+// Códigos Holistor → color del chip. IIBB se separa en PIBA/PIBC/PIBR por provincia.
 const HOLISTOR_COLORS = {
   PIVC: 'bg-violet-500/20 text-violet-300 border-violet-500/40',
   PGAN: 'bg-sky-500/20 text-sky-300 border-sky-500/40',
   PIBA: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40',
+  PIBC: 'bg-teal-500/20 text-teal-300 border-teal-500/40',
+  PIBR: 'bg-lime-500/20 text-lime-300 border-lime-500/40',
+  PCOM: 'bg-amber-500/20 text-amber-300 border-amber-500/40',
+  SELL: 'bg-orange-500/20 text-orange-300 border-orange-500/40',
   OTRO: 'bg-gray-500/20 text-gray-300 border-gray-500/40',
 }
 

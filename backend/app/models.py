@@ -403,7 +403,7 @@ class MovimientoCuentaCorriente(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     client_id = Column(Integer, ForeignKey("clients.id", ondelete="CASCADE"), nullable=False)
-    tipo = Column(String(20), nullable=False)  # 'honorario' | 'pago' | 'ajuste'
+    tipo = Column(String(20), nullable=False)  # 'ingreso' (cliente paga) | 'egreso' (cargo al cliente)
     monto = Column(Float, nullable=False)
     concepto = Column(String(255), nullable=False)
     fecha = Column(Date, nullable=False)

@@ -237,7 +237,7 @@ export default function Honorarios() {
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
-                <tr className="border-b border-gray-700/60 bg-[#0f172a]/60">
+                <tr className="border-b border-[var(--border)] bg-[var(--surface-2)]">
                   <th className="table-header">Nombre</th>
                   <th className="table-header">Unidad</th>
                   <th className="table-header text-right">Precio vigente</th>
@@ -276,7 +276,7 @@ export default function Honorarios() {
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
-              <tr className="border-b border-gray-700/60 bg-[#0f172a]/60">
+              <tr className="border-b border-[var(--border)] bg-[var(--surface-2)]">
                 <th className="table-header">Cliente</th>
                 <th className="table-header">Período</th>
                 <th className="table-header">Tipo</th>
@@ -543,7 +543,7 @@ export default function Honorarios() {
                 <div className="overflow-x-auto mb-5 rounded-lg border border-gray-700/40">
                   <table className="w-full text-sm">
                     <thead>
-                      <tr className="border-b border-gray-700/60 bg-[#0f172a]/60">
+                      <tr className="border-b border-[var(--border)] bg-[var(--surface-2)]">
                         <th className="table-header whitespace-nowrap">Cliente</th>
                         <th className="table-header whitespace-nowrap">Tipo</th>
                         <th className="table-header text-right whitespace-nowrap">Importe actual</th>

@@ -7,6 +7,7 @@ from .. import models, schemas
 from ..database import get_db
 from ..security import encrypt_credential, decrypt_credential
 from .auth import get_current_user, require_admin
+from .cuentas_corrientes import compute_saldo_cc
 
 router = APIRouter(prefix="/clients", tags=["clients"])
 
@@ -36,17 +37,8 @@ def _format_client_out(client: models.Client, db: Session) -> schemas.ClientOut:
         client_dict['task_count'] = counts[0] or 0
         client_dict['pending_tasks'] = counts[1] or 0
 
-    # Saldo CC
-    movimientos = db.query(models.MovimientoCuentaCorriente).filter(
-        models.MovimientoCuentaCorriente.client_id == client.id
-    ).all()
-    saldo = 0.0
-    for mov in movimientos:
-        if mov.tipo.lower() == 'ingreso':
-            saldo += mov.monto
-        else:
-            saldo -= mov.monto
-    client_dict['saldo_cc'] = saldo
+    # Saldo CC — calculado en la BD (ver cuentas_corrientes.compute_saldo_cc)
+    client_dict['saldo_cc'] = compute_saldo_cc(db, client.id)
     
     return schemas.ClientOut.model_validate(client_dict)
 

@@ -203,6 +203,60 @@ def _repair_boolean_columns():
                 print(f"[migrate] WARN no se pudo convertir {table_name}.{col.name} a boolean: {e}")
 
 
+def _repair_datetime_columns():
+    """Convierte a timestamp/date las columnas DateTime/Date del modelo que InsForge
+    guardó como TEXT. Cuando se importa desde el dump SQLite, las fechas quedan como
+    texto ISO; el ORM las mapea como DateTime/Date y al leerlas el dialecto psycopg
+    falla → 500 en TODO endpoint que lea esas tablas (p. ej. honorarios /
+    productos_referencia, cuyas columnas `actualizado_en`, `created_at`, `vigente_desde`
+    quedaron como texto). Complementa a `_repair_numeric_columns` y
+    `_repair_boolean_columns`.
+
+    Solo Postgres. Por cada columna DateTime/Date del modelo cuya columna real sea
+    texto, hace ALTER ... TYPE timestamptz/timestamp/date con un cast seguro
+    (`NULLIF(btrim(...), '')`). DROP DEFAULT previo para evitar conflictos de cast.
+    Cada tabla en su transacción + try/except. Idempotente: si ya es del tipo correcto,
+    no hace nada."""
+    from sqlalchemy import inspect as sa_inspect, types as sqltypes
+
+    if engine.dialect.name == "sqlite":
+        return
+
+    insp = sa_inspect(engine)
+    db_tables = set(insp.get_table_names())
+
+    for table_name, table in models.Base.metadata.tables.items():
+        if table_name not in db_tables:
+            continue
+        live_types = {c["name"]: c["type"] for c in insp.get_columns(table_name)}
+        for col in table.columns:
+            is_dt = isinstance(col.type, sqltypes.DateTime)
+            is_date = isinstance(col.type, sqltypes.Date) and not is_dt
+            if not (is_dt or is_date):
+                continue
+            live = live_types.get(col.name)
+            # Solo reparar si en la base la columna está como texto
+            if live is None or not isinstance(live, sqltypes.String):
+                continue
+            if is_dt:
+                target = "timestamptz" if getattr(col.type, "timezone", False) else "timestamp"
+            else:
+                target = "date"
+            using = f'NULLIF(btrim("{col.name}"::text), \'\')::{target}'
+            try:
+                with engine.begin() as conn:
+                    conn.execute(text(
+                        f'ALTER TABLE "{table_name}" ALTER COLUMN "{col.name}" DROP DEFAULT'
+                    ))
+                    conn.execute(text(
+                        f'ALTER TABLE "{table_name}" ALTER COLUMN "{col.name}" '
+                        f'TYPE {target} USING {using}'
+                    ))
+                print(f"[migrate] {table_name}.{col.name}: TEXT → {target}")
+            except Exception as e:  # noqa: BLE001 — no debe romper el arranque
+                print(f"[migrate] WARN no se pudo convertir {table_name}.{col.name} a {target}: {e}")
+
+
 def _resync_sequences():
     """Resincroniza las secuencias de `id` en Postgres. Cuando se importan datos con
     `id` explícito (como hace InsForge desde el dump SQLite), la secuencia SERIAL/IDENTITY
@@ -313,6 +367,7 @@ async def startup_event():
     _add_missing_columns()
     _repair_numeric_columns()
     _repair_boolean_columns()
+    _repair_datetime_columns()
     _resync_sequences()
     register_sync_events(engine)
     seed_database()
