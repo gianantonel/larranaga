@@ -11,7 +11,7 @@ from .models import (
     UserRole, UserStatus, TaskType, TaskStatus, InvoiceType,
     Profesional, TipoProfesional, ProductoReferencia, HistorialPrecioProducto,
     TipoHonorario, FeatureFlag, Empleado,
-    LiquidacionEmpleado, PagoEmpleado, Liquidacion, PagoProfesional,
+    LiquidacionEmpleado, PagoEmpleado, Liquidacion, PagoProfesional, Honorario,
 )
 from .security import get_password_hash, encrypt_credential
 from .database import SessionLocal, engine, Base
@@ -728,84 +728,125 @@ def _base_empleado_seed(e: Empleado, db: Session) -> float:
     return 0.0
 
 
-def seed_simulacion_pagos():
-    """Data fake de pagos para simular las vistas (idempotente por entidad/período).
+def _periodos_recientes(n: int) -> list:
+    """[mes_actual, mes-1, ..., mes-(n-1)] como 'YYYY-MM' (más nuevo primero)."""
+    y, m = date.today().year, date.today().month
+    out = []
+    for _ in range(n):
+        out.append(f"{y}-{m:02d}")
+        m -= 1
+        if m == 0:
+            m = 12
+            y -= 1
+    return out
 
-    Para el mes corriente, deja una mezcla de estados:
-      ~35% sin liquidar · ~35% pagado total · ~30% parcial.
-    Aplica tanto a la nómina de empleados (Honorarios) como a las liquidaciones de
-    profesionales (Liquidaciones). No pisa liquidaciones existentes."""
+
+def _calc_honorario_cliente(c: Client, db: Session):
+    """(importe, precio_snapshot) según la config del cliente. (None, None) si no configurado."""
+    if c.tipo_honorario == TipoHonorario.fijo and c.importe_honorario:
+        return float(c.importe_honorario), None
+    if c.tipo_honorario == TipoHonorario.producto and c.producto_ref_id and c.cantidad_unidades:
+        prod = db.get(ProductoReferencia, c.producto_ref_id)
+        if prod:
+            return round(float(c.cantidad_unidades) * float(prod.precio_vigente), 2), prod.precio_vigente
+    return None, None
+
+
+def seed_simulacion_pagos():
+    """Data fake con HISTORIAL de varios meses (idempotente por entidad/período).
+
+    Por cada uno de los últimos meses siembra:
+      - Honorarios (R-03) de los clientes configurados (para que las liquidaciones de
+        profesionales tengan total a cobrar histórico).
+      - Liquidaciones + pagos de empleados (Honorarios) y de profesionales
+        (Liquidaciones), con mezcla de estados. Los meses pasados quedan mayormente
+        pagados; el mes actual es una mezcla pagado/parcial/sin liquidar."""
     db = SessionLocal()
     try:
-        period = f"{date.today().year}-{date.today().month:02d}"
-        y, m = int(period[:4]), int(period[5:7])
         rng = random.Random(7)
+        periodos = _periodos_recientes(5)        # mes actual + 4 anteriores
+        actual = periodos[0]
 
-        def _fecha():
-            return date(y, m, rng.randint(1, 26))
+        def _fecha(per):
+            yy, mm = int(per[:4]), int(per[5:7])
+            return date(yy, mm, rng.randint(1, 26))
 
-        # ── Empleados (Honorarios) ────────────────────────────────────────────
-        empleados = db.query(Empleado).filter(Empleado.activo == True).order_by(Empleado.id).all()  # noqa: E712
-        for e in empleados:
-            ya = db.query(LiquidacionEmpleado).filter(
-                LiquidacionEmpleado.empleado_id == e.id,
-                LiquidacionEmpleado.period == period,
-            ).first()
-            if ya:
-                continue
-            base = _base_empleado_seed(e, db)
-            if base <= 0:
-                continue
+        def _estado_roll(per):
+            """(omitir, full): meses pasados casi todo pagado; mes actual, mezcla."""
             roll = rng.random()
-            if roll < 0.35:
-                continue
-            medio = e.medio_pago or "transferencia"
-            liq = LiquidacionEmpleado(empleado_id=e.id, client_id=e.client_id,
-                                      period=period, monto=base, medio_pago=medio)
-            db.add(liq)
-            db.flush()
-            if roll < 0.7:
-                db.add(PagoEmpleado(liquidacion_id=liq.id, monto=base, medio_pago=medio, fecha=_fecha()))
-            else:
-                frac = rng.choice([0.3, 0.4, 0.5, 0.6])
-                db.add(PagoEmpleado(liquidacion_id=liq.id, monto=round(base * frac, 2),
-                                    medio_pago=medio, fecha=_fecha()))
+            if per == actual:
+                return (roll < 0.35), (roll < 0.7)
+            return (roll < 0.10), (roll < 0.85)
+
+        # ── 0) Honorarios (R-03) por período ─────────────────────────────────
+        clientes = db.query(Client).filter(
+            Client.is_active == True, Client.tipo_honorario.isnot(None),   # noqa: E712
+        ).all()
+        for per in periodos:
+            for c in clientes:
+                if db.query(Honorario).filter(Honorario.client_id == c.id, Honorario.period == per).first():
+                    continue
+                importe, snap = _calc_honorario_cliente(c, db)
+                if importe is None:
+                    continue
+                db.add(Honorario(client_id=c.id, period=per, importe=importe,
+                                 tipo=c.tipo_honorario.value, precio_producto_snapshot=snap))
         db.commit()
 
-        # ── Profesionales (Liquidaciones) ─────────────────────────────────────
-        from .services import liquidacion as liqsvc
-        profs = db.query(Profesional).filter(Profesional.activo == True).order_by(Profesional.id).all()  # noqa: E712
-        for p in profs:
-            liq = db.query(Liquidacion).filter(
-                Liquidacion.profesional_id == p.id, Liquidacion.period == period,
-            ).first()
-            if liq and liq.pagos:
-                continue
-            try:
-                preview = liqsvc.calcular_preview(db, p.id, period)
-            except Exception:
-                continue
-            total = preview.total_a_cobrar
-            if total <= 0:
-                continue
-            roll = rng.random()
-            if roll < 0.35:
-                continue
-            if not liq:
-                liq = Liquidacion(profesional_id=p.id, period=period)
+        # ── 1) Empleados (Honorarios) ────────────────────────────────────────
+        empleados = db.query(Empleado).filter(Empleado.activo == True).order_by(Empleado.id).all()  # noqa: E712
+        for per in periodos:
+            for e in empleados:
+                if db.query(LiquidacionEmpleado).filter(
+                    LiquidacionEmpleado.empleado_id == e.id,
+                    LiquidacionEmpleado.period == per,
+                ).first():
+                    continue
+                base = _base_empleado_seed(e, db)
+                if base <= 0:
+                    continue
+                omitir, full = _estado_roll(per)
+                if omitir:
+                    continue
+                medio = e.medio_pago or "transferencia"
+                liq = LiquidacionEmpleado(empleado_id=e.id, client_id=e.client_id,
+                                          period=per, monto=base, medio_pago=medio)
                 db.add(liq)
                 db.flush()
-            medio = rng.choice(["transferencia", "efectivo"])
-            liq.medio_pago = medio
-            if roll < 0.7:
-                db.add(PagoProfesional(liquidacion_id=liq.id, monto=round(total, 2),
-                                       medio_pago=medio, fecha=_fecha()))
-            else:
-                frac = rng.choice([0.3, 0.4, 0.5])
-                db.add(PagoProfesional(liquidacion_id=liq.id, monto=round(total * frac, 2),
-                                       medio_pago=medio, fecha=_fecha()))
+                monto = base if full else round(base * rng.choice([0.3, 0.4, 0.5, 0.6]), 2)
+                db.add(PagoEmpleado(liquidacion_id=liq.id, monto=monto, medio_pago=medio, fecha=_fecha(per)))
         db.commit()
-        print("[OK] Simulación de pagos (empleados + profesionales) generada.")
+
+        # ── 2) Profesionales (Liquidaciones) ─────────────────────────────────
+        from .services import liquidacion as liqsvc
+        profs = db.query(Profesional).filter(Profesional.activo == True).order_by(Profesional.id).all()  # noqa: E712
+        for per in periodos:
+            for p in profs:
+                liq = db.query(Liquidacion).filter(
+                    Liquidacion.profesional_id == p.id, Liquidacion.period == per,
+                ).first()
+                if liq and liq.pagos:
+                    continue
+                try:
+                    preview = liqsvc.calcular_preview(db, p.id, per)
+                except Exception:
+                    continue
+                total = preview.total_a_cobrar
+                if total <= 0:
+                    continue
+                omitir, full = _estado_roll(per)
+                if omitir:
+                    continue
+                if not liq:
+                    liq = Liquidacion(profesional_id=p.id, period=per)
+                    db.add(liq)
+                    db.flush()
+                medio = rng.choice(["transferencia", "efectivo"])
+                liq.medio_pago = medio
+                monto = round(total, 2) if full else round(total * rng.choice([0.3, 0.4, 0.5]), 2)
+                db.add(PagoProfesional(liquidacion_id=liq.id, monto=monto, medio_pago=medio, fecha=_fecha(per)))
+        db.commit()
+        print(f"[OK] Simulación con historial generada ({len(periodos)} meses).")
     finally:
         db.close()
 
