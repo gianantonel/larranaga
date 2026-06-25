@@ -63,6 +63,7 @@ export default function Honorarios() {
   const [empForm, setEmpForm] = useState({ nombre: '', apellido: '', cuil: '', fecha_ingreso: '' })
 
   const [pagoRow, setPagoRow] = useState(null)   // fila para el modal de pagos parciales
+  const [pagoTotal, setPagoTotal] = useState('') // valor absoluto a pagar (editable en el modal)
   const [pagoForm, setPagoForm] = useState({ monto: '', medio_pago: 'transferencia', fecha: todayDate() })
 
   const [showActModal, setShowActModal] = useState(false)
@@ -155,27 +156,43 @@ export default function Honorarios() {
   // ─── Pagos parciales (modal) ──────────────────────────────────────────────
   const openPago = (row) => {
     setPagoRow(row)
-    setPagoForm({ monto: String(row.restante ?? ''), medio_pago: row.medio_pago || 'transferencia', fecha: todayDate() })
+    setPagoTotal(String(row.monto_a_pagar ?? row.monto_sugerido ?? ''))
+    setPagoForm({ monto: '', medio_pago: row.medio_pago || 'transferencia', fecha: todayDate() })
   }
   const refreshPagoRow = (liq) => {
     // liq = LiquidacionEmpleadoOut devuelto por la API
     patchRow(liq.empleado_id, {
-      estado: liq.estado, pagado: liq.pagado, restante: liq.restante,
-      pagos: liq.pagos, monto_a_pagar: liq.monto, monto_sugerido: liq.monto,
+      estado: liq.estado, pagado: liq.pagado, restante: liq.restante, pagos: liq.pagos,
+      monto_a_pagar: liq.monto, monto_sugerido: liq.monto, liquidacion_id: liq.id,
     })
-    setPagoRow(pr => pr ? { ...pr, estado: liq.estado, pagado: liq.pagado, restante: liq.restante, pagos: liq.pagos } : pr)
+    setPagoRow(pr => pr ? { ...pr, liquidacion_id: liq.id, estado: liq.estado, pagado: liq.pagado, restante: liq.restante, pagos: liq.pagos, monto_a_pagar: liq.monto } : pr)
+  }
+  // Crea/actualiza la obligación (valor absoluto a pagar) en modo parcial.
+  const saveTotal = async () => {
+    const monto = parseFloat(pagoTotal)
+    if (!monto || monto <= 0) { alert('Ingresá el valor total a pagar'); return null }
+    try {
+      const res = await liquidarNomina(selectedClient.id, {
+        period, items: [{ empleado_id: pagoRow.empleado_id, monto, medio_pago: pagoRow.medio_pago || 'transferencia', modo: 'parcial' }],
+      })
+      const liq = res.data.detalle[0]
+      refreshPagoRow(liq)
+      return liq
+    } catch (e) { alert(e.response?.data?.detail || 'Error al guardar el total'); return null }
   }
   const addPago = async (e) => {
     e.preventDefault()
     const monto = parseFloat(pagoForm.monto)
     if (!monto || monto <= 0) { alert('Ingresá un importe válido'); return }
+    // asegurar que exista la obligación con el valor total
+    if (!pagoRow.liquidacion_id) { const liq = await saveTotal(); if (!liq) return }
     try {
       const { data } = await registrarPagoEmpleado({
         empleado_id: pagoRow.empleado_id, period,
         monto, medio_pago: pagoForm.medio_pago, fecha: pagoForm.fecha || undefined,
       })
       refreshPagoRow(data)
-      setPagoForm(f => ({ ...f, monto: String(data.restante || '') }))
+      setPagoForm(f => ({ ...f, monto: '' }))
     } catch (e) {
       alert(e.response?.data?.detail?.error || e.response?.data?.detail || 'Error al registrar pago')
     }
@@ -418,8 +435,8 @@ export default function Honorarios() {
                                   onChange={() => patchRow(r.empleado_id, { modo: 'total' })} className="accent-violet-600" /> Total
                               </label>
                               <label className="flex items-center gap-1 cursor-pointer">
-                                <input type="radio" name={`modo-${r.empleado_id}`} checked={r.modo === 'parcial'} disabled={r.estado !== 'sin_liquidar'}
-                                  onChange={() => patchRow(r.empleado_id, { modo: 'parcial' })} className="accent-violet-600" /> Parcial
+                                <input type="radio" name={`modo-${r.empleado_id}`} checked={r.modo === 'parcial'}
+                                  onChange={() => { patchRow(r.empleado_id, { modo: 'parcial', checked: false }); openPago({ ...r, modo: 'parcial', checked: false }) }} className="accent-violet-600" /> Parcial
                               </label>
                             </div>
                           </div>
@@ -431,7 +448,7 @@ export default function Honorarios() {
                                 {r.restante > 0 && <> · resta <b className="text-amber-300">{formatCurrency(r.restante)}</b></>}
                               </span>
                             )}
-                            {r.liquidacion_id && r.estado !== 'pagado' && (
+                            {(r.modo === 'parcial' || r.liquidacion_id) && (
                               <button onClick={() => openPago(r)} className="btn-secondary text-sm py-1"><Wallet size={14} /> Pagos</button>
                             )}
                           </div>
@@ -467,47 +484,64 @@ export default function Honorarios() {
               <button onClick={() => setPagoRow(null)} className="btn-icon"><X size={18} /></button>
             </div>
 
-            <div className="grid grid-cols-3 gap-2 mb-4 text-center">
-              <div className="rounded-lg bg-white/5 p-2"><p className="text-[11px] text-gray-500">Total</p><p className="font-mono font-bold text-white">{formatCurrency(pagoRow.monto_a_pagar)}</p></div>
-              <div className="rounded-lg bg-emerald-500/10 p-2"><p className="text-[11px] text-gray-500">Pagado</p><p className="font-mono font-bold text-emerald-300">{formatCurrency(pagoRow.pagado)}</p></div>
-              <div className="rounded-lg bg-amber-500/10 p-2"><p className="text-[11px] text-gray-500">Restante</p><p className="font-mono font-bold text-amber-300">{formatCurrency(pagoRow.restante)}</p></div>
-            </div>
+            {(() => {
+              const total = parseFloat(pagoTotal) || 0
+              const pagado = pagoRow.pagado || 0
+              const restante = Math.max(0, Math.round((total - pagado) * 100) / 100)
+              return (
+                <>
+                  <div className="mb-4">
+                    <label className="text-[11px] text-gray-500 block mb-1">Valor total a pagar</label>
+                    <div className="flex gap-2">
+                      <input type="number" step="0.01" value={pagoTotal} onChange={e => setPagoTotal(e.target.value)} className="input-field py-1.5 font-mono flex-1" />
+                      <button type="button" onClick={saveTotal} className="btn-secondary text-sm whitespace-nowrap">Guardar total</button>
+                    </div>
+                  </div>
 
-            <div className="space-y-1 mb-4 max-h-48 overflow-y-auto">
-              {(pagoRow.pagos || []).length === 0 && <p className="text-sm text-gray-500 text-center py-3">Todavía no hay pagos.</p>}
-              {(pagoRow.pagos || []).map(p => (
-                <div key={p.id} className="flex items-center justify-between rounded-lg bg-white/5 px-3 py-2 text-sm">
-                  <span className="font-mono font-medium text-white">{formatCurrency(p.monto)}</span>
-                  <span className="text-gray-400 capitalize">{p.medio_pago}</span>
-                  <span className="text-gray-500 text-xs">{p.fecha}</span>
-                  <button onClick={() => delPago(p.id)} className="text-gray-500 hover:text-rose-400"><Trash2 size={14} /></button>
-                </div>
-              ))}
-            </div>
+                  <div className="grid grid-cols-2 gap-2 mb-4 text-center">
+                    <div className="rounded-lg bg-emerald-500/10 p-2"><p className="text-[11px] text-gray-500">Pagado</p><p className="font-mono font-bold text-emerald-300">{formatCurrency(pagado)}</p></div>
+                    <div className="rounded-lg bg-amber-500/10 p-2"><p className="text-[11px] text-gray-500">Restante</p><p className="font-mono font-bold text-amber-300">{formatCurrency(restante)}</p></div>
+                  </div>
 
-            {pagoRow.restante > 0 ? (
-              <form onSubmit={addPago} className="grid grid-cols-1 sm:grid-cols-4 gap-2 items-end border-t border-[var(--border)] pt-4">
-                <div>
-                  <label className="text-[11px] text-gray-500 block mb-0.5">Importe</label>
-                  <input type="number" step="0.01" value={pagoForm.monto} onChange={e => setPagoForm(f => ({ ...f, monto: e.target.value }))} className="input-field py-1.5 text-sm font-mono w-full" required />
-                </div>
-                <div>
-                  <label className="text-[11px] text-gray-500 block mb-0.5">Medio</label>
-                  <select value={pagoForm.medio_pago} onChange={e => setPagoForm(f => ({ ...f, medio_pago: e.target.value }))} className="input-field py-1.5 text-sm w-full">
-                    {MEDIOS.map(m => <option key={m.v} value={m.v}>{m.l}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="text-[11px] text-gray-500 block mb-0.5">Fecha</label>
-                  <input type="date" value={pagoForm.fecha} onChange={e => setPagoForm(f => ({ ...f, fecha: e.target.value }))} className="input-field py-1.5 text-sm w-full" />
-                </div>
-                <button type="submit" className="btn-primary justify-center"><Plus size={15} /> Pago</button>
-              </form>
-            ) : (
-              <div className="flex items-center justify-center gap-2 rounded-lg bg-emerald-500/10 border border-emerald-500/30 px-3 py-2 text-sm text-emerald-300">
-                <CheckCircle2 size={16} /> Pago completo
-              </div>
-            )}
+                  <p className="text-[11px] uppercase tracking-wide text-gray-500 mb-1">Historial de pagos</p>
+                  <div className="space-y-1 mb-4 max-h-44 overflow-y-auto">
+                    {(pagoRow.pagos || []).length === 0 && <p className="text-sm text-gray-500 text-center py-3">Todavía no hay pagos.</p>}
+                    {(pagoRow.pagos || []).map(p => (
+                      <div key={p.id} className="flex items-center justify-between rounded-lg bg-white/5 px-3 py-2 text-sm">
+                        <span className="font-mono font-medium text-white">{formatCurrency(p.monto)}</span>
+                        <span className="text-gray-400 capitalize">{p.medio_pago}</span>
+                        <span className="text-gray-500 text-xs">{p.fecha}</span>
+                        <button onClick={() => delPago(p.id)} className="text-gray-500 hover:text-rose-400"><Trash2 size={14} /></button>
+                      </div>
+                    ))}
+                  </div>
+
+                  {restante > 0.005 ? (
+                    <form onSubmit={addPago} className="grid grid-cols-1 sm:grid-cols-4 gap-2 items-end border-t border-[var(--border)] pt-4">
+                      <div>
+                        <label className="text-[11px] text-gray-500 block mb-0.5">Importe</label>
+                        <input type="number" step="0.01" value={pagoForm.monto} onChange={e => setPagoForm(f => ({ ...f, monto: e.target.value }))} placeholder={String(restante)} className="input-field py-1.5 text-sm font-mono w-full" required />
+                      </div>
+                      <div>
+                        <label className="text-[11px] text-gray-500 block mb-0.5">Medio</label>
+                        <select value={pagoForm.medio_pago} onChange={e => setPagoForm(f => ({ ...f, medio_pago: e.target.value }))} className="input-field py-1.5 text-sm w-full">
+                          {MEDIOS.map(m => <option key={m.v} value={m.v}>{m.l}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="text-[11px] text-gray-500 block mb-0.5">Fecha</label>
+                        <input type="date" value={pagoForm.fecha} onChange={e => setPagoForm(f => ({ ...f, fecha: e.target.value }))} className="input-field py-1.5 text-sm w-full" />
+                      </div>
+                      <button type="submit" className="btn-primary justify-center"><Plus size={15} /> Pago</button>
+                    </form>
+                  ) : (
+                    <div className="flex items-center justify-center gap-2 rounded-lg bg-emerald-500/10 border border-emerald-500/30 px-3 py-2 text-sm text-emerald-300">
+                      <CheckCircle2 size={16} /> Pago completo
+                    </div>
+                  )}
+                </>
+              )
+            })()}
           </div>
         </div>
       )}
