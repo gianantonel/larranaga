@@ -566,8 +566,9 @@ class Liquidacion(Base):
     period = Column(String(7), nullable=False)          # YYYY-MM
     honorarios_totales = Column(Float, default=0)       # fijado por el admin
     saldo_anterior = Column(Float, default=0)           # arrastrado del cierre anterior
-    cobro_efectivo = Column(Float, default=0)           # registrado al cerrar
-    cobro_transferencia = Column(Float, default=0)      # registrado al cerrar
+    cobro_efectivo = Column(Float, default=0)           # registrado al cerrar (legacy)
+    cobro_transferencia = Column(Float, default=0)      # registrado al cerrar (legacy)
+    medio_pago = Column(String(20), nullable=True)      # medio por defecto del pago
     cerrada = Column(Boolean, default=False)
     cerrada_en = Column(DateTime(timezone=True))
     created_at = Column(DateTime(timezone=True), server_default=func.now())
@@ -575,6 +576,28 @@ class Liquidacion(Base):
 
     profesional = relationship("Profesional", back_populates="liquidaciones")
     reintegros = relationship("ReintegroGasto", back_populates="liquidacion", cascade="all, delete-orphan")
+    pagos = relationship("PagoProfesional", back_populates="liquidacion",
+                         cascade="all, delete-orphan", order_by="PagoProfesional.fecha")
+
+
+class PagoProfesional(Base):
+    """Pago (total o parcial) imputado a la liquidación mensual de un profesional.
+
+    Mismo modelo que PagoEmpleado pero para los profesionales/socios del estudio.
+    El 'total a cobrar' (honorarios − adelantos + saldo + reintegros) es la obligación;
+    estos pagos la van completando.
+    """
+    __tablename__ = "pagos_profesional"
+
+    id = Column(Integer, primary_key=True, index=True)
+    liquidacion_id = Column(Integer, ForeignKey("liquidaciones.id", ondelete="CASCADE"),
+                            nullable=False, index=True)
+    monto = Column(Float, nullable=False)
+    medio_pago = Column(String(20), nullable=False, default="transferencia")
+    fecha = Column(Date, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    liquidacion = relationship("Liquidacion", back_populates="pagos")
 
 
 # ─── F2-05: Control de billetes en caja ──────────────────────────────────────

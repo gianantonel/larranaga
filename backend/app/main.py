@@ -11,7 +11,7 @@ from .routers import (
     honorarios, profesionales_adm, users, bulk, billetes, pagos, imputacion,
     insforge, retiros, flujo_fondos, feature_flags, empleados, liquidacion_personal,
 )
-from .mock_data import seed_database, seed_profesionales_y_productos, seed_feature_flags, seed_empleados
+from .mock_data import seed_database, seed_profesionales_y_productos, seed_feature_flags, seed_empleados, seed_simulacion_pagos
 
 
 def _migrate_sqlite():
@@ -424,6 +424,7 @@ async def startup_event():
     _seed_billetes()
     seed_feature_flags()
     seed_empleados()
+    seed_simulacion_pagos()
     # Auto-sync periódico a InsForge (controlado por env var
     # INSFORGE_AUTOSYNC_INTERVAL_SECONDS, 0 o sin definir = deshabilitado)
     start_periodic_sync()

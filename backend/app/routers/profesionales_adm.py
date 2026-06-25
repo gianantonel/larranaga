@@ -365,3 +365,91 @@ def cerrar_liquidacion(profesional_id: int, period: str,
     db.commit()
     db.refresh(liq)
     return _build_liquidacion_out(liq, db)
+
+
+# ─── Pagos a profesional (total / parcial) ───────────────────────────────────
+
+def _get_or_create_liq(db: Session, profesional_id: int, period: str) -> models.Liquidacion:
+    liq = db.query(models.Liquidacion).filter(
+        models.Liquidacion.profesional_id == profesional_id,
+        models.Liquidacion.period == period,
+    ).first()
+    if liq:
+        return liq
+    prev = db.query(models.Liquidacion).filter(
+        models.Liquidacion.profesional_id == profesional_id,
+        models.Liquidacion.period == _prev_period(period),
+        models.Liquidacion.cerrada == True,                     # noqa: E712
+    ).first()
+    saldo_anterior = _build_liquidacion_out(prev, db).saldo_siguiente if prev else 0.0
+    liq = models.Liquidacion(profesional_id=profesional_id, period=period, saldo_anterior=saldo_anterior)
+    db.add(liq)
+    db.commit()
+    db.refresh(liq)
+    return liq
+
+
+@router.post("/liquidaciones/pago", response_model=schemas.LiquidacionPreviewOut)
+def registrar_pago_profesional(body: schemas.PagoProfesionalCreate,
+                               db: Session = Depends(get_db),
+                               _: models.User = Depends(require_admin)):
+    """Registra un pago (parcial o total) contra la liquidación del profesional."""
+    if not db.get(models.Profesional, body.profesional_id):
+        raise HTTPException(404, "Profesional no encontrado")
+    preview = liquidacion_service.calcular_preview(db, body.profesional_id, body.period)
+    liq = _get_or_create_liq(db, body.profesional_id, body.period)
+
+    pagado = round(sum(p.monto for p in liq.pagos), 2)
+    restante = round(max(0.0, preview.total_a_cobrar - pagado), 2)
+    if body.monto > restante + 0.01:
+        raise HTTPException(422, {"error": "El pago supera el restante a pagar",
+                                  "restante": restante, "intento": body.monto})
+
+    db.add(models.PagoProfesional(
+        liquidacion_id=liq.id, monto=body.monto,
+        medio_pago=body.medio_pago, fecha=body.fecha or date.today(),
+    ))
+    db.commit()
+    return liquidacion_service.calcular_preview(db, body.profesional_id, body.period)
+
+
+@router.delete("/liquidaciones/pago/{pago_id}", response_model=schemas.LiquidacionPreviewOut)
+def eliminar_pago_profesional(pago_id: int,
+                              db: Session = Depends(get_db),
+                              _: models.User = Depends(require_admin)):
+    pago = db.get(models.PagoProfesional, pago_id)
+    if not pago:
+        raise HTTPException(404, "Pago no encontrado")
+    liq = pago.liquidacion
+    pid, period = liq.profesional_id, liq.period
+    db.delete(pago)
+    db.commit()
+    return liquidacion_service.calcular_preview(db, pid, period)
+
+
+@router.post("/liquidaciones/{profesional_id}/{period}/liquidar",
+             response_model=schemas.LiquidacionPreviewOut)
+def liquidar_profesional(profesional_id: int, period: str,
+                         data: schemas.LiquidarProfRequest,
+                         db: Session = Depends(get_db),
+                         _: models.User = Depends(require_admin)):
+    """Liquida al profesional: modo 'total' registra el pago completo del total a cobrar;
+    modo 'parcial' deja la obligación para cargar pagos en el modal."""
+    if not db.get(models.Profesional, profesional_id):
+        raise HTTPException(404, "Profesional no encontrado")
+    preview = liquidacion_service.calcular_preview(db, profesional_id, period)
+    liq = _get_or_create_liq(db, profesional_id, period)
+    liq.medio_pago = data.medio_pago
+    db.flush()
+
+    if data.modo == "total":
+        for p in list(liq.pagos):
+            db.delete(p)
+        db.flush()
+        if preview.total_a_cobrar > 0.005:
+            db.add(models.PagoProfesional(
+                liquidacion_id=liq.id, monto=round(preview.total_a_cobrar, 2),
+                medio_pago=data.medio_pago, fecha=date.today(),
+            ))
+    db.commit()
+    return liquidacion_service.calcular_preview(db, profesional_id, period)

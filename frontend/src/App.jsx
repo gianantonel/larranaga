@@ -59,7 +59,7 @@ function ProtectedRoutes() {
         {/* Gated por R-XX */}
         <Route path="herramientas" element={<Gated codigo={['R-01', 'R-02']}><Herramientas /></Gated>} />
         <Route path="honorarios" element={<Gated codigo="R-03"><Honorarios /></Gated>} />
-        <Route path="profesionales" element={<Gated codigo="R-04"><Profesionales /></Gated>} />
+        <Route path="profesionales" element={<Navigate to="/liquidaciones" replace />} />
         <Route path="liquidaciones" element={<Gated codigo="R-04"><Liquidaciones /></Gated>} />
         <Route path="retenciones" element={<Gated codigo="R-05"><Retenciones /></Gated>} />
         <Route path="cuentas-corrientes" element={<Gated codigo="R-07"><CuentasCorrientes /></Gated>} />

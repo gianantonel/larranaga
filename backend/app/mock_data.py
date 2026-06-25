@@ -11,6 +11,7 @@ from .models import (
     UserRole, UserStatus, TaskType, TaskStatus, InvoiceType,
     Profesional, TipoProfesional, ProductoReferencia, HistorialPrecioProducto,
     TipoHonorario, FeatureFlag, Empleado,
+    LiquidacionEmpleado, PagoEmpleado, Liquidacion, PagoProfesional,
 )
 from .security import get_password_hash, encrypt_credential
 from .database import SessionLocal, engine, Base
@@ -716,9 +717,103 @@ def seed_empleados():
     print(f"[OK] Nómina: {total} empleados creados en {len(clientes)} clientes.")
 
 
+def _base_empleado_seed(e: Empleado, db: Session) -> float:
+    """Monto base del empleado según su config (fijo/producto). 0 si no configurado."""
+    if e.tipo_honorario == TipoHonorario.fijo:
+        return float(e.importe_fijo or 0.0)
+    if e.tipo_honorario == TipoHonorario.producto and e.producto_ref_id and e.cantidad_unidades:
+        prod = db.get(ProductoReferencia, e.producto_ref_id)
+        if prod:
+            return round(float(e.cantidad_unidades) * float(prod.precio_vigente), 2)
+    return 0.0
+
+
+def seed_simulacion_pagos():
+    """Data fake de pagos para simular las vistas (idempotente por entidad/período).
+
+    Para el mes corriente, deja una mezcla de estados:
+      ~35% sin liquidar · ~35% pagado total · ~30% parcial.
+    Aplica tanto a la nómina de empleados (Honorarios) como a las liquidaciones de
+    profesionales (Liquidaciones). No pisa liquidaciones existentes."""
+    db = SessionLocal()
+    try:
+        period = f"{date.today().year}-{date.today().month:02d}"
+        y, m = int(period[:4]), int(period[5:7])
+        rng = random.Random(7)
+
+        def _fecha():
+            return date(y, m, rng.randint(1, 26))
+
+        # ── Empleados (Honorarios) ────────────────────────────────────────────
+        empleados = db.query(Empleado).filter(Empleado.activo == True).order_by(Empleado.id).all()  # noqa: E712
+        for e in empleados:
+            ya = db.query(LiquidacionEmpleado).filter(
+                LiquidacionEmpleado.empleado_id == e.id,
+                LiquidacionEmpleado.period == period,
+            ).first()
+            if ya:
+                continue
+            base = _base_empleado_seed(e, db)
+            if base <= 0:
+                continue
+            roll = rng.random()
+            if roll < 0.35:
+                continue
+            medio = e.medio_pago or "transferencia"
+            liq = LiquidacionEmpleado(empleado_id=e.id, client_id=e.client_id,
+                                      period=period, monto=base, medio_pago=medio)
+            db.add(liq)
+            db.flush()
+            if roll < 0.7:
+                db.add(PagoEmpleado(liquidacion_id=liq.id, monto=base, medio_pago=medio, fecha=_fecha()))
+            else:
+                frac = rng.choice([0.3, 0.4, 0.5, 0.6])
+                db.add(PagoEmpleado(liquidacion_id=liq.id, monto=round(base * frac, 2),
+                                    medio_pago=medio, fecha=_fecha()))
+        db.commit()
+
+        # ── Profesionales (Liquidaciones) ─────────────────────────────────────
+        from .services import liquidacion as liqsvc
+        profs = db.query(Profesional).filter(Profesional.activo == True).order_by(Profesional.id).all()  # noqa: E712
+        for p in profs:
+            liq = db.query(Liquidacion).filter(
+                Liquidacion.profesional_id == p.id, Liquidacion.period == period,
+            ).first()
+            if liq and liq.pagos:
+                continue
+            try:
+                preview = liqsvc.calcular_preview(db, p.id, period)
+            except Exception:
+                continue
+            total = preview.total_a_cobrar
+            if total <= 0:
+                continue
+            roll = rng.random()
+            if roll < 0.35:
+                continue
+            if not liq:
+                liq = Liquidacion(profesional_id=p.id, period=period)
+                db.add(liq)
+                db.flush()
+            medio = rng.choice(["transferencia", "efectivo"])
+            liq.medio_pago = medio
+            if roll < 0.7:
+                db.add(PagoProfesional(liquidacion_id=liq.id, monto=round(total, 2),
+                                       medio_pago=medio, fecha=_fecha()))
+            else:
+                frac = rng.choice([0.3, 0.4, 0.5])
+                db.add(PagoProfesional(liquidacion_id=liq.id, monto=round(total * frac, 2),
+                                       medio_pago=medio, fecha=_fecha()))
+        db.commit()
+        print("[OK] Simulación de pagos (empleados + profesionales) generada.")
+    finally:
+        db.close()
+
+
 if __name__ == "__main__":
     seed_database()
     seed_empleados()
+    seed_simulacion_pagos()
 
 
 # ─── Catálogo Requisitos R-XX (Plan Maestro líneas 17-36) ─────────────────────

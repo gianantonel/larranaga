@@ -202,6 +202,12 @@ export const getLiquidacionPreview = (profesionalId, periodo) =>
 export const getLiquidacionesPreviewAll = (periodo) =>
   api.get('/profesionales/liquidaciones/preview', { params: { periodo } })
 export const getLiquidaciones = (params) => api.get('/profesionales/liquidaciones', { params })
+export const liquidarProfesional = (profesionalId, period, data) =>
+  api.post(`/profesionales/liquidaciones/${profesionalId}/${period}/liquidar`, data)
+export const registrarPagoProfesional = (data) =>
+  api.post('/profesionales/liquidaciones/pago', data)
+export const eliminarPagoProfesional = (pagoId) =>
+  api.delete(`/profesionales/liquidaciones/pago/${pagoId}`)
 // ─── R-10: Generación HWCRARCA ────────────────────────────────────────────────
 export const generarHwcrarca = (limpiezaId) =>
   api.post(`/herramientas/${limpiezaId}/generar-hwcrarca`, null, { responseType: 'blob' })

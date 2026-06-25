@@ -149,6 +149,25 @@ def calcular_preview(
         honorarios_brutos - adelantos_cobrados + saldo_anterior + reintegros_total, 2
     )
 
+    # ── Estado de pago (paralelo a la nómina de empleados) ────────────────────
+    liquidacion_id = None
+    medio_pago = "transferencia"
+    pagado = 0.0
+    pagos_out: list[schemas.PagoProfesionalOut] = []
+    if liq_actual:
+        liquidacion_id = liq_actual.id
+        medio_pago = liq_actual.medio_pago or "transferencia"
+        pagado = round(sum(p.monto for p in liq_actual.pagos), 2)
+        pagos_out = [schemas.PagoProfesionalOut.model_validate(p) for p in liq_actual.pagos]
+
+    restante = round(max(0.0, total_a_cobrar - pagado), 2)
+    if pagado <= 0.005:
+        estado = "sin_liquidar"
+    elif pagado < total_a_cobrar - 0.005:
+        estado = "parcial"
+    else:
+        estado = "pagado"
+
     return schemas.LiquidacionPreviewOut(
         profesional_id=profesional_id,
         profesional_nombre=prof.nombre,
@@ -162,4 +181,10 @@ def calcular_preview(
         detalle_adelantos=detalle_adelantos,
         detalle_reintegros=detalle_reintegros,
         cerrada=liq_actual.cerrada if liq_actual else False,
+        liquidacion_id=liquidacion_id,
+        medio_pago=medio_pago,
+        pagado=pagado,
+        restante=restante,
+        estado=estado,
+        pagos=pagos_out,
     )

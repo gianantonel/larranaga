@@ -30,7 +30,6 @@ const ACCIONES = [
   { to: '/maestro-proveedores',    icon: BookOpen,        label: 'Maestro Proveedores',  req: 'R-09' },
   { to: '/honorarios',             icon: Calculator,      label: 'Honorarios',           req: 'R-03' },
   { to: '/actualizar-honorarios',  icon: Percent,         label: 'Actualizar Honorarios',req: 'R-13' },
-  { to: '/profesionales',          icon: Briefcase,       label: 'Profesionales',        req: 'R-04' },
   { to: '/liquidaciones',          icon: CalendarCheck,   label: 'Liquidaciones',        req: 'R-04' },
   { to: '/cobros',                 icon: DollarSign,      label: 'Registrar Cobro',      req: 'R-08' },
   { to: '/retiros',                icon: ArrowDownToLine, label: 'Retiros Socios',       req: 'R-12' },

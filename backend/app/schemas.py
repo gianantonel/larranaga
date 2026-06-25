@@ -947,6 +947,15 @@ class ReintegroDetalleItem(BaseModel):
     importe: float
 
 
+class PagoProfesionalOut(BaseModel):
+    id: int
+    monto: float
+    medio_pago: str
+    fecha: date
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class LiquidacionPreviewOut(BaseModel):
     profesional_id: int
     profesional_nombre: str
@@ -960,6 +969,51 @@ class LiquidacionPreviewOut(BaseModel):
     detalle_adelantos: list[AdelantoDetalleItem]
     detalle_reintegros: list[ReintegroDetalleItem]
     cerrada: bool
+    # estado de pago (paralelo a la nómina de empleados)
+    liquidacion_id: Optional[int] = None
+    medio_pago: str = "transferencia"
+    pagado: float = 0.0
+    restante: float = 0.0
+    estado: str = "sin_liquidar"   # sin_liquidar | pendiente | parcial | pagado
+    pagos: list[PagoProfesionalOut] = []
+
+
+class LiquidarProfRequest(BaseModel):
+    medio_pago: str = "transferencia"
+    modo: str = "total"            # "total" | "parcial"
+
+    @field_validator("medio_pago")
+    @classmethod
+    def _medio(cls, v):
+        return _validar_medio_pago(v)
+
+    @field_validator("modo")
+    @classmethod
+    def _modo(cls, v):
+        norm = (v or "total").strip().lower()
+        if norm not in {"total", "parcial"}:
+            raise ValueError("modo debe ser 'total' o 'parcial'")
+        return norm
+
+
+class PagoProfesionalCreate(BaseModel):
+    profesional_id: int
+    period: str
+    monto: float
+    medio_pago: str = "transferencia"
+    fecha: Optional[date] = None
+
+    @field_validator("monto")
+    @classmethod
+    def _monto_pos(cls, v: float) -> float:
+        if v <= 0:
+            raise ValueError("monto debe ser mayor a 0")
+        return v
+
+    @field_validator("medio_pago")
+    @classmethod
+    def _medio(cls, v):
+        return _validar_medio_pago(v)
 
 
 # ─── F2-05: Control de billetes ──────────────────────────────────────────────
