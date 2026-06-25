@@ -637,11 +637,33 @@ def seed_empleados():
     Crea entre 3 y 6 empleados por cliente con nombres/CUIL/fecha de ingreso
     ficticios. No borra nada; sólo corre si la tabla `empleados` está vacía."""
     db = SessionLocal()
-    if db.query(Empleado).count() > 0:
+    rng = random.Random(2026)   # determinístico: misma data en cada arranque/entorno
+    prod = db.query(ProductoReferencia).first()   # para empleados con honorario tipo producto
+    medios = ["transferencia", "efectivo", "deposito", "cheque"]
+
+    existentes = db.query(Empleado).all()
+    if existentes:
+        # Backfill de config en empleados de versiones previas (fake data sin honorario)
+        changed = 0
+        for e in existentes:
+            if e.tipo_honorario is None:
+                if prod and rng.random() < 0.2:
+                    e.tipo_honorario = TipoHonorario.producto
+                    e.producto_ref_id = prod.id
+                    e.cantidad_unidades = float(rng.randint(5, 60))
+                else:
+                    e.tipo_honorario = TipoHonorario.fijo
+                    e.importe_fijo = float(rng.randint(150, 1200) * 1000)
+                changed += 1
+            if not e.medio_pago:
+                e.medio_pago = rng.choice(medios)
+                changed += 1
+        if changed:
+            db.commit()
+            print(f"[OK] Nómina: config backfilleada en empleados existentes.")
         db.close()
         return
 
-    rng = random.Random(2026)   # determinístico: misma data en cada arranque/entorno
     clientes = db.query(Client).filter(Client.is_active == True).order_by(Client.id).all()  # noqa: E712
     if not clientes:
         db.close()
@@ -661,6 +683,19 @@ def seed_empleados():
                     usados.add((nombre, apellido))
                     break
             ingreso = date(2026, 1, 1) - timedelta(days=rng.randint(60, 2200))
+
+            # Config de honorario por empleado: ~20% producto, resto fijo
+            if prod and rng.random() < 0.2:
+                tipo = TipoHonorario.producto
+                importe_fijo = None
+                producto_ref_id = prod.id
+                cantidad = float(rng.randint(5, 60))
+            else:
+                tipo = TipoHonorario.fijo
+                importe_fijo = float(rng.randint(150, 1200) * 1000)   # $150k–$1.2M
+                producto_ref_id = None
+                cantidad = None
+
             db.add(Empleado(
                 client_id=c.id,
                 nombre=nombre,
@@ -668,6 +703,11 @@ def seed_empleados():
                 cuil=_cuil(rng),
                 fecha_ingreso=ingreso,
                 activo=rng.random() > 0.08,   # ~8% dados de baja
+                medio_pago=rng.choice(medios),
+                tipo_honorario=tipo,
+                importe_fijo=importe_fijo,
+                producto_ref_id=producto_ref_id,
+                cantidad_unidades=cantidad,
             ))
             total += 1
 

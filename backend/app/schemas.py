@@ -1253,12 +1253,27 @@ def _normalizar_cuil(v: Optional[str]) -> Optional[str]:
     return f"{digits[:2]}-{digits[2:10]}-{digits[10]}"
 
 
+MEDIOS_PAGO = {"transferencia", "efectivo", "deposito", "cheque"}
+
+
+def _validar_medio_pago(v: Optional[str]) -> str:
+    norm = (v or "transferencia").strip().lower()
+    if norm not in MEDIOS_PAGO:
+        raise ValueError(f"medio_pago inválido (opciones: {', '.join(sorted(MEDIOS_PAGO))})")
+    return norm
+
+
 class EmpleadoBase(BaseModel):
     nombre: str
     apellido: str
     cuil: Optional[str] = None
     fecha_ingreso: Optional[date] = None
     activo: bool = True
+    medio_pago: str = "transferencia"          # transferencia|efectivo|deposito|cheque
+    tipo_honorario: Optional[str] = None        # "fijo" | "producto"
+    importe_fijo: Optional[float] = None
+    producto_ref_id: Optional[int] = None
+    cantidad_unidades: Optional[float] = None
 
     @field_validator("nombre", "apellido")
     @classmethod
@@ -1272,6 +1287,11 @@ class EmpleadoBase(BaseModel):
     def _cuil(cls, v):
         return _normalizar_cuil(v)
 
+    @field_validator("medio_pago")
+    @classmethod
+    def _medio(cls, v):
+        return _validar_medio_pago(v)
+
 
 class EmpleadoCreate(EmpleadoBase):
     client_id: int
@@ -1283,11 +1303,21 @@ class EmpleadoUpdate(BaseModel):
     cuil: Optional[str] = None
     fecha_ingreso: Optional[date] = None
     activo: Optional[bool] = None
+    medio_pago: Optional[str] = None
+    tipo_honorario: Optional[str] = None
+    importe_fijo: Optional[float] = None
+    producto_ref_id: Optional[int] = None
+    cantidad_unidades: Optional[float] = None
 
     @field_validator("cuil")
     @classmethod
     def _cuil(cls, v):
         return _normalizar_cuil(v)
+
+    @field_validator("medio_pago")
+    @classmethod
+    def _medio(cls, v):
+        return _validar_medio_pago(v) if v is not None else None
 
 
 class EmpleadoOut(BaseModel):
@@ -1298,36 +1328,69 @@ class EmpleadoOut(BaseModel):
     cuil: Optional[str] = None
     fecha_ingreso: Optional[date] = None
     activo: bool
+    medio_pago: str = "transferencia"
+    tipo_honorario: Optional[str] = None
+    importe_fijo: Optional[float] = None
+    producto_ref_id: Optional[int] = None
+    cantidad_unidades: Optional[float] = None
     created_at: Optional[datetime] = None
     client_name: Optional[str] = None   # nombre de la empresa (conveniencia)
+
+    @field_validator("tipo_honorario", mode="before")
+    @classmethod
+    def _tipo_str(cls, v):
+        return v.value if hasattr(v, "value") else v
 
     model_config = ConfigDict(from_attributes=True)
 
 
 # ─── Liquidación de honorarios por empleado (nómina) ─────────────────────────
 
+class PagoEmpleadoOut(BaseModel):
+    id: int
+    monto: float
+    medio_pago: str
+    fecha: date
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class NominaEmpleadoRow(BaseModel):
     empleado_id: int
     nombre: str
     apellido: str
     cuil: Optional[str] = None
-    monto_sugerido: float          # del período anterior; si es nuevo, base de config del cliente
-    ya_liquidado: bool = False     # si ya existe liquidación para (empleado, período)
-    monto_liquidado: Optional[float] = None
-    origen_sugerido: str           # "periodo_anterior" | "config_cliente" | "liquidado"
+    # config del empleado
+    medio_pago: str = "transferencia"
+    tipo_honorario: Optional[str] = None        # "fijo" | "producto" | None
+    importe_fijo: Optional[float] = None
+    producto_ref_id: Optional[int] = None
+    cantidad_unidades: Optional[float] = None
+    producto_nombre: Optional[str] = None
+    # sugerido para el período
+    monto_sugerido: float
+    origen_sugerido: str           # "periodo_anterior" | "config_empleado" | "liquidado"
+    # estado de la liquidación/pagos del período
+    liquidacion_id: Optional[int] = None
+    monto_a_pagar: Optional[float] = None
+    pagado: float = 0.0
+    restante: Optional[float] = None
+    estado: str = "sin_liquidar"   # sin_liquidar | pendiente | parcial | pagado
+    pagos: List[PagoEmpleadoOut] = []
 
 
 class NominaOut(BaseModel):
     client_id: int
     client_name: Optional[str] = None
     period: str
-    tipo_honorario: Optional[str] = None   # "fijo" | "producto" | None
     empleados: List[NominaEmpleadoRow] = []
 
 
 class LiquidarItem(BaseModel):
     empleado_id: int
-    monto: float
+    monto: float                       # importe absoluto a pagar
+    medio_pago: str = "transferencia"
+    modo: str = "total"                # "total" | "parcial"
 
     @field_validator("monto")
     @classmethod
@@ -1336,10 +1399,43 @@ class LiquidarItem(BaseModel):
             raise ValueError("monto no puede ser negativo")
         return v
 
+    @field_validator("medio_pago")
+    @classmethod
+    def _medio(cls, v):
+        return _validar_medio_pago(v)
+
+    @field_validator("modo")
+    @classmethod
+    def _modo(cls, v):
+        norm = (v or "total").strip().lower()
+        if norm not in {"total", "parcial"}:
+            raise ValueError("modo debe ser 'total' o 'parcial'")
+        return norm
+
 
 class LiquidarRequest(BaseModel):
     period: str
     items: List[LiquidarItem]
+
+
+class PagoEmpleadoCreate(BaseModel):
+    empleado_id: int
+    period: str
+    monto: float
+    medio_pago: str = "transferencia"
+    fecha: Optional[date] = None
+
+    @field_validator("monto")
+    @classmethod
+    def _monto_pos(cls, v: float) -> float:
+        if v <= 0:
+            raise ValueError("monto debe ser mayor a 0")
+        return v
+
+    @field_validator("medio_pago")
+    @classmethod
+    def _medio(cls, v):
+        return _validar_medio_pago(v)
 
 
 class LiquidacionEmpleadoOut(BaseModel):
@@ -1348,8 +1444,11 @@ class LiquidacionEmpleadoOut(BaseModel):
     client_id: int
     period: str
     monto: float
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
+    medio_pago: Optional[str] = None
+    pagado: float = 0.0
+    restante: float = 0.0
+    estado: str = "pendiente"
+    pagos: List[PagoEmpleadoOut] = []
 
     model_config = ConfigDict(from_attributes=True)
 

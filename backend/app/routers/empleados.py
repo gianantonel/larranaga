@@ -72,13 +72,17 @@ def get_empleado(
 def create_empleado(
     data: schemas.EmpleadoCreate,
     db: Session = Depends(get_db),
-    _: models.User = Depends(require_admin),
+    current_user: models.User = Depends(get_current_user),
 ):
+    ensure_client_access(db, current_user, data.client_id)
     empresa = db.get(models.Client, data.client_id)
     if not empresa:
         raise HTTPException(400, f"Empresa (client_id={data.client_id}) no encontrada")
 
-    emp = models.Empleado(**data.model_dump())
+    payload = data.model_dump()
+    if payload.get("tipo_honorario"):
+        payload["tipo_honorario"] = models.TipoHonorario(payload["tipo_honorario"])
+    emp = models.Empleado(**payload)
     db.add(emp)
     db.commit()
     db.refresh(emp)
@@ -90,13 +94,16 @@ def update_empleado(
     empleado_id: int,
     data: schemas.EmpleadoUpdate,
     db: Session = Depends(get_db),
-    _: models.User = Depends(require_admin),
+    current_user: models.User = Depends(get_current_user),
 ):
     emp = db.get(models.Empleado, empleado_id)
     if not emp:
         raise HTTPException(404, "Empleado no encontrado")
+    ensure_client_access(db, current_user, emp.client_id)
 
     for field, val in data.model_dump(exclude_unset=True).items():
+        if field == "tipo_honorario" and val is not None:
+            val = models.TipoHonorario(val)
         setattr(emp, field, val)
 
     db.commit()
@@ -108,11 +115,12 @@ def update_empleado(
 def delete_empleado(
     empleado_id: int,
     db: Session = Depends(get_db),
-    _: models.User = Depends(require_admin),
+    current_user: models.User = Depends(get_current_user),
 ):
     emp = db.get(models.Empleado, empleado_id)
     if not emp:
         raise HTTPException(404, "Empleado no encontrado")
+    ensure_client_access(db, current_user, emp.client_id)
     db.delete(emp)
     db.commit()
     return None

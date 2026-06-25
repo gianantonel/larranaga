@@ -144,6 +144,10 @@ export const getNomina = (clientId, period) =>
   api.get(`/liquidacion-personal/${clientId}`, { params: { period } })
 export const liquidarNomina = (clientId, data) =>
   api.post(`/liquidacion-personal/${clientId}/liquidar`, data)
+export const registrarPagoEmpleado = (data) =>
+  api.post('/liquidacion-personal/pago', data)
+export const eliminarPagoEmpleado = (pagoId) =>
+  api.delete(`/liquidacion-personal/pago/${pagoId}`)
 
 // ─── R-04: Profesionales, Pagos, Liquidaciones ───────────────────────────────
 export const getProfesionales = (params) => api.get('/profesionales/', { params })

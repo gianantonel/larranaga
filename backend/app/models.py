@@ -814,6 +814,13 @@ class Empleado(Base):
     cuil = Column(String(13), index=True)             # formato XX-XXXXXXXX-X
     fecha_ingreso = Column(Date, nullable=True)
     activo = Column(Boolean, nullable=False, default=True)
+    # Medio de pago por defecto: 'transferencia' | 'efectivo' | 'deposito' | 'cheque'
+    medio_pago = Column(String(20), nullable=False, default="transferencia")
+    # Config de honorario POR EMPLEADO (reemplaza la del cliente para la nómina)
+    tipo_honorario = Column(Enum(TipoHonorario), nullable=True)   # fijo | producto
+    importe_fijo = Column(Float, nullable=True)                   # si tipo = fijo
+    producto_ref_id = Column(Integer, ForeignKey("productos_referencia.id"), nullable=True)
+    cantidad_unidades = Column(Float, nullable=True)              # si tipo = producto
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     empresa = relationship("Client", back_populates="empleados")
@@ -822,11 +829,14 @@ class Empleado(Base):
 
 
 class LiquidacionEmpleado(Base):
-    """Liquidación de honorarios de un empleado de la nómina, por período.
+    """Obligación de honorarios de un empleado por período (importe a pagar).
 
-    Una fila por (empleado, período). El monto sugerido de un período se arrastra
-    del período anterior; para el primer período se toma la config de honorario
-    del cliente (fijo → importe; producto → cantidad × precio vigente).
+    Una fila por (empleado, período). `monto` es el valor absoluto a pagar. Los pagos
+    (totales o parciales) se registran en `PagoEmpleado`; el estado (pendiente /
+    parcial / pagado) y el restante se derivan de la suma de esos pagos.
+    El monto sugerido de un período arrastra el del período anterior; el primer
+    período toma la config de honorario del EMPLEADO (fijo → importe; producto →
+    cantidad × precio vigente).
     """
     __tablename__ = "liquidaciones_empleado"
     __table_args__ = (
@@ -839,8 +849,30 @@ class LiquidacionEmpleado(Base):
     client_id = Column(Integer, ForeignKey("clients.id", ondelete="CASCADE"),
                        nullable=False, index=True)   # denormalizado para filtrar/acceso
     period = Column(String(7), nullable=False, index=True)   # YYYY-MM
-    monto = Column(Float, nullable=False)
+    monto = Column(Float, nullable=False)                    # importe absoluto a pagar
+    medio_pago = Column(String(20), nullable=True)           # medio del pago total (default)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
     empleado = relationship("Empleado", back_populates="liquidaciones")
+    pagos = relationship("PagoEmpleado", back_populates="liquidacion",
+                         cascade="all, delete-orphan", order_by="PagoEmpleado.fecha")
+
+
+class PagoEmpleado(Base):
+    """Pago (total o parcial) imputado a una liquidación de empleado.
+
+    Un pago 'total' es una única fila por el importe completo. En 'pago parcial'
+    se cargan varias filas que van completando el importe absoluto de la liquidación.
+    """
+    __tablename__ = "pagos_empleado"
+
+    id = Column(Integer, primary_key=True, index=True)
+    liquidacion_id = Column(Integer, ForeignKey("liquidaciones_empleado.id", ondelete="CASCADE"),
+                            nullable=False, index=True)
+    monto = Column(Float, nullable=False)
+    medio_pago = Column(String(20), nullable=False, default="transferencia")
+    fecha = Column(Date, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    liquidacion = relationship("LiquidacionEmpleado", back_populates="pagos")
