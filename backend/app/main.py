@@ -419,12 +419,14 @@ async def startup_event():
     _backfill_datetime_defaults()
     _resync_sequences()
     register_sync_events(engine)
-    seed_database()
-    seed_profesionales_y_productos()
-    _seed_billetes()
-    seed_feature_flags()
-    seed_empleados()
-    seed_simulacion_pagos()
+    # Seeds defensivos: una seed que falle (p. ej. sobre Postgres) NUNCA debe
+    # impedir el arranque del backend.
+    for _seed in (seed_database, seed_profesionales_y_productos, _seed_billetes,
+                  seed_feature_flags, seed_empleados, seed_simulacion_pagos):
+        try:
+            _seed()
+        except Exception as e:  # noqa: BLE001
+            print(f"[seed] WARN {_seed.__name__} falló (se continúa): {e}")
     # Auto-sync periódico a InsForge (controlado por env var
     # INSFORGE_AUTOSYNC_INTERVAL_SECONDS, 0 o sin definir = deshabilitado)
     start_periodic_sync()
