@@ -542,6 +542,41 @@ def seed_database():
     print("    smorales@larranaga.com    — Sebastián Morales")
 
 
+# Catálogo base de productos de referencia (idempotente por nombre).
+_PRODUCTOS_BASE = [
+    # (nombre,             unidad,  precio,   vigente_desde)
+    ("Bolsa de cemento",   "bolsa", 4600.0,  date(2026, 4, 1)),
+    ("Kilo de carne",      "kg",    8500.0,  date(2026, 6, 1)),
+    ("Litro de leche",     "litro", 1200.0,  date(2026, 6, 1)),
+]
+
+
+def seed_productos_referencia():
+    """Seed idempotente del catálogo base de productos de referencia.
+
+    Crea cada producto SOLO si no existe otro con el mismo nombre (junto con su
+    HistorialPrecioProducto inicial). Es independiente del seed de profesionales:
+    `seed_profesionales_y_productos` corta apenas detecta profesionales existentes,
+    así que en entornos ya inicializados (prod) nunca regenera el producto si falta.
+    Este seed cierra ese hueco y es seguro de correr en cada arranque."""
+    db = SessionLocal()
+    try:
+        creados = 0
+        for nombre, unidad, precio, desde in _PRODUCTOS_BASE:
+            if db.query(ProductoReferencia).filter(ProductoReferencia.nombre == nombre).first():
+                continue
+            prod = ProductoReferencia(nombre=nombre, unidad=unidad, precio_vigente=precio)
+            db.add(prod)
+            db.flush()
+            db.add(HistorialPrecioProducto(producto_id=prod.id, precio=precio, vigente_desde=desde))
+            creados += 1
+        if creados:
+            db.commit()
+            print(f"[OK] Productos de referencia: {creados} creados (catálogo base).")
+    finally:
+        db.close()
+
+
 def seed_profesionales_y_productos():
     """Seed idempotente para R-03/R-04. Se ejecuta sobre la DB existente sin borrarla."""
     db = SessionLocal()
@@ -566,15 +601,20 @@ def seed_profesionales_y_productos():
     for p in [rodrigo, manuel, marisol, silvana, stefi, mariana]:
         db.refresh(p)
 
-    # Producto de referencia: bolsa de cemento (para clientes constructoras)
-    cemento = ProductoReferencia(nombre="Bolsa de cemento", unidad="bolsa", precio_vigente=4600.0)
-    db.add(cemento)
-    db.commit()
-    db.refresh(cemento)
-    db.add(HistorialPrecioProducto(
-        producto_id=cemento.id, precio=4600.0, vigente_desde=date(2026, 4, 1)
-    ))
-    db.commit()
+    # Producto de referencia: bolsa de cemento (para clientes constructoras).
+    # Ya sembrado por seed_productos_referencia (corre antes); lo buscamos para no duplicar.
+    cemento = db.query(ProductoReferencia).filter(
+        ProductoReferencia.nombre == "Bolsa de cemento"
+    ).first()
+    if cemento is None:
+        cemento = ProductoReferencia(nombre="Bolsa de cemento", unidad="bolsa", precio_vigente=4600.0)
+        db.add(cemento)
+        db.commit()
+        db.refresh(cemento)
+        db.add(HistorialPrecioProducto(
+            producto_id=cemento.id, precio=4600.0, vigente_desde=date(2026, 4, 1)
+        ))
+        db.commit()
 
     # Configurar honorarios en los clientes existentes (toma los primeros activos por orden de ID)
     existing_clients = (

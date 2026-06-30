@@ -11,7 +11,10 @@ from .routers import (
     honorarios, profesionales_adm, users, bulk, billetes, pagos, imputacion,
     insforge, retiros, flujo_fondos, feature_flags,
 )
-from .mock_data import seed_database, seed_profesionales_y_productos, seed_feature_flags, seed_simulacion_pagos
+from .mock_data import (
+    seed_database, seed_productos_referencia, seed_profesionales_y_productos,
+    seed_feature_flags, seed_simulacion_pagos,
+)
 
 
 def _migrate_sqlite():
@@ -419,8 +422,8 @@ async def startup_event():
     register_sync_events(engine)
     # Seeds defensivos: una seed que falle (p. ej. sobre Postgres) NUNCA debe
     # impedir el arranque del backend.
-    for _seed in (seed_database, seed_profesionales_y_productos, _seed_billetes,
-                  seed_feature_flags, seed_simulacion_pagos):
+    for _seed in (seed_database, seed_productos_referencia, seed_profesionales_y_productos,
+                  _seed_billetes, seed_feature_flags, seed_simulacion_pagos):
         try:
             _seed()
         except Exception as e:  # noqa: BLE001
