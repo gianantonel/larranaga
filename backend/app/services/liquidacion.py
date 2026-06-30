@@ -2,9 +2,40 @@ import calendar
 from datetime import date
 
 from fastapi import HTTPException
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from .. import models, schemas
+
+
+# Formas de pago no-efectivo que el profesional "recibe" → cuentan como adelanto
+_FORMAS_ADELANTO = ("transferencia", "cheque", "deposito")
+
+
+def _mov_ars(m) -> float:
+    """Importe del movimiento convertido a ARS (USD × cotización; ARS tal cual)."""
+    if (m.moneda or "ARS").upper() == "USD" and m.cotizacion:
+        return float(m.monto) * float(m.cotizacion)
+    return float(m.monto)
+
+
+def _adelantos_r07(db: Session, profesional_id: int, periodo: str) -> list:
+    """Adelantos cargados directo en R-07 (Cuentas Corrientes): movimientos de
+    `ingreso` no-efectivo (transferencia/cheque/depósito) a este profesional,
+    imputados al `periodo` (campo periodo_honorario = "mes que se cobra"). Se
+    excluyen los que provienen de un Pago (`pago_id` no nulo), porque ésos ya se
+    cuentan vía la tabla `pagos`."""
+    return (
+        db.query(models.MovimientoCuentaCorriente)
+        .filter(
+            models.MovimientoCuentaCorriente.profesional_id == profesional_id,
+            func.lower(models.MovimientoCuentaCorriente.tipo) == "ingreso",
+            func.lower(models.MovimientoCuentaCorriente.forma_pago).in_(_FORMAS_ADELANTO),
+            models.MovimientoCuentaCorriente.periodo_honorario == periodo,
+            models.MovimientoCuentaCorriente.pago_id.is_(None),
+        )
+        .all()
+    )
 
 
 def _period_bounds(periodo: str) -> tuple[date, date]:
@@ -87,6 +118,21 @@ def calcular_preview(
         for p in pagos
     ]
 
+    # ── Adelantos cargados directo en R-07 (CC, transferencia al profesional) ──
+    movs_r07 = _adelantos_r07(db, profesional_id, periodo)
+    adelantos_cobrados += sum(_mov_ars(m) for m in movs_r07)
+    detalle_adelantos += [
+        schemas.AdelantoDetalleItem(
+            pago_id=None,
+            fecha=m.fecha,
+            importe=_mov_ars(m),
+            forma_pago=m.forma_pago or "transferencia",
+            fuente_pago=m.concepto,
+            cliente_nombre=m.client.name if m.client else "",
+        )
+        for m in movs_r07
+    ]
+
     # ── Saldo anterior (del cierre del mes previo) ────────────────────────────
     saldo_anterior = 0.0
     liq_prev = (
@@ -102,15 +148,16 @@ def calcular_preview(
         # Recalcular adelantos del mes anterior para obtener el saldo_siguiente real
         prev_first, prev_last = _period_bounds(liq_prev.period)
         prev_adelantos = (
-            db.query(models.Pago)
+            db.query(func.sum(models.Pago.importe))
             .filter(
                 models.Pago.profesional_destinatario_id == profesional_id,
                 models.Pago.fecha >= prev_first,
                 models.Pago.fecha <= prev_last,
             )
-            .with_entities(__import__('sqlalchemy', fromlist=['func']).func.sum(models.Pago.importe))
             .scalar() or 0.0
         )
+        # Adelantos cargados directo en R-07 del mes anterior (imputados por período)
+        prev_adelantos += sum(_mov_ars(m) for m in _adelantos_r07(db, profesional_id, liq_prev.period))
         prev_reintegros = sum(r.importe for r in liq_prev.reintegros)
         total_prev = (
             liq_prev.honorarios_totales

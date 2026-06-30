@@ -11,7 +11,7 @@ from .models import (
     UserRole, UserStatus, TaskType, TaskStatus, InvoiceType,
     Profesional, TipoProfesional, ProductoReferencia, HistorialPrecioProducto,
     TipoHonorario, FeatureFlag,
-    Liquidacion, PagoProfesional, Honorario,
+    Liquidacion, PagoProfesional, Honorario, MovimientoCuentaCorriente,
 )
 from .security import get_password_hash, encrypt_credential
 from .database import SessionLocal, engine, Base
@@ -771,9 +771,94 @@ def seed_simulacion_pagos():
         db.close()
 
 
+def seed_movimientos_cc_fake():
+    """Data fake de R-07 (Cuentas Corrientes) para visualizar la Fase A: cobros con
+    'mes que se cobra', forma de pago, y adelantos por transferencia a profesionales.
+
+    Idempotente: marca sus movimientos con notas que empiezan en '[seed-r07]' y no
+    vuelve a sembrar si ya existe alguno."""
+    db = SessionLocal()
+    try:
+        ya = (
+            db.query(MovimientoCuentaCorriente)
+            .filter(MovimientoCuentaCorriente.notas.like("[seed-r07]%"))
+            .first()
+        )
+        if ya:
+            db.close()
+            return
+
+        rng = random.Random(707)
+        periodos = _periodos_recientes(3)  # mes actual + 2 anteriores
+
+        def _fecha(per):
+            yy, mm = int(per[:4]), int(per[5:7])
+            return date(yy, mm, rng.randint(2, 26))
+
+        # Clientes con profesional a cargo → el adelanto por transferencia tiene sentido
+        clientes = (
+            db.query(Client)
+            .filter(Client.is_active == True, Client.profesional_id.isnot(None))  # noqa: E712
+            .order_by(Client.id)
+            .limit(6)
+            .all()
+        )
+        if not clientes:
+            db.close()
+            return
+
+        total = 0
+        for c in clientes:
+            base = float(c.importe_honorario or rng.randint(300, 1500) * 1000)
+            for per in periodos:
+                # 1) Cargo de honorarios del mes (egreso = deuda del cliente)
+                db.add(MovimientoCuentaCorriente(
+                    client_id=c.id, tipo="egreso", monto=round(base, 2),
+                    concepto=f"Honorarios {per}", fecha=_fecha(per),
+                    periodo_honorario=per, notas="[seed-r07] cargo",
+                ))
+                total += 1
+
+                # 2) Cobro del mes: ~55% transferencia (adelanto al profesional), resto efectivo
+                if rng.random() < 0.85:  # no todos los meses están cobrados
+                    if rng.random() < 0.55:
+                        db.add(MovimientoCuentaCorriente(
+                            client_id=c.id, tipo="ingreso", monto=round(base, 2),
+                            concepto=f"Cobro honorarios {per} (transf.)", fecha=_fecha(per),
+                            periodo_honorario=per, forma_pago="transferencia",
+                            profesional_id=c.profesional_id,
+                            notas="[seed-r07] cobro transferencia (adelanto)",
+                        ))
+                    else:
+                        db.add(MovimientoCuentaCorriente(
+                            client_id=c.id, tipo="ingreso", monto=round(base, 2),
+                            concepto=f"Cobro honorarios {per} (efectivo)", fecha=_fecha(per),
+                            periodo_honorario=per, forma_pago="efectivo",
+                            notas="[seed-r07] cobro efectivo",
+                        ))
+                    total += 1
+
+        # Ejemplo en USD: cobro por transferencia en dólares (adelanto al profesional)
+        c0 = clientes[0]
+        per0 = periodos[0]
+        db.add(MovimientoCuentaCorriente(
+            client_id=c0.id, tipo="ingreso", monto=1500.0, moneda="USD", cotizacion=1180.0,
+            concepto=f"Cobro honorarios {per0} (USD, transf.)", fecha=_fecha(per0),
+            periodo_honorario=per0, forma_pago="transferencia", profesional_id=c0.profesional_id,
+            notas="[seed-r07] cobro USD (adelanto)",
+        ))
+        total += 1
+
+        db.commit()
+        print(f"[OK] R-07: {total} movimientos de cuenta corriente fake creados.")
+    finally:
+        db.close()
+
+
 if __name__ == "__main__":
     seed_database()
     seed_simulacion_pagos()
+    seed_movimientos_cc_fake()
 
 
 # ─── Catálogo Requisitos R-XX (Plan Maestro líneas 17-36) ─────────────────────

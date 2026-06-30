@@ -15,17 +15,11 @@ router = APIRouter(prefix="/pagos", tags=["pagos"])
 
 
 def _saldo_cc(db: Session, client_id: int) -> float:
-    """Calcula el saldo actual de la CC del cliente sumando todos sus movimientos."""
-    result = db.query(
-        func.sum(
-            case(
-                (models.MovimientoCuentaCorriente.tipo == "ingreso",
-                 models.MovimientoCuentaCorriente.monto),
-                else_=-models.MovimientoCuentaCorriente.monto,
-            )
-        )
-    ).filter(models.MovimientoCuentaCorriente.client_id == client_id).scalar()
-    return round(result or 0.0, 2)
+    """Calcula el saldo actual de la CC del cliente (convierte USD→ARS).
+
+    Delega en `compute_saldo_cc` para tener una única fuente de verdad del cálculo."""
+    from .cuentas_corrientes import compute_saldo_cc
+    return round(compute_saldo_cc(db, client_id), 2)
 
 
 def _build_pago_out(pago: models.Pago) -> schemas.PagoOut:
@@ -110,6 +104,7 @@ def registrar_cobro(
         fecha=fecha_pago,
         forma_pago=data.forma_pago,
         profesional_id=data.profesional_destino_id,
+        pago_id=pago.id,   # marca: el adelanto ya se cuenta vía `pagos` en la liquidación
         notas=data.notas,
     )
     db.add(mov_cc)

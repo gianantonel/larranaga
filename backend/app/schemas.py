@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr, ConfigDict, field_validator
+from pydantic import BaseModel, EmailStr, ConfigDict, field_validator, model_validator
 from typing import Optional, List
 from datetime import datetime, date
 from .models import UserRole, UserStatus, TaskType, TaskStatus, InvoiceType, TipoHonorario, TipoProfesional, FuenteMaestro
@@ -368,10 +368,12 @@ class MovimientoCCCreate(BaseModel):
     client_id: int
     tipo: str  # 'ingreso' (el cliente paga) | 'egreso' (cargo al cliente)
     monto: float
+    moneda: str = "ARS"               # 'ARS' | 'USD'
+    cotizacion: Optional[float] = None  # ARS por 1 USD (requerido si moneda='USD')
     concepto: str
     fecha: date
     periodo_honorario: Optional[str] = None
-    forma_pago: Optional[str] = None  # 'efectivo' | 'transferencia'
+    forma_pago: Optional[str] = None  # 'efectivo' | 'transferencia' | 'cheque' | 'deposito'
     profesional_id: Optional[int] = None
     notas: Optional[str] = None
 
@@ -390,17 +392,37 @@ class MovimientoCCCreate(BaseModel):
             raise ValueError("monto debe ser mayor a 0")
         return v
 
+    @field_validator("moneda")
+    @classmethod
+    def _validar_moneda(cls, v: str) -> str:
+        norm = (v or "ARS").strip().upper()
+        if norm not in {"ARS", "USD"}:
+            raise ValueError("moneda debe ser 'ARS' o 'USD'")
+        return norm
+
+    @model_validator(mode="after")
+    def _validar_cotizacion(self):
+        if self.moneda == "USD" and (not self.cotizacion or self.cotizacion <= 0):
+            raise ValueError("cotizacion (ARS por USD) es requerida y > 0 cuando moneda='USD'")
+        if self.moneda == "ARS":
+            self.cotizacion = None
+        return self
+
 
 class MovimientoCCOut(BaseModel):
     id: int
     client_id: int
     tipo: str
     monto: float
+    moneda: Optional[str] = "ARS"
+    cotizacion: Optional[float] = None
     concepto: str
     fecha: date
     periodo_honorario: Optional[str] = None
     forma_pago: Optional[str] = None
     profesional_id: Optional[int] = None
+    profesional_nombre: Optional[str] = None
+    pago_id: Optional[int] = None
     notas: Optional[str] = None
     created_at: datetime
 
@@ -933,7 +955,7 @@ class HonorarioDetalleItem(BaseModel):
 
 
 class AdelantoDetalleItem(BaseModel):
-    pago_id: int
+    pago_id: Optional[int] = None   # None si el adelanto se cargó directo en R-07 (CC)
     fecha: date
     importe: float
     forma_pago: str

@@ -1,9 +1,13 @@
 import { useState, useEffect } from 'react'
-import { getClients, getMovimientosCC, createMovimientoCC } from '../utils/api'
-import { Wallet, Plus, ArrowUpRight, ArrowDownRight, Search } from 'lucide-react'
+import { getClients, getMovimientosCC, createMovimientoCC, getProfesionales, getCotizacionDolar } from '../utils/api'
+import { Wallet, Plus, ArrowUpRight, ArrowDownRight, Search, ArrowRightLeft, Eye, EyeOff } from 'lucide-react'
+
+const currentMonth = () => new Date().toISOString().slice(0, 7)  // YYYY-MM
+const FORMAS_PAGO = ['efectivo', 'transferencia', 'cheque', 'deposito']
 
 export default function CuentasCorrientes() {
   const [clients, setClients] = useState([])
+  const [profesionales, setProfesionales] = useState([])
   const [selectedClient, setSelectedClient] = useState(null)
   const [movimientos, setMovimientos] = useState([])
   const [loading, setLoading] = useState(true)
@@ -15,11 +19,42 @@ export default function CuentasCorrientes() {
   const [monto, setMonto] = useState('')
   const [concepto, setConcepto] = useState('')
   const [fecha, setFecha] = useState(new Date().toISOString().split('T')[0])
+  const [periodoHonorario, setPeriodoHonorario] = useState(currentMonth())
+  const [formaPago, setFormaPago] = useState('efectivo')
+  const [profesionalId, setProfesionalId] = useState('')
   const [notas, setNotas] = useState('')
+  // Moneda / cotización (USD)
+  const [moneda, setMoneda] = useState('ARS')
+  const [cotizacion, setCotizacion] = useState('')
+  const [showCotiz, setShowCotiz] = useState(false)
+  const [cotizSugerida, setCotizSugerida] = useState(null)
+  const [loadingCotiz, setLoadingCotiz] = useState(false)
+
+  // El cobro cuenta como adelanto del profesional cuando es ingreso NO en efectivo
+  const esAdelanto = tipo === 'ingreso' && formaPago !== 'efectivo'
 
   useEffect(() => {
     fetchClients()
+    getProfesionales({ activo: true })
+      .then(res => setProfesionales(res.data))
+      .catch(err => console.error(err))
   }, [])
+
+  const handleVerCotizacion = async () => {
+    const next = !showCotiz
+    setShowCotiz(next)
+    if (next && !cotizSugerida) {
+      try {
+        setLoadingCotiz(true)
+        const res = await getCotizacionDolar()
+        setCotizSugerida(res.data?.disponible ? res.data : { disponible: false })
+      } catch {
+        setCotizSugerida({ disponible: false })
+      } finally {
+        setLoadingCotiz(false)
+      }
+    }
+  }
 
   const fetchClients = async () => {
     try {
@@ -47,13 +82,24 @@ export default function CuentasCorrientes() {
     e.preventDefault()
     if (!selectedClient) return
 
+    if (moneda === 'USD' && !(parseFloat(cotizacion) > 0)) {
+      alert('Ingresá la cotización (ARS por USD) para movimientos en dólares.')
+      return
+    }
+
     try {
       const data = {
         client_id: selectedClient.id,
         tipo,
         monto: parseFloat(monto),
+        moneda,
+        cotizacion: moneda === 'USD' ? parseFloat(cotizacion) : null,
         concepto,
         fecha,
+        periodo_honorario: periodoHonorario || null,
+        forma_pago: formaPago,
+        // El adelanto al profesional solo aplica en ingreso no-efectivo
+        profesional_id: esAdelanto && profesionalId ? parseInt(profesionalId) : null,
         notas
       }
       await createMovimientoCC(data)
@@ -65,6 +111,12 @@ export default function CuentasCorrientes() {
       setMonto('')
       setConcepto('')
       setNotas('')
+      setFormaPago('efectivo')
+      setProfesionalId('')
+      setPeriodoHonorario(currentMonth())
+      setMoneda('ARS')
+      setCotizacion('')
+      setShowCotiz(false)
     } catch (err) {
       console.error(err)
       alert("Error al guardar el movimiento")
@@ -182,12 +234,30 @@ export default function CuentasCorrientes() {
                           </div>
                           <div>
                             <p className="text-white font-medium">{mov.concepto}</p>
-                            <p className="text-xs text-gray-400">{new Date(mov.fecha + 'T00:00:00').toLocaleDateString('es-AR')}</p>
+                            <p className="text-xs text-gray-400">
+                              {new Date(mov.fecha + 'T00:00:00').toLocaleDateString('es-AR')}
+                              {mov.periodo_honorario && ` · cobra ${mov.periodo_honorario}`}
+                              {mov.forma_pago && ` · ${mov.forma_pago}`}
+                              {mov.moneda === 'USD' && mov.cotizacion && ` · TC $${mov.cotizacion.toLocaleString('es-AR')}`}
+                            </p>
+                            {mov.profesional_nombre && mov.forma_pago && mov.forma_pago !== 'efectivo' && mov.tipo === 'ingreso' && (
+                              <span className="inline-flex items-center gap-1 text-[11px] font-medium text-violet-300 bg-violet-500/10 border border-violet-500/30 rounded px-1.5 py-0.5 mt-1">
+                                <ArrowRightLeft size={11} />
+                                Adelanto → {mov.profesional_nombre}
+                              </span>
+                            )}
                             {mov.notas && <p className="text-xs text-gray-500 mt-1">{mov.notas}</p>}
                           </div>
                         </div>
-                        <div className={`font-bold ${mov.tipo === 'ingreso' ? 'text-emerald-400' : 'text-rose-400'}`}>
-                          {mov.tipo === 'ingreso' ? '+' : '-'}${mov.monto.toLocaleString('es-AR')}
+                        <div className="text-right">
+                          <div className={`font-bold ${mov.tipo === 'ingreso' ? 'text-emerald-400' : 'text-rose-400'}`}>
+                            {mov.tipo === 'ingreso' ? '+' : '-'}{mov.moneda === 'USD' ? 'US$' : '$'}{mov.monto.toLocaleString('es-AR')}
+                          </div>
+                          {mov.moneda === 'USD' && mov.cotizacion && (
+                            <div className="text-[11px] text-gray-500">
+                              ≈ ${(mov.monto * mov.cotizacion).toLocaleString('es-AR')} ARS
+                            </div>
+                          )}
                         </div>
                       </div>
                     ))}
@@ -239,19 +309,95 @@ export default function CuentasCorrientes() {
                 </button>
               </div>
 
-              <div>
-                <label className="block text-xs font-medium text-gray-400 mb-1">Monto ($)</label>
-                <input
-                  type="number"
-                  required
-                  step="0.01"
-                  min="0.01"
-                  value={monto}
-                  onChange={(e) => setMonto(e.target.value)}
-                  className="w-full bg-[#0f172a] border border-gray-700 rounded-lg py-2 px-3 text-white focus:outline-none focus:border-violet-500"
-                  placeholder="0.00"
-                />
+              <div className="grid grid-cols-3 gap-3">
+                <div className="col-span-2">
+                  <label className="block text-xs font-medium text-gray-400 mb-1">
+                    Monto ({moneda === 'USD' ? 'US$' : '$'})
+                  </label>
+                  <input
+                    type="number"
+                    required
+                    step="0.01"
+                    min="0.01"
+                    value={monto}
+                    onChange={(e) => setMonto(e.target.value)}
+                    className="w-full bg-[#0f172a] border border-gray-700 rounded-lg py-2 px-3 text-white focus:outline-none focus:border-violet-500"
+                    placeholder="0.00"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-400 mb-1">Moneda</label>
+                  <div className="grid grid-cols-2 gap-1">
+                    {['ARS', 'USD'].map(m => (
+                      <button
+                        key={m}
+                        type="button"
+                        onClick={() => { setMoneda(m); if (m === 'ARS') { setCotizacion(''); setShowCotiz(false) } else { setShowCotiz(true); handleVerCotizacion() } }}
+                        className={`py-2 rounded-lg font-medium text-xs border transition-colors ${
+                          moneda === m
+                            ? 'bg-violet-500/20 border-violet-500 text-violet-300'
+                            : 'bg-transparent border-gray-600 text-gray-400 hover:bg-white/5'
+                        }`}
+                      >
+                        {m}
+                      </button>
+                    ))}
+                  </div>
+                </div>
               </div>
+
+              {moneda === 'USD' && (
+                <div>
+                  <label className="flex items-center justify-between text-xs font-medium text-gray-400 mb-1">
+                    <span>Cotización (ARS por US$)</span>
+                    <button
+                      type="button"
+                      onClick={handleVerCotizacion}
+                      className="flex items-center gap-1 text-violet-300 hover:text-violet-200"
+                      title="Ver cotización sugerida (dólar oficial)"
+                    >
+                      {showCotiz ? <EyeOff size={14} /> : <Eye size={14} />}
+                      {showCotiz ? 'Ocultar sugerida' : 'Ver sugerida'}
+                    </button>
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0.01"
+                    value={cotizacion}
+                    onChange={(e) => setCotizacion(e.target.value)}
+                    className="w-full bg-[#0f172a] border border-gray-700 rounded-lg py-2 px-3 text-white focus:outline-none focus:border-violet-500"
+                    placeholder="Ej. 1180.50"
+                  />
+                  {showCotiz && (
+                    <div className="mt-2 text-xs bg-[#0f172a] border border-gray-700/60 rounded-lg p-2">
+                      {loadingCotiz ? (
+                        <span className="text-gray-400">Consultando dólar oficial…</span>
+                      ) : cotizSugerida?.disponible ? (
+                        <div className="flex items-center justify-between">
+                          <span className="text-gray-300">
+                            {cotizSugerida.fuente}: compra ${cotizSugerida.compra} · venta ${cotizSugerida.venta}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setCotizacion(String(cotizSugerida.sugerida))}
+                            className="ml-2 px-2 py-1 rounded bg-violet-600 hover:bg-violet-700 text-white whitespace-nowrap"
+                          >
+                            Usar ${cotizSugerida.sugerida}
+                          </button>
+                        </div>
+                      ) : (
+                        <span className="text-amber-400">No se pudo traer la cotización. Cargala manualmente.</span>
+                      )}
+                    </div>
+                  )}
+                  {monto && parseFloat(cotizacion) > 0 && (
+                    <p className="text-xs text-gray-500 mt-1">
+                      ≈ ${(parseFloat(monto) * parseFloat(cotizacion)).toLocaleString('es-AR')} ARS
+                    </p>
+                  )}
+                </div>
+              )}
 
               <div>
                 <label className="block text-xs font-medium text-gray-400 mb-1">Concepto</label>
@@ -265,16 +411,71 @@ export default function CuentasCorrientes() {
                 />
               </div>
 
-              <div>
-                <label className="block text-xs font-medium text-gray-400 mb-1">Fecha</label>
-                <input
-                  type="date"
-                  required
-                  value={fecha}
-                  onChange={(e) => setFecha(e.target.value)}
-                  className="w-full bg-[#0f172a] border border-gray-700 rounded-lg py-2 px-3 text-white focus:outline-none focus:border-violet-500"
-                />
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-medium text-gray-400 mb-1">Fecha</label>
+                  <input
+                    type="date"
+                    required
+                    value={fecha}
+                    onChange={(e) => setFecha(e.target.value)}
+                    className="w-full bg-[#0f172a] border border-gray-700 rounded-lg py-2 px-3 text-white focus:outline-none focus:border-violet-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-400 mb-1">Mes que se cobra</label>
+                  <input
+                    type="month"
+                    value={periodoHonorario}
+                    onChange={(e) => setPeriodoHonorario(e.target.value)}
+                    className="w-full bg-[#0f172a] border border-gray-700 rounded-lg py-2 px-3 text-white focus:outline-none focus:border-violet-500"
+                  />
+                </div>
               </div>
+
+              <div>
+                <label className="block text-xs font-medium text-gray-400 mb-1">Forma de pago</label>
+                <div className="grid grid-cols-2 gap-3">
+                  {FORMAS_PAGO.map(fp => (
+                    <button
+                      key={fp}
+                      type="button"
+                      onClick={() => setFormaPago(fp)}
+                      className={`py-2 rounded-lg font-medium text-sm border capitalize transition-colors ${
+                        formaPago === fp
+                          ? 'bg-violet-500/20 border-violet-500 text-violet-300'
+                          : 'bg-transparent border-gray-600 text-gray-400 hover:bg-white/5'
+                      }`}
+                    >
+                      {fp}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {esAdelanto && (
+                <div>
+                  <label className="block text-xs font-medium text-gray-400 mb-1">
+                    Profesional que recibió el pago
+                  </label>
+                  <select
+                    value={profesionalId}
+                    onChange={(e) => setProfesionalId(e.target.value)}
+                    className="w-full bg-[#0f172a] border border-gray-700 rounded-lg py-2 px-3 text-white focus:outline-none focus:border-violet-500"
+                  >
+                    <option value="">— Ninguno —</option>
+                    {profesionales.map(p => (
+                      <option key={p.id} value={p.id}>{p.nombre}</option>
+                    ))}
+                  </select>
+                  {profesionalId && (
+                    <p className="text-xs text-violet-300/80 mt-1 flex items-center gap-1">
+                      <ArrowRightLeft size={12} />
+                      Se computa como adelanto de honorarios del profesional en {periodoHonorario || 'el mes seleccionado'}.
+                    </p>
+                  )}
+                </div>
+              )}
 
               <div>
                 <label className="block text-xs font-medium text-gray-400 mb-1">Notas (Opcional)</label>

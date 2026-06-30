@@ -20,12 +20,13 @@ def saldo_cc_a_fecha(db: Session, client_id: int, hasta: Optional[date] = None) 
     saldo = sum(ingresos) − sum(egresos/honorarios/ajustes negativos).
     Si `hasta` es None, calcula el saldo total (todos los movimientos).
     """
+    from ..routers.cuentas_corrientes import _monto_ars_expr
+    monto_ars = _monto_ars_expr()  # convierte USD→ARS
     q = db.query(
         func.sum(
             case(
-                (models.MovimientoCuentaCorriente.tipo == "ingreso",
-                 models.MovimientoCuentaCorriente.monto),
-                else_=-models.MovimientoCuentaCorriente.monto,
+                (models.MovimientoCuentaCorriente.tipo == "ingreso", monto_ars),
+                else_=-monto_ars,
             )
         )
     ).filter(models.MovimientoCuentaCorriente.client_id == client_id)

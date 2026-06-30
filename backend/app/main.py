@@ -13,7 +13,7 @@ from .routers import (
 )
 from .mock_data import (
     seed_database, seed_productos_referencia, seed_profesionales_y_productos,
-    seed_feature_flags, seed_simulacion_pagos,
+    seed_feature_flags, seed_simulacion_pagos, seed_movimientos_cc_fake,
 )
 
 
@@ -423,7 +423,8 @@ async def startup_event():
     # Seeds defensivos: una seed que falle (p. ej. sobre Postgres) NUNCA debe
     # impedir el arranque del backend.
     for _seed in (seed_database, seed_productos_referencia, seed_profesionales_y_productos,
-                  _seed_billetes, seed_feature_flags, seed_simulacion_pagos):
+                  _seed_billetes, seed_feature_flags, seed_simulacion_pagos,
+                  seed_movimientos_cc_fake):
         try:
             _seed()
         except Exception as e:  # noqa: BLE001

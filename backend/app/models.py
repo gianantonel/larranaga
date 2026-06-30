@@ -404,17 +404,26 @@ class MovimientoCuentaCorriente(Base):
     id = Column(Integer, primary_key=True, index=True)
     client_id = Column(Integer, ForeignKey("clients.id", ondelete="CASCADE"), nullable=False)
     tipo = Column(String(20), nullable=False)  # 'ingreso' (cliente paga) | 'egreso' (cargo al cliente)
-    monto = Column(Float, nullable=False)
+    monto = Column(Float, nullable=False)      # importe en la moneda del movimiento
+    moneda = Column(String(3), nullable=False, default="ARS")   # 'ARS' | 'USD'
+    cotizacion = Column(Float, nullable=True)  # ARS por 1 USD (solo si moneda='USD')
     concepto = Column(String(255), nullable=False)
     fecha = Column(Date, nullable=False)
     periodo_honorario = Column(String(7))  # YYYY-MM — qué período imputa
-    forma_pago = Column(String(20))  # 'efectivo' | 'transferencia'
+    forma_pago = Column(String(20))  # 'efectivo' | 'transferencia' | 'cheque' | 'deposito'
     profesional_id = Column(Integer, ForeignKey("profesionales.id"), nullable=True)
+    # Movimiento auto-generado por un Pago. Si está seteado, el adelanto ya se cuenta
+    # vía la tabla `pagos` en la liquidación → no volver a contarlo desde acá.
+    pago_id = Column(Integer, ForeignKey("pagos.id", ondelete="SET NULL"), nullable=True)
     notas = Column(Text)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     client = relationship("Client", back_populates="movimientos_cc")
     profesional = relationship("Profesional", back_populates="movimientos_cc")
+
+    @property
+    def profesional_nombre(self):
+        return self.profesional.nombre if self.profesional else None
 
 
 # ─── R-03: Productos de referencia y honorarios ───────────────────────────────

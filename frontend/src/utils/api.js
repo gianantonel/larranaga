@@ -135,6 +135,7 @@ export const aplicarActualizacion = (data) => api.post('/honorarios/actualizacio
 
 // ─── R-04: Profesionales, Pagos, Liquidaciones ───────────────────────────────
 export const getProfesionales = (params) => api.get('/profesionales/', { params })
+export const getCotizacionDolar = () => api.get('/cuentas-corrientes/cotizacion-dolar')
 export const createProfesional = (data) => api.post('/profesionales/', data)
 export const updateProfesional = (id, data) => api.put(`/profesionales/${id}`, data)
 export const getPagos = (params) => api.get('/profesionales/pagos', { params })
