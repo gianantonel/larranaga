@@ -9,9 +9,9 @@ from .routers import (
     auth, clients, collaborators, tasks, iva, facturas, dashboard,
     retenciones, comprobantes, herramientas, cuentas_corrientes,
     honorarios, profesionales_adm, users, bulk, billetes, pagos, imputacion,
-    insforge, retiros, flujo_fondos, feature_flags, empleados, liquidacion_personal,
+    insforge, retiros, flujo_fondos, feature_flags,
 )
-from .mock_data import seed_database, seed_profesionales_y_productos, seed_feature_flags, seed_empleados, seed_simulacion_pagos
+from .mock_data import seed_database, seed_profesionales_y_productos, seed_feature_flags, seed_simulacion_pagos
 
 
 def _migrate_sqlite():
@@ -387,8 +387,6 @@ app.include_router(retiros.router)
 app.include_router(flujo_fondos.router)
 app.include_router(insforge.router)
 app.include_router(feature_flags.router)
-app.include_router(empleados.router)
-app.include_router(liquidacion_personal.router)
 
 # Fase 3 — R-15 conciliación bancaria
 from .routers import conciliacion  # noqa: E402
@@ -422,7 +420,7 @@ async def startup_event():
     # Seeds defensivos: una seed que falle (p. ej. sobre Postgres) NUNCA debe
     # impedir el arranque del backend.
     for _seed in (seed_database, seed_profesionales_y_productos, _seed_billetes,
-                  seed_feature_flags, seed_empleados, seed_simulacion_pagos):
+                  seed_feature_flags, seed_simulacion_pagos):
         try:
             _seed()
         except Exception as e:  # noqa: BLE001

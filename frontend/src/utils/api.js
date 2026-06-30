@@ -133,22 +133,6 @@ export const getPreviewActualizacion = (pct) =>
   api.get('/honorarios/actualizacion-cuatrimestral/preview', { params: { indice_pct: pct } })
 export const aplicarActualizacion = (data) => api.post('/honorarios/actualizacion-cuatrimestral/aplicar', data)
 
-// ─── Empleados (nómina por empresa) ──────────────────────────────────────────
-export const getEmpleados = (params) => api.get('/empleados/', { params })
-export const createEmpleado = (data) => api.post('/empleados/', data)
-export const updateEmpleado = (id, data) => api.put(`/empleados/${id}`, data)
-export const deleteEmpleado = (id) => api.delete(`/empleados/${id}`)
-
-// ─── Liquidación de honorarios por empleado (nómina) ─────────────────────────
-export const getNomina = (clientId, period) =>
-  api.get(`/liquidacion-personal/${clientId}`, { params: { period } })
-export const liquidarNomina = (clientId, data) =>
-  api.post(`/liquidacion-personal/${clientId}/liquidar`, data)
-export const registrarPagoEmpleado = (data) =>
-  api.post('/liquidacion-personal/pago', data)
-export const eliminarPagoEmpleado = (pagoId) =>
-  api.delete(`/liquidacion-personal/pago/${pagoId}`)
-
 // ─── R-04: Profesionales, Pagos, Liquidaciones ───────────────────────────────
 export const getProfesionales = (params) => api.get('/profesionales/', { params })
 export const createProfesional = (data) => api.post('/profesionales/', data)

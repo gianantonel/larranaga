@@ -10,8 +10,8 @@ from .models import (
     IVARecord, Invoice, IngresosBrutos, ActionLog,
     UserRole, UserStatus, TaskType, TaskStatus, InvoiceType,
     Profesional, TipoProfesional, ProductoReferencia, HistorialPrecioProducto,
-    TipoHonorario, FeatureFlag, Empleado,
-    LiquidacionEmpleado, PagoEmpleado, Liquidacion, PagoProfesional, Honorario,
+    TipoHonorario, FeatureFlag,
+    Liquidacion, PagoProfesional, Honorario,
 )
 from .security import get_password_hash, encrypt_credential
 from .database import SessionLocal, engine, Base
@@ -632,102 +632,6 @@ def _cuil(rng: random.Random) -> str:
     return f"{prefijo}-{dni:08d}-{verif}"
 
 
-def seed_empleados():
-    """Seed idempotente de nómina de empleados (data fake) para cada cliente activo.
-
-    Crea entre 3 y 6 empleados por cliente con nombres/CUIL/fecha de ingreso
-    ficticios. No borra nada; sólo corre si la tabla `empleados` está vacía."""
-    db = SessionLocal()
-    rng = random.Random(2026)   # determinístico: misma data en cada arranque/entorno
-    prod = db.query(ProductoReferencia).first()   # para empleados con honorario tipo producto
-    medios = ["transferencia", "efectivo", "deposito", "cheque"]
-
-    existentes = db.query(Empleado).all()
-    if existentes:
-        # Backfill de config en empleados de versiones previas (fake data sin honorario)
-        changed = 0
-        for e in existentes:
-            if e.tipo_honorario is None:
-                if prod and rng.random() < 0.2:
-                    e.tipo_honorario = TipoHonorario.producto
-                    e.producto_ref_id = prod.id
-                    e.cantidad_unidades = float(rng.randint(5, 60))
-                else:
-                    e.tipo_honorario = TipoHonorario.fijo
-                    e.importe_fijo = float(rng.randint(150, 1200) * 1000)
-                changed += 1
-            if not e.medio_pago:
-                e.medio_pago = rng.choice(medios)
-                changed += 1
-        if changed:
-            db.commit()
-            print(f"[OK] Nómina: config backfilleada en empleados existentes.")
-        db.close()
-        return
-
-    clientes = db.query(Client).filter(Client.is_active == True).order_by(Client.id).all()  # noqa: E712
-    if not clientes:
-        db.close()
-        return
-
-    print("Agregando nómina de empleados (data fake)...")
-    total = 0
-    for c in clientes:
-        n = rng.randint(3, 6)
-        usados = set()
-        for _ in range(n):
-            # evitar nombre+apellido repetido dentro del mismo cliente
-            for _try in range(10):
-                nombre = rng.choice(_NOMBRES)
-                apellido = rng.choice(_APELLIDOS)
-                if (nombre, apellido) not in usados:
-                    usados.add((nombre, apellido))
-                    break
-            ingreso = date(2026, 1, 1) - timedelta(days=rng.randint(60, 2200))
-
-            # Config de honorario por empleado: ~20% producto, resto fijo
-            if prod and rng.random() < 0.2:
-                tipo = TipoHonorario.producto
-                importe_fijo = None
-                producto_ref_id = prod.id
-                cantidad = float(rng.randint(5, 60))
-            else:
-                tipo = TipoHonorario.fijo
-                importe_fijo = float(rng.randint(150, 1200) * 1000)   # $150k–$1.2M
-                producto_ref_id = None
-                cantidad = None
-
-            db.add(Empleado(
-                client_id=c.id,
-                nombre=nombre,
-                apellido=apellido,
-                cuil=_cuil(rng),
-                fecha_ingreso=ingreso,
-                activo=rng.random() > 0.08,   # ~8% dados de baja
-                medio_pago=rng.choice(medios),
-                tipo_honorario=tipo,
-                importe_fijo=importe_fijo,
-                producto_ref_id=producto_ref_id,
-                cantidad_unidades=cantidad,
-            ))
-            total += 1
-
-    db.commit()
-    db.close()
-    print(f"[OK] Nómina: {total} empleados creados en {len(clientes)} clientes.")
-
-
-def _base_empleado_seed(e: Empleado, db: Session) -> float:
-    """Monto base del empleado según su config (fijo/producto). 0 si no configurado."""
-    if e.tipo_honorario == TipoHonorario.fijo:
-        return float(e.importe_fijo or 0.0)
-    if e.tipo_honorario == TipoHonorario.producto and e.producto_ref_id and e.cantidad_unidades:
-        prod = db.get(ProductoReferencia, e.producto_ref_id)
-        if prod:
-            return round(float(e.cantidad_unidades) * float(prod.precio_vigente), 2)
-    return 0.0
-
-
 def _periodos_recientes(n: int) -> list:
     """[mes_actual, mes-1, ..., mes-(n-1)] como 'YYYY-MM' (más nuevo primero)."""
     y, m = date.today().year, date.today().month
@@ -758,9 +662,9 @@ def seed_simulacion_pagos():
     Por cada uno de los últimos meses siembra:
       - Honorarios (R-03) de los clientes configurados (para que las liquidaciones de
         profesionales tengan total a cobrar histórico).
-      - Liquidaciones + pagos de empleados (Honorarios) y de profesionales
-        (Liquidaciones), con mezcla de estados. Los meses pasados quedan mayormente
-        pagados; el mes actual es una mezcla pagado/parcial/sin liquidar."""
+      - Liquidaciones + pagos de profesionales (Liquidaciones), con mezcla de
+        estados. Los meses pasados quedan mayormente pagados; el mes actual es
+        una mezcla pagado/parcial/sin liquidar."""
     db = SessionLocal()
     try:
         rng = random.Random(7)
@@ -793,31 +697,7 @@ def seed_simulacion_pagos():
                                  tipo=c.tipo_honorario.value, precio_producto_snapshot=snap))
         db.commit()
 
-        # ── 1) Empleados (Honorarios) ────────────────────────────────────────
-        empleados = db.query(Empleado).filter(Empleado.activo == True).order_by(Empleado.id).all()  # noqa: E712
-        for per in periodos:
-            for e in empleados:
-                if db.query(LiquidacionEmpleado).filter(
-                    LiquidacionEmpleado.empleado_id == e.id,
-                    LiquidacionEmpleado.period == per,
-                ).first():
-                    continue
-                base = _base_empleado_seed(e, db)
-                if base <= 0:
-                    continue
-                omitir, full = _estado_roll(per)
-                if omitir:
-                    continue
-                medio = e.medio_pago or "transferencia"
-                liq = LiquidacionEmpleado(empleado_id=e.id, client_id=e.client_id,
-                                          period=per, monto=base, medio_pago=medio)
-                db.add(liq)
-                db.flush()
-                monto = base if full else round(base * rng.choice([0.3, 0.4, 0.5, 0.6]), 2)
-                db.add(PagoEmpleado(liquidacion_id=liq.id, monto=monto, medio_pago=medio, fecha=_fecha(per)))
-        db.commit()
-
-        # ── 2) Profesionales (Liquidaciones) ─────────────────────────────────
+        # ── Profesionales (Liquidaciones) ────────────────────────────────────
         from .services import liquidacion as liqsvc
         profs = db.query(Profesional).filter(Profesional.activo == True).order_by(Profesional.id).all()  # noqa: E712
         for per in periodos:
@@ -853,7 +733,6 @@ def seed_simulacion_pagos():
 
 if __name__ == "__main__":
     seed_database()
-    seed_empleados()
     seed_simulacion_pagos()
 
 

@@ -1,6 +1,6 @@
 from sqlalchemy import (
     Column, Integer, String, Float, Boolean, DateTime, Text,
-    ForeignKey, Enum, Date, LargeBinary, UniqueConstraint
+    ForeignKey, Enum, Date, LargeBinary
 )
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
@@ -122,7 +122,6 @@ class Client(Base):
     pagos = relationship("Pago", back_populates="client", cascade="all, delete-orphan")
     profesional_a_cargo = relationship("Profesional", back_populates="clientes", foreign_keys=[profesional_id])
     producto_referencia = relationship("ProductoReferencia", back_populates="clientes", foreign_keys=[producto_ref_id])
-    empleados = relationship("Empleado", back_populates="empresa", cascade="all, delete-orphan")
 
 
 class LimpiezaIVA(Base):
@@ -819,83 +818,3 @@ class FeatureFlag(Base):
     updated_at      = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
     updated_by = relationship("User", foreign_keys=[updated_by_id])
-
-
-class Empleado(Base):
-    """Nómina de empleados de una empresa cliente.
-
-    Cada empleado pertenece a una empresa (client_id → clients). Datos mínimos:
-    nombre, apellido, CUIL, fecha de ingreso y estado activo/baja.
-    """
-    __tablename__ = "empleados"
-
-    id = Column(Integer, primary_key=True, index=True)
-    client_id = Column(Integer, ForeignKey("clients.id", ondelete="CASCADE"),
-                       nullable=False, index=True)   # empresa empleadora
-    nombre = Column(String(100), nullable=False)
-    apellido = Column(String(100), nullable=False)
-    cuil = Column(String(13), index=True)             # formato XX-XXXXXXXX-X
-    fecha_ingreso = Column(Date, nullable=True)
-    activo = Column(Boolean, nullable=False, default=True)
-    # Medio de pago por defecto: 'transferencia' | 'efectivo' | 'deposito' | 'cheque'
-    medio_pago = Column(String(20), nullable=False, default="transferencia")
-    # Config de honorario POR EMPLEADO (reemplaza la del cliente para la nómina)
-    tipo_honorario = Column(Enum(TipoHonorario), nullable=True)   # fijo | producto
-    importe_fijo = Column(Float, nullable=True)                   # si tipo = fijo
-    producto_ref_id = Column(Integer, ForeignKey("productos_referencia.id"), nullable=True)
-    cantidad_unidades = Column(Float, nullable=True)              # si tipo = producto
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-
-    empresa = relationship("Client", back_populates="empleados")
-    liquidaciones = relationship("LiquidacionEmpleado", back_populates="empleado",
-                                 cascade="all, delete-orphan")
-
-
-class LiquidacionEmpleado(Base):
-    """Obligación de honorarios de un empleado por período (importe a pagar).
-
-    Una fila por (empleado, período). `monto` es el valor absoluto a pagar. Los pagos
-    (totales o parciales) se registran en `PagoEmpleado`; el estado (pendiente /
-    parcial / pagado) y el restante se derivan de la suma de esos pagos.
-    El monto sugerido de un período arrastra el del período anterior; el primer
-    período toma la config de honorario del EMPLEADO (fijo → importe; producto →
-    cantidad × precio vigente).
-    """
-    __tablename__ = "liquidaciones_empleado"
-    __table_args__ = (
-        UniqueConstraint("empleado_id", "period", name="uq_liquidacion_empleado_period"),
-    )
-
-    id = Column(Integer, primary_key=True, index=True)
-    empleado_id = Column(Integer, ForeignKey("empleados.id", ondelete="CASCADE"),
-                         nullable=False, index=True)
-    client_id = Column(Integer, ForeignKey("clients.id", ondelete="CASCADE"),
-                       nullable=False, index=True)   # denormalizado para filtrar/acceso
-    period = Column(String(7), nullable=False, index=True)   # YYYY-MM
-    monto = Column(Float, nullable=False)                    # importe absoluto a pagar
-    medio_pago = Column(String(20), nullable=True)           # medio del pago total (default)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
-
-    empleado = relationship("Empleado", back_populates="liquidaciones")
-    pagos = relationship("PagoEmpleado", back_populates="liquidacion",
-                         cascade="all, delete-orphan", order_by="PagoEmpleado.fecha")
-
-
-class PagoEmpleado(Base):
-    """Pago (total o parcial) imputado a una liquidación de empleado.
-
-    Un pago 'total' es una única fila por el importe completo. En 'pago parcial'
-    se cargan varias filas que van completando el importe absoluto de la liquidación.
-    """
-    __tablename__ = "pagos_empleado"
-
-    id = Column(Integer, primary_key=True, index=True)
-    liquidacion_id = Column(Integer, ForeignKey("liquidaciones_empleado.id", ondelete="CASCADE"),
-                            nullable=False, index=True)
-    monto = Column(Float, nullable=False)
-    medio_pago = Column(String(20), nullable=False, default="transferencia")
-    fecha = Column(Date, nullable=False)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-
-    liquidacion = relationship("LiquidacionEmpleado", back_populates="pagos")
