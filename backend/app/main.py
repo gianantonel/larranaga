@@ -446,4 +446,18 @@ def root():
 
 @app.get("/health")
 def health():
-    return {"status": "ok"}
+    """Diagnóstico liviano: qué motor de base usa el server (sqlite = fallback local;
+    postgresql = InsForge/cloud) y conteos rápidos para detectar tablas vacías o
+    errores de lectura sin exponer credenciales."""
+    from .database import engine, SessionLocal
+    info = {"status": "ok", "db_dialect": engine.dialect.name}
+    db = SessionLocal()
+    try:
+        info["profesionales"] = db.query(models.Profesional).count()
+        info["productos_referencia"] = db.query(models.ProductoReferencia).count()
+        info["clientes"] = db.query(models.Client).count()
+    except Exception as e:  # noqa: BLE001
+        info["db_error"] = str(e)[:300]
+    finally:
+        db.close()
+    return info
