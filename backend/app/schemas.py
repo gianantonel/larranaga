@@ -477,17 +477,9 @@ class ProfesionalUpdate(BaseModel):
     activo: Optional[bool] = None
 
 
-class ProfesionalOut(BaseModel):
-    id: int
-    nombre: str
-    apellido: Optional[str] = None
-    email: Optional[str] = None
-    tipo: TipoProfesional
-    activo: bool
-    created_at: datetime
-
-    class Config:
-        from_attributes = True
+# NOTA: la definición canónica de ProfesionalOut está más abajo (coincide con el
+# modelo real: id/nombre/tipo/activo/created_at). Se eliminó una definición duplicada
+# y desalineada (con apellido/email inexistentes) que antes vivía acá.
 
 
 class ReintegroGastoCreate(BaseModel):
@@ -806,8 +798,14 @@ class ProfesionalOut(BaseModel):
     id: int
     nombre: str
     tipo: str
-    activo: bool
-    created_at: datetime
+    activo: bool = True
+    created_at: Optional[datetime] = None   # tolerante: en prod pudo quedar NULL/texto
+
+    @field_validator("tipo", mode="before")
+    @classmethod
+    def _tipo_str(cls, v):
+        # Acepta el Enum del ORM o un texto crudo de la base
+        return v.value if hasattr(v, "value") else v
 
     class Config:
         from_attributes = True
