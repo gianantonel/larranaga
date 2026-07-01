@@ -157,6 +157,50 @@ def _repair_numeric_columns():
                 print(f"[migrate] WARN no se pudo convertir {table_name}.{col.name}: {e}")
 
 
+def _repair_integer_columns():
+    """Convierte a integer las columnas Integer del modelo que InsForge guardó como
+    TEXT. Síntoma: comparar una FK/PK contra un entero genera
+    `operator does not exist: text = integer` → 500 (p. ej.
+    `movimientos_cc.profesional_id = 1` en el cálculo de liquidaciones).
+
+    Complementa a `_repair_numeric_columns`/`_repair_boolean_columns`/
+    `_repair_datetime_columns` (que NO cubren Integer). Solo Postgres. Por cada columna
+    Integer del modelo cuya columna real sea texto: DROP DEFAULT (evita conflicto de
+    cast) y ALTER ... TYPE integer USING NULLIF(btrim(...),'')::integer. Excluye
+    Boolean (subclase aparte). Cada tabla en su transacción + try/except. Idempotente."""
+    from sqlalchemy import inspect as sa_inspect, types as sqltypes
+
+    if engine.dialect.name == "sqlite":
+        return
+
+    insp = sa_inspect(engine)
+    db_tables = set(insp.get_table_names())
+
+    for table_name, table in models.Base.metadata.tables.items():
+        if table_name not in db_tables:
+            continue
+        live_types = {c["name"]: c["type"] for c in insp.get_columns(table_name)}
+        for col in table.columns:
+            # Integer pero NO Boolean (Boolean tiene su propia reparación)
+            if not isinstance(col.type, sqltypes.Integer) or isinstance(col.type, sqltypes.Boolean):
+                continue
+            live = live_types.get(col.name)
+            if live is None or not isinstance(live, sqltypes.String):
+                continue  # solo reparar si en la base está como texto
+            try:
+                with engine.begin() as conn:
+                    conn.execute(text(
+                        f'ALTER TABLE "{table_name}" ALTER COLUMN "{col.name}" DROP DEFAULT'
+                    ))
+                    conn.execute(text(
+                        f'ALTER TABLE "{table_name}" ALTER COLUMN "{col.name}" '
+                        f'TYPE integer USING NULLIF(btrim("{col.name}"::text), \'\')::integer'
+                    ))
+                print(f"[migrate] {table_name}.{col.name}: TEXT → integer")
+            except Exception as e:  # noqa: BLE001 — no debe romper el arranque
+                print(f"[migrate] WARN no se pudo convertir {table_name}.{col.name} a integer: {e}")
+
+
 def _repair_boolean_columns():
     """Convierte a boolean las columnas Boolean del modelo que InsForge guardó como
     INTEGER o TEXT. Síntoma: queries como `liquidaciones.cerrada == True` generan
@@ -415,6 +459,7 @@ async def startup_event():
     _migrate_sqlite()
     _add_missing_columns()
     _repair_numeric_columns()
+    _repair_integer_columns()
     _repair_boolean_columns()
     _repair_datetime_columns()
     _backfill_datetime_defaults()
