@@ -48,14 +48,15 @@ export default function Honorarios() {
 
   const load = () => {
     setLoading(true)
-    Promise.all([getHonorarios({ period }), getClients(), getProductosReferencia(), getProfesionales()])
+    // allSettled (no all): que una llamada que falle en prod (500) no tumbe la carga
+    // entera. Cada dataset se setea de forma independiente.
+    Promise.allSettled([getHonorarios({ period }), getClients(), getProductosReferencia(), getProfesionales()])
       .then(([h, c, p, pr]) => {
-        setHonorarios(h.data)
-        setClients(c.data)
-        setProductos(p.data)
-        setProfesionales(pr.data)
+        if (h.status === 'fulfilled') setHonorarios(h.value.data); else console.error('honorarios:', h.reason)
+        if (c.status === 'fulfilled') setClients(c.value.data); else console.error('clients:', c.reason)
+        if (p.status === 'fulfilled') setProductos(p.value.data); else console.error('productos-referencia:', p.reason)
+        if (pr.status === 'fulfilled') setProfesionales(pr.value.data); else console.error('profesionales:', pr.reason)
       })
-      .catch(err => console.error('Honorarios load error:', err))
       .finally(() => setLoading(false))
   }
 
