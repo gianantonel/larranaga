@@ -12,6 +12,7 @@ from .models import (
     Profesional, TipoProfesional, ProductoReferencia, HistorialPrecioProducto,
     TipoHonorario, FeatureFlag,
     Liquidacion, PagoProfesional, Honorario, MovimientoCuentaCorriente,
+    ReintegroGasto,
 )
 from .security import get_password_hash, encrypt_credential
 from .database import SessionLocal, engine, Base
@@ -855,10 +856,186 @@ def seed_movimientos_cc_fake():
         db.close()
 
 
+def limpiar_demo_transaccional(db):
+    """Borra SOLO la capa transaccional del demo (respetando FKs). NO toca usuarios,
+    colaboradores, clientes, profesionales, productos, IVA, facturas ni tareas."""
+    db.query(PagoProfesional).delete(synchronize_session=False)
+    db.query(ReintegroGasto).delete(synchronize_session=False)
+    db.query(Liquidacion).delete(synchronize_session=False)
+    db.query(Honorario).delete(synchronize_session=False)
+    db.query(MovimientoCuentaCorriente).delete(synchronize_session=False)
+    db.commit()
+
+
+def _mes_es(period: str) -> str:
+    meses = ["", "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+             "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"]
+    return f"{meses[int(period[5:7])]} {period[:4]}"
+
+
+def _asegurar_config_clientes(db, rng):
+    """Configura honorario + profesional a los clientes activos que no lo tengan, para
+    que TODOS entren en el eje del demo (Honorarios ↔ Liquidaciones ↔ CC)."""
+    profs = db.query(Profesional).filter(Profesional.activo == True).order_by(Profesional.id).all()  # noqa: E712
+    if not profs:
+        return
+    carne = db.query(ProductoReferencia).filter(ProductoReferencia.nombre.ilike("%carne%")).first()
+    cemento = db.query(ProductoReferencia).filter(ProductoReferencia.nombre.ilike("%cemento%")).first()
+    sin_config = (
+        db.query(Client)
+        .filter(Client.is_active == True, Client.tipo_honorario.is_(None))  # noqa: E712
+        .order_by(Client.id).all()
+    )
+    for i, c in enumerate(sin_config):
+        c.profesional_id = profs[i % len(profs)].id
+        nom = (c.name or "").lower()
+        if carne and any(k in nom for k in ("agro", "frigor", "carn", "gana")):
+            c.tipo_honorario = TipoHonorario.producto
+            c.producto_ref_id = carne.id
+            c.cantidad_unidades = float(rng.choice([200, 300, 400, 500]))
+            c.importe_honorario = None
+        elif cemento and any(k in nom for k in ("construc", "obra", "pampas")):
+            c.tipo_honorario = TipoHonorario.producto
+            c.producto_ref_id = cemento.id
+            c.cantidad_unidades = float(rng.choice([40, 60, 80]))
+            c.importe_honorario = None
+        else:
+            c.tipo_honorario = TipoHonorario.fijo
+            c.importe_honorario = float(rng.choice([280, 350, 480, 620, 900]) * 1000)
+    db.commit()
+
+
+def seed_demo_dataset(db=None):
+    """Genera el dataset de demo COHERENTE del eje Clientes ↔ Honorarios (R-03) ↔
+    Liquidaciones (R-04) ↔ Cuentas Corrientes (R-07), centrado en el mes actual + 4
+    meses de historial, con números que cuadran:
+
+      - Honorario mensual por cliente (fijo o producto).
+      - CC: cargo del honorario (egreso) + cobro (ingreso) con mezcla realista de
+        estados y medios (efectivo/transferencia/cheque + algún USD). Los cobros NO en
+        efectivo se imputan como ADELANTO al profesional a cargo del cliente.
+      - Liquidación por profesional: honorarios_totales = suma real de honorarios de sus
+        clientes; el total a cobrar (honorarios − adelantos + reintegros) sale de
+        calcular_preview, y el pago (total/parcial) se registra en base a ese total.
+
+    Idempotente por seguridad: si ya hay honorarios cargados, no hace nada (para
+    regenerar de cero, correr limpiar_demo_transaccional primero)."""
+    from .services import liquidacion as liqsvc
+    own = db is None
+    if own:
+        db = SessionLocal()
+    try:
+        if db.query(Honorario).count() > 0:
+            return
+        rng = random.Random(2026)
+        _asegurar_config_clientes(db, rng)
+
+        periodos = list(reversed(_periodos_recientes(5)))  # viejo → nuevo
+        demo = periodos[-1]                                 # mes actual
+
+        def _fecha(per, lo=2, hi=26):
+            yy, mm = int(per[:4]), int(per[5:7])
+            return date(yy, mm, rng.randint(lo, hi))
+
+        clientes = (
+            db.query(Client)
+            .filter(Client.is_active == True, Client.tipo_honorario.isnot(None))  # noqa: E712
+            .order_by(Client.id).all()
+        )
+
+        for per in periodos:
+            es_demo = (per == demo)
+            for c in clientes:
+                importe, snap = _calc_honorario_cliente(c, db)
+                if not importe or importe <= 0:
+                    continue
+                # 1) Honorario del mes
+                db.add(Honorario(client_id=c.id, period=per, importe=importe,
+                                 tipo=c.tipo_honorario.value, precio_producto_snapshot=snap))
+                # 2) CC — cargo del honorario (deuda del cliente)
+                db.add(MovimientoCuentaCorriente(
+                    client_id=c.id, tipo="egreso", monto=round(importe, 2),
+                    concepto=f"Honorarios {_mes_es(per)}", fecha=_fecha(per, 1, 5),
+                    periodo_honorario=per, notas="[demo] cargo honorarios"))
+                # 3) CC — cobro (estado realista)
+                r = rng.random()
+                if es_demo:
+                    modo = "full" if r < 0.45 else ("parcial" if r < 0.72 else "nada")
+                else:
+                    modo = "full" if r < 0.9 else "nada"
+                if modo == "nada":
+                    continue
+                pagado = round(importe, 2) if modo == "full" else round(importe * rng.choice([0.4, 0.5, 0.6]), 2)
+                fp = rng.choices(["transferencia", "efectivo", "cheque", "usd"],
+                                 weights=[50, 22, 16, 12])[0]
+                mov = dict(client_id=c.id, tipo="ingreso", fecha=_fecha(per, 6, 27),
+                           periodo_honorario=per)
+                if fp == "usd":
+                    cot = float(rng.choice([1160, 1180, 1200, 1215]))
+                    mov.update(monto=round(pagado / cot, 2), moneda="USD", cotizacion=cot,
+                               forma_pago="transferencia", profesional_id=c.profesional_id,
+                               concepto=f"Cobro honorarios {_mes_es(per)} (USD, transf.)",
+                               notas="[demo] cobro USD (adelanto)")
+                elif fp == "efectivo":
+                    mov.update(monto=pagado, moneda="ARS", forma_pago="efectivo",
+                               concepto=f"Cobro honorarios {_mes_es(per)} (efectivo)",
+                               notas="[demo] cobro efectivo")
+                else:  # transferencia | cheque → adelanto al profesional
+                    mov.update(monto=pagado, moneda="ARS", forma_pago=fp,
+                               profesional_id=c.profesional_id,
+                               concepto=f"Cobro honorarios {_mes_es(per)} ({fp})",
+                               notas=f"[demo] cobro {fp} (adelanto)")
+                db.add(MovimientoCuentaCorriente(**mov))
+            db.commit()
+
+            # 4) Liquidaciones de los profesionales para el período
+            profs = db.query(Profesional).filter(Profesional.activo == True).order_by(Profesional.id).all()  # noqa: E712
+            for p in profs:
+                brutos = (
+                    db.query(Honorario).join(Client, Honorario.client_id == Client.id)
+                    .filter(Client.profesional_id == p.id, Honorario.period == per).all()
+                )
+                total_brutos = sum(h.importe for h in brutos)
+                if total_brutos <= 0:
+                    continue
+                liq = Liquidacion(profesional_id=p.id, period=per,
+                                  honorarios_totales=round(total_brutos, 2))
+                db.add(liq)
+                db.flush()
+                # Reintegro ocasional (gasto reembolsable del profesional)
+                if rng.random() < 0.3:
+                    concepto = rng.choice(["monotributo", "ingresos brutos", "gastos bancarios"])
+                    db.add(ReintegroGasto(liquidacion_id=liq.id, concepto=concepto,
+                                          importe=float(rng.choice([30, 45, 60, 90]) * 1000)))
+                db.flush()
+                # Total a cobrar real (honorarios − adelantos + reintegros)
+                try:
+                    total = liqsvc.calcular_preview(db, p.id, per).total_a_cobrar
+                except Exception:
+                    total = total_brutos
+                if total <= 0:
+                    continue
+                rr = rng.random()
+                if es_demo:
+                    pago = total if rr < 0.4 else (round(total * 0.5, 2) if rr < 0.7 else 0)
+                else:
+                    pago = total if rr < 0.9 else round(total * 0.5, 2)
+                if pago and pago > 0:
+                    medio = rng.choice(["transferencia", "efectivo"])
+                    liq.medio_pago = medio
+                    db.add(PagoProfesional(liquidacion_id=liq.id, monto=round(pago, 2),
+                                           medio_pago=medio, fecha=_fecha(per, 27, 28)))
+            db.commit()
+        print(f"[OK] Demo dataset generado: {len(periodos)} meses, {len(clientes)} clientes.")
+    finally:
+        if own:
+            db.close()
+
+
 if __name__ == "__main__":
     seed_database()
-    seed_simulacion_pagos()
-    seed_movimientos_cc_fake()
+    seed_profesionales_y_productos()
+    seed_demo_dataset()
 
 
 # ─── Catálogo Requisitos R-XX (Plan Maestro líneas 17-36) ─────────────────────
