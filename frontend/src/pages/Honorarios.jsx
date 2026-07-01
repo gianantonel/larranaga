@@ -226,33 +226,35 @@ export default function Honorarios() {
         </div>
       )}
 
-      {/* Productos de referencia */}
-      {isAdmin && (
-        <div className="card">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-base font-semibold text-white">Productos de referencia</h3>
+      {/* Productos de referencia — tabla visible para todos; edición solo admin */}
+      <div className="card">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-base font-semibold text-white">Productos de referencia</h3>
+          {isAdmin && (
             <button className="btn-primary text-sm py-1.5" onClick={() => openProductoModal()}>
               <Plus size={15} /> Nuevo producto
             </button>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-[var(--border)] bg-[var(--surface-2)]">
-                  <th className="table-header">Nombre</th>
-                  <th className="table-header">Unidad</th>
-                  <th className="table-header text-right">Precio vigente</th>
-                  <th className="table-header">Actualizado</th>
-                  <th className="table-header"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {productos.map(p => (
-                  <tr key={p.id} className="table-row">
-                    <td className="table-cell font-medium text-white">{p.nombre}</td>
-                    <td className="table-cell text-gray-400 text-sm">{p.unidad || '—'}</td>
-                    <td className="table-cell text-right font-mono font-bold text-emerald-400">{formatCurrency(p.precio_vigente)}</td>
-                    <td className="table-cell text-sm text-gray-500">{p.actualizado_en ? formatDate(p.actualizado_en) : '—'}</td>
+          )}
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead>
+              <tr className="border-b border-[var(--border)] bg-[var(--surface-2)]">
+                <th className="table-header">Nombre</th>
+                <th className="table-header">Unidad</th>
+                <th className="table-header text-right">Precio vigente</th>
+                <th className="table-header">Actualizado</th>
+                {isAdmin && <th className="table-header"></th>}
+              </tr>
+            </thead>
+            <tbody>
+              {productos.map(p => (
+                <tr key={p.id} className="table-row">
+                  <td className="table-cell font-medium text-white">{p.nombre}</td>
+                  <td className="table-cell text-gray-400 text-sm">{p.unidad || '—'}</td>
+                  <td className="table-cell text-right font-mono font-bold text-emerald-400">{formatCurrency(p.precio_vigente)}</td>
+                  <td className="table-cell text-sm text-gray-500">{p.actualizado_en ? formatDate(p.actualizado_en) : '—'}</td>
+                  {isAdmin && (
                     <td className="table-cell text-right">
                       <button
                         onClick={() => openProductoModal(p)}
@@ -261,16 +263,16 @@ export default function Honorarios() {
                         Editar precio
                       </button>
                     </td>
-                  </tr>
-                ))}
-                {productos.length === 0 && (
-                  <tr><td colSpan={5} className="text-center py-6 text-gray-500 text-sm">Sin productos configurados.</td></tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+                  )}
+                </tr>
+              ))}
+              {productos.length === 0 && (
+                <tr><td colSpan={isAdmin ? 5 : 4} className="text-center py-6 text-gray-500 text-sm">Sin productos configurados.</td></tr>
+              )}
+            </tbody>
+          </table>
         </div>
-      )}
+      </div>
 
       {/* Tabla de honorarios */}
       <div className="card p-0 overflow-hidden">

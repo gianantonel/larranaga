@@ -52,3 +52,7 @@ cloudflared/*.json
 
 # Backups locales
 docker-compose.yml.backup
+
+# Base SQLite local — NUNCA versionar (prod usa InsForge/Postgres vía DATABASE_URL)
+backend/larranaga.db
+backend/larranaga.db-*
