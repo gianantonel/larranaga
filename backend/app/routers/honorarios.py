@@ -77,6 +77,28 @@ def update_producto(id: int, data: schemas.ProductoReferenciaUpdate, db: Session
     return prod
 
 
+@router.delete("/productos-referencia/{id}", status_code=204)
+def delete_producto(id: int, db: Session = Depends(get_db),
+                    _: models.User = Depends(require_admin)):
+    """Elimina un producto de referencia (y su historial de precios). Bloquea si algún
+    cliente lo usa como base de honorario (para no dejar honorarios sin producto)."""
+    prod = db.get(models.ProductoReferencia, id)
+    if not prod:
+        raise HTTPException(404, "Producto no encontrado")
+
+    en_uso = db.query(models.Client).filter(models.Client.producto_ref_id == id).count()
+    if en_uso:
+        raise HTTPException(
+            400,
+            f"No se puede eliminar: {en_uso} cliente(s) usan este producto como base de "
+            f"honorario. Cambiá su configuración primero.",
+        )
+
+    db.delete(prod)   # el historial de precios se borra por cascade
+    db.commit()
+    return None
+
+
 # ─── Precio sugerido del día (fuentes externas) ───────────────────────────────
 
 @router.get("/fuentes-precio")

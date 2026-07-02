@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Plus, DollarSign, Package, RefreshCw, Settings, TrendingUp, X, Calculator, Link2, Download } from 'lucide-react'
+import { Plus, DollarSign, Package, RefreshCw, Settings, TrendingUp, X, Calculator, Link2, Download, Trash2 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import PageHeader from '../components/UI/PageHeader'
 import LoadingSpinner from '../components/UI/LoadingSpinner'
@@ -8,7 +8,7 @@ import { formatCurrency, formatDate, formatPeriod } from '../utils/helpers'
 import {
   getHonorarios, getClients, getProductosReferencia, getProfesionales,
   calcularHonorario, calcularPeriodo,
-  createProducto, updateProducto,
+  createProducto, updateProducto, deleteProducto,
   configurarHonorario,
   getPreviewActualizacion, aplicarActualizacion,
   getFuentesPrecio, getPrecioSugerido,
@@ -137,6 +137,14 @@ export default function Honorarios() {
       setShowProductoModal(false)
       load()
     } catch (e) { alert(e.response?.data?.detail || 'Error al guardar producto') }
+  }
+
+  const handleDeleteProducto = async (prod) => {
+    if (!confirm(`¿Eliminar el producto "${prod.nombre}"? Se borra también su historial de precios.`)) return
+    try {
+      await deleteProducto(prod.id)
+      load()
+    } catch (e) { alert(e.response?.data?.detail || 'No se pudo eliminar el producto') }
   }
 
   // ─── Configurar cliente ──────────────────────────────────────────────────────
@@ -290,12 +298,19 @@ export default function Honorarios() {
                   <td className="table-cell text-right font-mono font-bold text-emerald-400">{formatCurrency(p.precio_vigente)}</td>
                   <td className="table-cell text-sm text-gray-500">{p.actualizado_en ? formatDate(p.actualizado_en) : '—'}</td>
                   {isAdmin && (
-                    <td className="table-cell text-right">
+                    <td className="table-cell text-right whitespace-nowrap">
                       <button
                         onClick={() => openProductoModal(p)}
                         className="text-xs text-violet-400 hover:text-violet-300 transition-colors"
                       >
-                        Editar precio
+                        Editar
+                      </button>
+                      <button
+                        onClick={() => handleDeleteProducto(p)}
+                        title="Eliminar producto"
+                        className="ml-3 inline-flex items-center text-xs text-rose-400 hover:text-rose-300 transition-colors"
+                      >
+                        <Trash2 size={13} className="mr-1" /> Eliminar
                       </button>
                     </td>
                   )}
