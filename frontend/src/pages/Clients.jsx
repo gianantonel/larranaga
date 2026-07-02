@@ -121,6 +121,7 @@ export default function Clients() {
                 <th className="table-header">CUIT</th>
                 <th className="table-header">Categoría</th>
                 <th className="table-header">Condición fiscal</th>
+                <th className="table-header">Profesional</th>
                 <th className="table-header">Colaboradores</th>
                 <th className="table-header text-center">Tareas</th>
                 <th className="table-header text-center">Estado</th>
@@ -143,6 +144,11 @@ export default function Clients() {
                       : <span className="text-gray-600">—</span>}
                   </td>
                   <td className="table-cell text-sm text-gray-300">{client.fiscal_condition || '—'}</td>
+                  <td className="table-cell">
+                    {client.profesional_nombre
+                      ? <span className="text-xs font-medium text-amber-300 bg-amber-500/10 border border-amber-500/25 rounded px-2 py-0.5">{client.profesional_nombre}</span>
+                      : <span className="text-gray-600 text-sm">Sin asignar</span>}
+                  </td>
                   <td className="table-cell">
                     <div className="flex flex-wrap gap-1">
                       {client.collaborators.length === 0
@@ -186,7 +192,7 @@ export default function Clients() {
                 </tr>
               ))}
               {filtered.length === 0 && (
-                <tr><td colSpan={8} className="text-center py-12 text-gray-500">No se encontraron clientes</td></tr>
+                <tr><td colSpan={9} className="text-center py-12 text-gray-500">No se encontraron clientes</td></tr>
               )}
             </tbody>
           </table>
