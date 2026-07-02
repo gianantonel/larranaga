@@ -15,13 +15,14 @@ const FASES = [
 ]
 
 export default function GestionRequisitos() {
-  const { isSuperAdmin } = useAuth()
+  const { isAdmin } = useAuth()
   const { flags, loading, setFlag, verificationMode, toggleVerificationMode } = useFeatureFlags()
   const [activeFase, setActiveFase] = useState(1)
   const [confirmFlag, setConfirmFlag] = useState(null)
   const [savingCodigo, setSavingCodigo] = useState(null)
 
-  if (!isSuperAdmin) return <Navigate to="/dashboard" replace />
+  // admin y super_admin gestionan qué acciones ve el colaborador
+  if (!isAdmin) return <Navigate to="/dashboard" replace />
 
   const handleToggle = async (flag) => {
     if (!flag.implementado && !flag.enabled) {

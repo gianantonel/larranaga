@@ -1,7 +1,7 @@
 """Router de Feature Flags por Requisito (R-XX).
 
 - GET  /feature-flags          → cualquier user logueado
-- PUT  /feature-flags/{codigo} → solo super_admin; toggle enabled
+- PUT  /feature-flags/{codigo} → admin o super_admin; toggle enabled
 """
 from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException
@@ -10,7 +10,7 @@ from typing import List
 
 from .. import models, schemas
 from ..database import get_db
-from .auth import get_current_user, require_super_admin
+from .auth import get_current_user, require_admin
 
 router = APIRouter(prefix="/feature-flags", tags=["feature-flags"])
 
@@ -32,7 +32,7 @@ def update_feature_flag(
     codigo: str,
     payload: schemas.FeatureFlagUpdate,
     db: Session = Depends(get_db),
-    current_user: models.User = Depends(require_super_admin),
+    current_user: models.User = Depends(require_admin),
 ):
     flag = db.query(models.FeatureFlag).filter_by(codigo=codigo).first()
     if not flag:

@@ -39,7 +39,7 @@ const ACCIONES = [
 ]
 
 export default function Sidebar({ open = false, onClose = () => {} }) {
-  const { user, logout, isSuperAdmin } = useAuth()
+  const { user, logout, isAdmin } = useAuth()
   const { flagsByCodigo, verificationMode, toggleVerificationMode } = useFeatureFlags()
 
   const NavItem = ({ to, Icon, label, req, end }) => (
@@ -47,7 +47,7 @@ export default function Sidebar({ open = false, onClose = () => {} }) {
       className={({ isActive }) => clsx(isActive ? 'nav-link-active' : 'nav-link')}>
       <Icon size={16} strokeWidth={1.75} className="shrink-0" />
       <span className="truncate flex-1">{label}</span>
-      {isSuperAdmin && verificationMode && req && (
+      {isAdmin && verificationMode && req && (
         <RequirementBadge
           codigo={Array.isArray(req) ? req[0] : req}
           flag={flagsByCodigo[Array.isArray(req) ? req[0] : req]}
@@ -96,7 +96,7 @@ export default function Sidebar({ open = false, onClose = () => {} }) {
           })}
         </div>
 
-        {isSuperAdmin && (
+        {isAdmin && (
           <>
             <p className="nav-section">Administración</p>
             <div className="space-y-0.5">
