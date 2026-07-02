@@ -885,7 +885,8 @@ def _asegurar_config_clientes(db, rng):
     profs = db.query(Profesional).filter(Profesional.activo == True).order_by(Profesional.id).all()  # noqa: E712
     if not profs:
         return
-    carne = db.query(ProductoReferencia).filter(ProductoReferencia.nombre.ilike("%carne%")).first()
+    # Soja vinculada a la Bolsa de Rosario → honorario del agro sale del precio real
+    soja = db.query(ProductoReferencia).filter(ProductoReferencia.fuente_precio == "bcr_soja").first()
     cemento = db.query(ProductoReferencia).filter(ProductoReferencia.nombre.ilike("%cemento%")).first()
     sin_config = (
         db.query(Client)
@@ -895,10 +896,10 @@ def _asegurar_config_clientes(db, rng):
     for i, c in enumerate(sin_config):
         c.profesional_id = profs[i % len(profs)].id
         nom = (c.name or "").lower()
-        if carne and any(k in nom for k in ("agro", "frigor", "carn", "gana")):
+        if soja and any(k in nom for k in ("agro", "campo", "cereal", "gana", "rural")):
             c.tipo_honorario = TipoHonorario.producto
-            c.producto_ref_id = carne.id
-            c.cantidad_unidades = float(rng.choice([200, 300, 400, 500]))
+            c.producto_ref_id = soja.id
+            c.cantidad_unidades = float(rng.choice([6, 8, 10, 12]))   # toneladas de soja
             c.importe_honorario = None
         elif cemento and any(k in nom for k in ("construc", "obra", "pampas")):
             c.tipo_honorario = TipoHonorario.producto
