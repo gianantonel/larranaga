@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Plus, DollarSign, Package, RefreshCw, Settings, TrendingUp, X, Calculator } from 'lucide-react'
+import { Plus, DollarSign, Package, RefreshCw, Settings, TrendingUp, X, Calculator, Link2, Download } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import PageHeader from '../components/UI/PageHeader'
 import LoadingSpinner from '../components/UI/LoadingSpinner'
@@ -11,6 +11,7 @@ import {
   createProducto, updateProducto,
   configurarHonorario,
   getPreviewActualizacion, aplicarActualizacion,
+  getFuentesPrecio, getPrecioSugerido,
 } from '../utils/api'
 
 const todayPeriod = () => {
@@ -31,7 +32,10 @@ export default function Honorarios() {
   // Producto modal
   const [showProductoModal, setShowProductoModal] = useState(false)
   const [editProducto, setEditProducto] = useState(null)
-  const [productoForm, setProductoForm] = useState({ nombre: '', unidad: '', precio_vigente: '' })
+  const [productoForm, setProductoForm] = useState({ nombre: '', unidad: '', precio_vigente: '', fuente_precio: '' })
+  const [fuentes, setFuentes] = useState([])          // fuentes externas de precio
+  const [sugerido, setSugerido] = useState(null)      // resultado del precio sugerido
+  const [loadingSugerido, setLoadingSugerido] = useState(false)
 
   // Config honorario modal
   const [showConfigModal, setShowConfigModal] = useState(false)
@@ -61,6 +65,10 @@ export default function Honorarios() {
   }
 
   useEffect(() => { load() }, [period])
+  useEffect(() => {
+    getFuentesPrecio().then(r => setFuentes(r.data)).catch(() => setFuentes([]))
+  }, [])
+  const fuenteLabel = (clave) => fuentes.find(f => f.clave === clave)?.label || clave
 
   // ─── Calcular ────────────────────────────────────────────────────────────────
 
@@ -90,11 +98,29 @@ export default function Honorarios() {
 
   const openProductoModal = (prod = null) => {
     setEditProducto(prod)
+    setSugerido(null)
     setProductoForm(prod
-      ? { nombre: prod.nombre, unidad: prod.unidad || '', precio_vigente: prod.precio_vigente }
-      : { nombre: '', unidad: '', precio_vigente: '' }
+      ? { nombre: prod.nombre, unidad: prod.unidad || '', precio_vigente: prod.precio_vigente, fuente_precio: prod.fuente_precio || '' }
+      : { nombre: '', unidad: '', precio_vigente: '', fuente_precio: '' }
     )
     setShowProductoModal(true)
+  }
+
+  const handleTraerPrecio = async () => {
+    if (!productoForm.fuente_precio) return
+    setLoadingSugerido(true)
+    setSugerido(null)
+    try {
+      const r = await getPrecioSugerido(productoForm.fuente_precio)
+      setSugerido(r.data)
+      if (r.data?.disponible) {
+        setProductoForm(f => ({ ...f, precio_vigente: r.data.precio }))
+      }
+    } catch {
+      setSugerido({ disponible: false })
+    } finally {
+      setLoadingSugerido(false)
+    }
   }
 
   const handleSaveProducto = async (e) => {
@@ -103,6 +129,7 @@ export default function Honorarios() {
       nombre: productoForm.nombre,
       unidad: productoForm.unidad || null,
       precio_vigente: parseFloat(productoForm.precio_vigente),
+      fuente_precio: productoForm.fuente_precio || null,
     }
     try {
       if (editProducto) await updateProducto(editProducto.id, data)
@@ -250,7 +277,15 @@ export default function Honorarios() {
             <tbody>
               {productos.map(p => (
                 <tr key={p.id} className="table-row">
-                  <td className="table-cell font-medium text-white">{p.nombre}</td>
+                  <td className="table-cell font-medium text-white">
+                    {p.nombre}
+                    {p.fuente_precio && (
+                      <span className="ml-2 inline-flex items-center gap-1 text-[10px] font-medium text-emerald-300 bg-emerald-500/10 border border-emerald-500/25 rounded px-1.5 py-0.5 align-middle">
+                        <Link2 size={10} />
+                        {fuenteLabel(p.fuente_precio)}
+                      </span>
+                    )}
+                  </td>
                   <td className="table-cell text-gray-400 text-sm">{p.unidad || '—'}</td>
                   <td className="table-cell text-right font-mono font-bold text-emerald-400">{formatCurrency(p.precio_vigente)}</td>
                   <td className="table-cell text-sm text-gray-500">{p.actualizado_en ? formatDate(p.actualizado_en) : '—'}</td>
@@ -369,6 +404,40 @@ export default function Honorarios() {
                   placeholder="Opcional"
                 />
               </div>
+              {fuentes.length > 0 && (
+                <div>
+                  <label className="label flex items-center gap-1.5">
+                    <Link2 size={13} className="text-emerald-400" />
+                    Fuente del precio (opcional)
+                  </label>
+                  <select
+                    value={productoForm.fuente_precio}
+                    onChange={e => { setProductoForm(f => ({ ...f, fuente_precio: e.target.value })); setSugerido(null) }}
+                    className="input-field"
+                  >
+                    <option value="">Manual (lo cargo yo)</option>
+                    {fuentes.map(f => <option key={f.clave} value={f.clave}>{f.label}</option>)}
+                  </select>
+                  {productoForm.fuente_precio && (
+                    <button
+                      type="button"
+                      onClick={handleTraerPrecio}
+                      disabled={loadingSugerido}
+                      className="mt-2 inline-flex items-center gap-1.5 text-sm text-emerald-400 hover:text-emerald-300 disabled:opacity-50"
+                    >
+                      <Download size={14} />
+                      {loadingSugerido ? 'Consultando…' : 'Traer precio del día'}
+                    </button>
+                  )}
+                  {sugerido && (
+                    <p className={`text-xs mt-1 ${sugerido.disponible ? 'text-emerald-300/80' : 'text-amber-400'}`}>
+                      {sugerido.disponible
+                        ? `✓ ${fuenteLabel(productoForm.fuente_precio)}: $${sugerido.precio?.toLocaleString('es-AR')} / ${sugerido.unidad || 'u'} — aplicado.`
+                        : 'No se pudo traer el precio ahora. Cargalo manualmente.'}
+                    </p>
+                  )}
+                </div>
+              )}
               <div>
                 <label className="label">Precio vigente *</label>
                 <input

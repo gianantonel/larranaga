@@ -123,6 +123,8 @@ export const createMovimientoCC = (data) => api.post('/cuentas-corrientes/', dat
 
 // ─── R-03: Honorarios ────────────────────────────────────────────────────────
 export const getProductosReferencia = () => api.get('/honorarios/productos-referencia')
+export const getFuentesPrecio = () => api.get('/honorarios/fuentes-precio')
+export const getPrecioSugerido = (fuente) => api.get('/honorarios/precio-sugerido', { params: { fuente } })
 export const createProducto = (data) => api.post('/honorarios/productos-referencia', data)
 export const updateProducto = (id, data) => api.put(`/honorarios/productos-referencia/${id}`, data)
 export const configurarHonorario = (clientId, data) => api.put(`/honorarios/clientes/${clientId}/configurar`, data)

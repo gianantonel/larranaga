@@ -77,6 +77,25 @@ def update_producto(id: int, data: schemas.ProductoReferenciaUpdate, db: Session
     return prod
 
 
+# ─── Precio sugerido del día (fuentes externas) ───────────────────────────────
+
+@router.get("/fuentes-precio")
+def list_fuentes_precio(_: models.User = Depends(get_current_user)):
+    """Fuentes externas disponibles para el precio sugerido (para el selector)."""
+    from ..services import precios_externos as px
+    return px.fuentes_disponibles()
+
+
+@router.get("/precio-sugerido")
+def get_precio_sugerido(fuente: str = Query(...),
+                        _: models.User = Depends(get_current_user)):
+    """Precio de referencia del día para una fuente (p. ej. 'bcr_soja' = Bolsa de
+    Rosario). Best-effort: si la fuente no responde devuelve disponible=False y la UI
+    usa carga manual."""
+    from ..services import precios_externos as px
+    return px.precio_sugerido(fuente)
+
+
 # ─── Configuración de honorario por cliente ───────────────────────────────────
 
 @router.put("/clientes/{client_id}/configurar", response_model=schemas.ClientOut)

@@ -702,12 +702,14 @@ class ProductoReferenciaCreate(BaseModel):
     nombre: str
     unidad: Optional[str] = None
     precio_vigente: float
+    fuente_precio: Optional[str] = None   # None/'manual' o clave de fuente externa
 
 
 class ProductoReferenciaUpdate(BaseModel):
     nombre: Optional[str] = None
     unidad: Optional[str] = None
     precio_vigente: Optional[float] = None
+    fuente_precio: Optional[str] = None
 
 
 class HistorialPrecioOut(BaseModel):
@@ -725,6 +727,7 @@ class ProductoReferenciaOut(BaseModel):
     nombre: str
     unidad: Optional[str] = None
     precio_vigente: float
+    fuente_precio: Optional[str] = None
     actualizado_en: Optional[datetime] = None
     created_at: Optional[datetime] = None
     historial: List[HistorialPrecioOut] = []

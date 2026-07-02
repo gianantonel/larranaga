@@ -436,6 +436,9 @@ class ProductoReferencia(Base):
     nombre = Column(String(100), nullable=False)   # ej: "bolsa de cemento", "kilo de carne"
     unidad = Column(String(30))                    # ej: "bolsa", "kg", "litro"
     precio_vigente = Column(Float, nullable=False)
+    # Fuente del precio sugerido del día: None/'manual' o clave de fuente externa
+    # (ej. 'bcr_soja' = pizarra de la Bolsa de Rosario). Ver services/precios_externos.
+    fuente_precio = Column(String(30))
     actualizado_en = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 

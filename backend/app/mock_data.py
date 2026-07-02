@@ -544,11 +544,16 @@ def seed_database():
 
 
 # Catálogo base de productos de referencia (idempotente por nombre).
+# fuente_precio: None = manual; 'bcr_*' = precio del día de la Bolsa de Rosario.
 _PRODUCTOS_BASE = [
-    # (nombre,             unidad,  precio,   vigente_desde)
-    ("Bolsa de cemento",   "bolsa", 4600.0,  date(2026, 4, 1)),
-    ("Kilo de carne",      "kg",    8500.0,  date(2026, 6, 1)),
-    ("Litro de leche",     "litro", 1200.0,  date(2026, 6, 1)),
+    # (nombre,               unidad,     precio,    vigente_desde,   fuente_precio)
+    ("Bolsa de cemento",     "bolsa",    4600.0,    date(2026, 4, 1), None),
+    ("Kilo de carne",        "kg",       8500.0,    date(2026, 6, 1), None),
+    ("Litro de leche",       "litro",    1200.0,    date(2026, 6, 1), None),
+    # Granos con precio del día vinculado a la pizarra de la Bolsa de Rosario
+    ("Soja (tonelada)",      "tonelada", 475000.0,  date(2026, 6, 1), "bcr_soja"),
+    ("Maíz (tonelada)",      "tonelada", 264400.0,  date(2026, 6, 1), "bcr_maiz"),
+    ("Trigo (tonelada)",     "tonelada", 292390.0,  date(2026, 6, 1), "bcr_trigo"),
 ]
 
 
@@ -563,10 +568,11 @@ def seed_productos_referencia():
     db = SessionLocal()
     try:
         creados = 0
-        for nombre, unidad, precio, desde in _PRODUCTOS_BASE:
+        for nombre, unidad, precio, desde, fuente in _PRODUCTOS_BASE:
             if db.query(ProductoReferencia).filter(ProductoReferencia.nombre == nombre).first():
                 continue
-            prod = ProductoReferencia(nombre=nombre, unidad=unidad, precio_vigente=precio)
+            prod = ProductoReferencia(nombre=nombre, unidad=unidad, precio_vigente=precio,
+                                      fuente_precio=fuente)
             db.add(prod)
             db.flush()
             db.add(HistorialPrecioProducto(producto_id=prod.id, precio=precio, vigente_desde=desde))
