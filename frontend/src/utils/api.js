@@ -226,5 +226,6 @@ export const sugerenciasMovimiento = (movimientoId, topN = 3) =>
 
 // ─── Feature Flags ────────────────────────────────────────────────────────────
 export const getFeatureFlags = () => api.get('/feature-flags').then(r => r.data)
-export const updateFeatureFlag = (codigo, enabled) =>
-  api.put(`/feature-flags/${codigo}`, { enabled }).then(r => r.data)
+// patch = { enabled } (nivel colaborador) o { enabled_admin } (nivel admin)
+export const updateFeatureFlag = (codigo, patch) =>
+  api.put(`/feature-flags/${codigo}`, patch).then(r => r.data)

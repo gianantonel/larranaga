@@ -1115,15 +1115,21 @@ CATALOGO_REQUISITOS = [
 ]
 
 
+# Acciones activadas por defecto (ambos niveles) — las pantallas del guión (Fase 1).
+_FLAGS_DEMO_ON = {"R-01", "R-03", "R-04", "R-05", "R-07"}
+
+
 def seed_feature_flags():
     """Seed idempotente del catálogo de requisitos. Crea entries faltantes y
-    refresca metadata; no toca el campo `enabled` (eso lo decide el super_admin)."""
+    refresca metadata; NO toca `enabled`/`enabled_admin` de los existentes (eso lo
+    deciden super_admin/admin). En los nuevos, arranca ON solo las del guión."""
     db = SessionLocal()
     creados = 0
     for it in CATALOGO_REQUISITOS:
         existing = db.query(FeatureFlag).filter_by(codigo=it["codigo"]).first()
         if existing is None:
-            db.add(FeatureFlag(**it, enabled=False))
+            on = it["codigo"] in _FLAGS_DEMO_ON
+            db.add(FeatureFlag(**it, enabled_admin=on, enabled=on))
             creados += 1
         else:
             for k, v in it.items():

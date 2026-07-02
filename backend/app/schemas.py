@@ -1311,14 +1311,17 @@ class FeatureFlagOut(BaseModel):
     dificultad: Optional[str] = None
     ruta_frontend: Optional[str] = None
     implementado: bool
-    enabled: bool
+    enabled_admin: bool = False   # super_admin → admin
+    enabled: bool                 # admin → colaborador
     updated_at: Optional[datetime] = None
 
     model_config = ConfigDict(from_attributes=True)
 
 
 class FeatureFlagUpdate(BaseModel):
-    enabled: bool
+    # Se setea uno u otro según el rol: super_admin puede ambos; admin solo `enabled`.
+    enabled: Optional[bool] = None
+    enabled_admin: Optional[bool] = None
 
 
 

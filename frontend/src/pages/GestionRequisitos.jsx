@@ -15,42 +15,48 @@ const FASES = [
 ]
 
 export default function GestionRequisitos() {
-  const { isAdmin } = useAuth()
+  const { isAdmin, isSuperAdmin } = useAuth()
   const { flags, loading, setFlag, verificationMode, toggleVerificationMode } = useFeatureFlags()
   const [activeFase, setActiveFase] = useState(1)
-  const [confirmFlag, setConfirmFlag] = useState(null)
+  const [confirmFlag, setConfirmFlag] = useState(null)   // { flag, field }
   const [savingCodigo, setSavingCodigo] = useState(null)
 
-  // admin y super_admin gestionan qué acciones ve el colaborador
+  // admin y super_admin gestionan qué acciones ve el nivel de abajo
   if (!isAdmin) return <Navigate to="/dashboard" replace />
 
-  const handleToggle = async (flag) => {
-    if (!flag.implementado && !flag.enabled) {
-      setConfirmFlag(flag)
+  // field: 'enabled_admin' (super_admin → admin) | 'enabled' (admin → colaborador)
+  const handleToggle = async (flag, field) => {
+    const newValue = !flag[field]
+    if (newValue && !flag.implementado) {
+      setConfirmFlag({ flag, field })
       return
     }
     setSavingCodigo(flag.codigo)
-    try { await setFlag(flag.codigo, !flag.enabled) }
+    try { await setFlag(flag.codigo, { [field]: newValue }) }
     finally { setSavingCodigo(null) }
   }
 
   const confirmActivate = async () => {
-    const flag = confirmFlag
+    const { flag, field } = confirmFlag
     setConfirmFlag(null)
     setSavingCodigo(flag.codigo)
-    try { await setFlag(flag.codigo, true) }
+    try { await setFlag(flag.codigo, { [field]: true }) }
     finally { setSavingCodigo(null) }
   }
 
   if (loading) return <div className="flex items-center justify-center min-h-[40vh]"><LoadingSpinner /></div>
 
-  const flagsActivos = flags.filter(f => f.fase === activeFase)
+  const flagsFase = flags.filter(f => f.fase === activeFase)
+  // El admin solo ve/gestiona lo que el super_admin le habilitó.
+  const flagsVisibles = isSuperAdmin ? flagsFase : flagsFase.filter(f => f.enabled_admin)
 
   return (
     <div className="space-y-6">
       <PageHeader
         title="Gestión de Requisitos"
-        subtitle="Activá o desactivá cada R-XX. Solo super_admin. Los colaboradores solo ven los que están activos."
+        subtitle={isSuperAdmin
+          ? 'Elegí qué ve el admin y qué ve el colaborador. El colaborador nunca ve algo que el admin no ve.'
+          : 'Elegí qué acciones ve el colaborador. Solo aparecen las que el super_admin te habilitó.'}
       >
         <button
           onClick={toggleVerificationMode}
@@ -74,24 +80,26 @@ export default function GestionRequisitos() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-        {flagsActivos.map(flag => (
+        {flagsVisibles.map(flag => (
           <RequirementCard
             key={flag.codigo}
             flag={flag}
+            isSuperAdmin={isSuperAdmin}
             saving={savingCodigo === flag.codigo}
-            onToggle={() => handleToggle(flag)}
+            onToggleAdmin={() => handleToggle(flag, 'enabled_admin')}
+            onToggleColab={() => handleToggle(flag, 'enabled')}
           />
         ))}
-        {flagsActivos.length === 0 && (
+        {flagsVisibles.length === 0 && (
           <p className="col-span-full text-sm" style={{ color: 'var(--text-muted)' }}>
-            No hay requisitos en esta fase.
+            {isSuperAdmin ? 'No hay requisitos en esta fase.' : 'El super_admin no te habilitó requisitos en esta fase.'}
           </p>
         )}
       </div>
 
       {confirmFlag && (
         <ConfirmModal
-          flag={confirmFlag}
+          flag={confirmFlag.flag}
           onConfirm={confirmActivate}
           onCancel={() => setConfirmFlag(null)}
         />
@@ -100,7 +108,7 @@ export default function GestionRequisitos() {
   )
 }
 
-function RequirementCard({ flag, saving, onToggle }) {
+function RequirementCard({ flag, isSuperAdmin, saving, onToggleAdmin, onToggleColab }) {
   const { statusIcon, statusLabel, statusColor } = (() => {
     if (!flag.implementado) return {
       statusIcon: <AlertTriangle size={13} />, statusLabel: 'Sin implementar', statusColor: '#9ca3af',
@@ -144,8 +152,21 @@ function RequirementCard({ flag, saving, onToggle }) {
         )}
       </div>
 
-      <div className="flex items-center justify-end pt-2 border-t" style={{ borderColor: 'var(--border)' }}>
-        <Toggle checked={flag.enabled} disabled={saving} onChange={onToggle} />
+      <div className="pt-2 border-t space-y-2" style={{ borderColor: 'var(--border)' }}>
+        {isSuperAdmin && (
+          <div className="flex items-center justify-between">
+            <span className="text-xs" style={{ color: 'var(--text-muted)' }}>Ve el admin</span>
+            <Toggle checked={flag.enabled_admin} disabled={saving} onChange={onToggleAdmin} />
+          </div>
+        )}
+        <div className="flex items-center justify-between">
+          <span className="text-xs" style={{ color: 'var(--text-muted)' }}>Ve el colaborador</span>
+          <Toggle
+            checked={flag.enabled}
+            disabled={saving || (isSuperAdmin && !flag.enabled_admin)}
+            onChange={onToggleColab}
+          />
+        </div>
       </div>
     </div>
   )
@@ -185,7 +206,7 @@ function ConfirmModal({ flag, onConfirm, onCancel }) {
             <h3 className="font-semibold" style={{ color: 'var(--text)' }}>Activar requisito pendiente</h3>
             <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
               <b>{flag.codigo}</b> ({flag.titulo}) todavía no está implementado. Si lo activás,
-              los colaboradores verán el ítem en el sidebar pero la página estará vacía.
+              se verá el ítem en el sidebar pero la página estará vacía.
             </p>
           </div>
         </div>

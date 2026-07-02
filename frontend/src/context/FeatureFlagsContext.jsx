@@ -45,8 +45,9 @@ export function FeatureFlagsProvider({ children }) {
 
   useEffect(() => { refresh() }, [refresh])
 
-  const setFlag = useCallback(async (codigo, enabled) => {
-    const updated = await updateFeatureFlag(codigo, enabled)
+  // patch = { enabled } (nivel colaborador) o { enabled_admin } (nivel admin)
+  const setFlag = useCallback(async (codigo, patch) => {
+    const updated = await updateFeatureFlag(codigo, patch)
     setFlags(prev => prev.map(f => (f.codigo === codigo ? updated : f)))
     return updated
   }, [])

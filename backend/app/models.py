@@ -812,11 +812,13 @@ class HistorialActualizacionHonorario(Base):
 class FeatureFlag(Base):
     """Toggle por requisito (R-XX) para controlar la visibilidad en frontend.
 
-    Solo `super_admin` puede modificar el campo `enabled` desde la UI
-    `/gestion-requisitos`. Para los colaboradores: si enabled=False las rutas
-    y items de sidebar asociados al requisito se ocultan.
-    `implementado` indica si existe código real (False → toggle solo muestra
-    una página vacía si se prende).
+    Cascada de 2 niveles:
+    - `enabled_admin`  → lo controla el super_admin → decide si el ADMIN ve la acción.
+    - `enabled`        → lo controla el admin       → decide si el COLABORADOR la ve.
+    Visibilidad efectiva: super_admin siempre; admin si enabled_admin;
+    colaborador si enabled_admin AND enabled.
+    `implementado` indica si existe código real (False → toggle solo muestra una
+    página vacía si se prende).
     """
     __tablename__ = "feature_flags"
 
@@ -828,7 +830,8 @@ class FeatureFlag(Base):
     dificultad      = Column(String(20), nullable=True)
     ruta_frontend   = Column(String(120), nullable=True)
     implementado    = Column(Boolean, nullable=False, default=False)
-    enabled         = Column(Boolean, nullable=False, default=False)
+    enabled_admin   = Column(Boolean, nullable=False, default=False)  # super_admin → admin
+    enabled         = Column(Boolean, nullable=False, default=False)  # admin → colaborador
     updated_by_id   = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     updated_at      = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
