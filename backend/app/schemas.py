@@ -125,6 +125,7 @@ class ClientOut(BaseModel):
     producto_ref_id: Optional[int] = None
     cantidad_unidades: Optional[float] = None
     profesional_id: Optional[int] = None
+    profesional_nombre: Optional[str] = None   # profesional a cargo (quién factura)
 
     class Config:
         from_attributes = True

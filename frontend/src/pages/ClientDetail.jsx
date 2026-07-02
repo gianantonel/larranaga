@@ -136,9 +136,26 @@ export default function ClientDetail() {
         </div>
       </div>
 
-      {/* Collaborators */}
+      {/* Profesional a cargo (quién factura) + Colaboradores (quiénes operan) */}
       <div className="card">
-        <h2 className="text-lg font-semibold text-white mb-4">Colaboradores asignados</h2>
+        <div className="flex items-center justify-between flex-wrap gap-3 mb-4 pb-4 border-b border-gray-700/40">
+          <div>
+            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Profesional a cargo</p>
+            <p className="text-sm text-gray-400 mt-0.5">Factura los honorarios · se liquida en Liquidaciones</p>
+          </div>
+          {client.profesional_nombre ? (
+            <div className="flex items-center gap-2 px-3 py-2 bg-amber-500/10 rounded-xl border border-amber-500/25">
+              <div className="w-7 h-7 rounded-full bg-amber-500/25 flex items-center justify-center text-xs font-bold text-amber-300">
+                {client.profesional_nombre.slice(0, 1)}
+              </div>
+              <span className="text-sm font-semibold text-amber-200">{client.profesional_nombre}</span>
+            </div>
+          ) : (
+            <span className="text-sm text-gray-500">Sin asignar</span>
+          )}
+        </div>
+        <h2 className="text-lg font-semibold text-white mb-1">Colaboradores asignados</h2>
+        <p className="text-sm text-gray-400 mb-4">Operan la cuenta y tienen acceso al cliente</p>
         <div className="flex flex-wrap gap-3">
           {client.collaborators.map(col => (
             <div key={col.id} className="flex items-center gap-2 px-3 py-2 bg-[#1f2937] rounded-xl border border-gray-600/40">

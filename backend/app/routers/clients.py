@@ -39,7 +39,12 @@ def _format_client_out(client: models.Client, db: Session) -> schemas.ClientOut:
 
     # Saldo CC — calculado en la BD (ver cuentas_corrientes.compute_saldo_cc)
     client_dict['saldo_cc'] = compute_saldo_cc(db, client.id)
-    
+
+    # Profesional a cargo (quién factura al cliente) — para mostrarlo junto a los colaboradores
+    client_dict['profesional_nombre'] = (
+        client.profesional_a_cargo.nombre if client.profesional_a_cargo else None
+    )
+
     return schemas.ClientOut.model_validate(client_dict)
 
 
