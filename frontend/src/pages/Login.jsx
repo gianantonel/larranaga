@@ -145,12 +145,14 @@ export default function Login() {
               Cuentas de prueba
             </p>
             <p style={{ color: 'var(--text-subtle)' }}>
-              <span className="font-mono" style={{ color: 'var(--text)' }}>gianantonel@gmail.com</span>
+              <span className="font-mono" style={{ color: 'var(--text)' }}>admin@larranaga.com</span>
               {' · '}admin123
+              <span className="ml-1 text-[10px]" style={{ color: 'var(--text-faint)' }}>(admin)</span>
             </p>
             <p style={{ color: 'var(--text-subtle)' }}>
               <span className="font-mono" style={{ color: 'var(--text)' }}>mgonzalez@larranaga.com</span>
               {' · '}colab123
+              <span className="ml-1 text-[10px]" style={{ color: 'var(--text-faint)' }}>(colaborador)</span>
             </p>
           </div>
         </div>
