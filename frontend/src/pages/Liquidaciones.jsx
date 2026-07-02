@@ -148,10 +148,16 @@ export default function Liquidaciones() {
                 </div>
               </button>
             ))}
-            {filtered.length === 0 && <p className="text-center text-gray-500 text-sm py-6">Sin profesionales.</p>}
+            {filtered.length === 0 && (
+              <div className="text-center text-gray-500 py-8">
+                <Briefcase size={32} className="mx-auto mb-2 opacity-20" />
+                <p className="text-sm">{search ? 'Sin resultados para la búsqueda' : 'No hay profesionales'}</p>
+              </div>
+            )}
           </div>
           <div className="p-3 border-t border-[var(--border)] text-sm text-gray-400">
-            Total a cobrar del mes: <span className="text-white font-semibold">{formatCurrency(totalGeneral)}</span>
+            Total a cobrar del mes:{' '}
+            <span className={`font-semibold ${totalGeneral > 0 ? 'text-emerald-400' : 'text-white'}`}>{formatCurrency(totalGeneral)}</span>
           </div>
         </div>
 

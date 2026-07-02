@@ -164,10 +164,13 @@ export default function ClientDetail() {
         <h2 className="text-lg font-semibold text-white mb-1">Colaboradores asignados</h2>
         <p className="text-sm text-gray-400 mb-4">Operan la cuenta y tienen acceso al cliente</p>
         <div className="flex flex-wrap gap-3">
+          {client.collaborators.length === 0 && (
+            <span className="text-sm text-gray-500">Sin colaboradores asignados</span>
+          )}
           {client.collaborators.map(col => (
             <div key={col.id} className="flex items-center gap-2 px-3 py-2 bg-[#1f2937] rounded-xl border border-gray-600/40">
               <div className="w-7 h-7 rounded-full bg-violet-600/30 flex items-center justify-center text-xs font-bold text-violet-300">
-                {col.name.slice(0,1)}
+                {col.name?.charAt(0)?.toUpperCase() || '?'}
               </div>
               <span className="text-sm font-medium text-gray-200">{col.name}</span>
               {isAdmin && (

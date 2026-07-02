@@ -221,6 +221,7 @@ export default function CuentasCorrientes() {
                   <div className="text-center text-gray-500 py-10">
                     <Wallet size={48} className="mx-auto mb-3 opacity-20" />
                     <p>No hay movimientos registrados</p>
+                    <p className="text-xs text-gray-600 mt-1">Usá "Nuevo Movimiento" para registrar un cobro o cargo.</p>
                   </div>
                 ) : (
                   <div className="space-y-3">
