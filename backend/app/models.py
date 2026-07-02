@@ -90,6 +90,9 @@ class Client(Base):
     name = Column(String(150), nullable=False)
     business_name = Column(String(200))
     cuit = Column(String(13), unique=True, index=True)
+    # CUIT con el que se ACCEDE a ARCA (apoderado/representante), si difiere del CUIT
+    # del cliente. None = se accede con el propio `cuit`. Ver AFIP SDK.
+    cuit_acceso_arca = Column(String(13))
     clave_fiscal_encrypted = Column(Text)
     address = Column(String(255))
     phone = Column(String(30))

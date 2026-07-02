@@ -66,6 +66,7 @@ class ClientCreate(BaseModel):
     name: str
     business_name: Optional[str] = None
     cuit: Optional[str] = None
+    cuit_acceso_arca: Optional[str] = None  # CUIT del apoderado si difiere del cliente
     clave_fiscal: Optional[str] = None  # plain text, will be encrypted
     address: Optional[str] = None
     phone: Optional[str] = None
@@ -80,6 +81,7 @@ class ClientUpdate(BaseModel):
     name: Optional[str] = None
     business_name: Optional[str] = None
     cuit: Optional[str] = None
+    cuit_acceso_arca: Optional[str] = None
     clave_fiscal: Optional[str] = None
     address: Optional[str] = None
     phone: Optional[str] = None
@@ -106,6 +108,7 @@ class ClientOut(BaseModel):
     name: str
     business_name: Optional[str] = None
     cuit: Optional[str] = None
+    cuit_acceso_arca: Optional[str] = None
     address: Optional[str] = None
     phone: Optional[str] = None
     email: Optional[str] = None
@@ -133,6 +136,7 @@ class ClientOut(BaseModel):
 
 class ClientCredentials(BaseModel):
     cuit: Optional[str] = None
+    cuit_acceso_arca: Optional[str] = None   # CUIT con el que se ingresa a ARCA
     clave_fiscal: Optional[str] = None  # decrypted, only for authorized users
 
 

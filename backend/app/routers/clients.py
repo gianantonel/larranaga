@@ -114,6 +114,7 @@ def create_client(
         name=data.name,
         business_name=data.business_name,
         cuit=data.cuit,
+        cuit_acceso_arca=data.cuit_acceso_arca,
         clave_fiscal_encrypted=encrypted,
         address=data.address,
         phone=data.phone,
@@ -246,4 +247,6 @@ def get_credentials(
     ))
     db.commit()
 
-    return schemas.ClientCredentials(cuit=client.cuit, clave_fiscal=clave)
+    return schemas.ClientCredentials(
+        cuit=client.cuit, cuit_acceso_arca=client.cuit_acceso_arca, clave_fiscal=clave
+    )

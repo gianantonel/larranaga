@@ -124,7 +124,14 @@ export default function ClientDetail() {
           <div className="flex items-center gap-3 flex-wrap">
             <Key size={16} className="text-amber-400" />
             <span className="text-sm text-gray-400 font-medium">Acceso ARCA:</span>
-            <span className="font-mono text-gray-300 text-sm">CUIT: {client.cuit}</span>
+            {client.cuit_acceso_arca && client.cuit_acceso_arca !== client.cuit ? (
+              <span className="font-mono text-gray-300 text-sm">
+                CUIT ingreso: {client.cuit_acceso_arca}
+                <span className="text-gray-500"> (opera {client.cuit})</span>
+              </span>
+            ) : (
+              <span className="font-mono text-gray-300 text-sm">CUIT: {client.cuit}</span>
+            )}
             {showClave && credentials && (
               <span className="font-mono text-amber-300 text-sm">Clave: {credentials.clave_fiscal}</span>
             )}
