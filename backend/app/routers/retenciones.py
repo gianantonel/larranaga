@@ -83,8 +83,8 @@ def _run_sync_job(job_id: int) -> None:
             ctx = load_context(client_id=job.client_id, production=True)
             desde, hasta = _parse_period(job.period)
             params = {
-                "cuit": str(ctx.cuit_int),
-                "username": str(ctx.cuit_int),
+                "cuit": str(ctx.cuit_int),            # empresa a consultar
+                "username": str(ctx.cuit_acceso_int),  # CUIT de login (apoderado si difiere)
                 "password": ctx.clave_fiscal,
                 "mode": "filter",
                 "page": 0,

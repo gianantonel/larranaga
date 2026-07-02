@@ -72,8 +72,8 @@ def sync_comprobantes(
         filters["tiposComprobantes"] = body.tipos_comprobantes
 
     params = {
-        "cuit":     str(ctx.cuit_int),
-        "username": str(ctx.cuit_int),
+        "cuit":     str(ctx.cuit_int),          # empresa cuyos comprobantes se consultan
+        "username": str(ctx.cuit_acceso_int),   # CUIT de login (apoderado si difiere)
         "password": ctx.clave_fiscal,
         "filters":  filters,
     }

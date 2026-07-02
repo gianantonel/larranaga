@@ -52,7 +52,9 @@ class ClientAfipContext:
     client_id: int
     name: str
     cuit_raw: str
-    cuit_int: int
+    cuit_int: int                 # CUIT del cliente (la empresa a consultar)
+    cuit_acceso_int: int          # CUIT con el que se INGRESA a ARCA (apoderado);
+                                  # == cuit_int si el cliente no tiene apoderado
     clave_fiscal: str | None  # descifrada, None si no hay
     production: bool
     access_token: str
@@ -102,6 +104,14 @@ def load_context(
             raise SystemExit(f"El cliente id={client.id} no tiene CUIT cargado.")
 
         cuit_int = _clean_cuit(client.cuit)
+        # CUIT de acceso a ARCA (apoderado). Si el cliente no lo tiene, se ingresa con
+        # su propio CUIT.
+        cuit_acceso_int = cuit_int
+        if getattr(client, "cuit_acceso_arca", None):
+            try:
+                cuit_acceso_int = _clean_cuit(client.cuit_acceso_arca)
+            except ValueError:
+                cuit_acceso_int = cuit_int
         clave = None
         if client.clave_fiscal_encrypted:
             try:
@@ -125,6 +135,7 @@ def load_context(
             name=client.name,
             cuit_raw=client.cuit,
             cuit_int=cuit_int,
+            cuit_acceso_int=cuit_acceso_int,
             clave_fiscal=clave,
             production=bool(production),
             access_token=token,
